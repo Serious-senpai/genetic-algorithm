@@ -89,7 +89,7 @@ class ProblemConfig:
                 self.truck = Vehicle(speed=speed_truck, capacity=capacity_truck, cost_coefficient=0.23, time_limit=float("inf"))
                 self.drone = Vehicle(speed=speed_drone, capacity=capacity_drone, cost_coefficient=0.025, time_limit=duration_drone)
 
-                customers= [Customer(x=0.0, y=0.0, low=0.0, high=0.0, w=0.0)]
+                customers = [Customer(x=0.0, y=0.0, low=0.0, high=0.0, w=0.0)]
                 while line := file.readline().split():
                     x, y, low, high, w = map(float, line)
                     customers.append(Customer(x=x, y=y, low=low, high=high, w=w))
