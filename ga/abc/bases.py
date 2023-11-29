@@ -16,6 +16,8 @@ __all__ = (
 class BaseSolution(abc.ABC):
     """Base class for solutions to any optimization problems."""
 
+    __slots__ = ()
+
     @abc.abstractmethod
     def encode(self) -> BaseIndividual[Self]:
         """Encode this solution to an individual
@@ -37,12 +39,13 @@ _ST = TypeVar("_ST", bound=BaseSolution)
 class BaseIndividual(abc.ABC, Generic[_ST]):
     """Base class for an individual encoded from a solution"""
 
-    __slots__ = ("cls")
-    if TYPE_CHECKING:
-        cls: Final[Type[_ST]]  # type: ignore
+    __slots__ = ()
 
-    def __init__(self, cls: Type[_ST], /) -> None:
-        self.cls = cls
+    @property
+    @abc.abstractmethod
+    def cls(self) -> Type[_ST]:
+        """The solution class"""
+        ...
 
     @abc.abstractmethod
     def decode(self) -> _ST:

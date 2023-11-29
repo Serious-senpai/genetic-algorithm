@@ -25,6 +25,8 @@ else:
 class SingleObjectiveIndividual(BaseIndividual[_ST], BaseCostComparison):
     """Base class for an individual encoded from a solution to a single-objective optimization problem"""
 
+    __slots__ = ()
+
     @final
     @classmethod
     def genetic_algorithm(

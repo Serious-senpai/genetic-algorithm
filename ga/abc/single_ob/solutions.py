@@ -15,7 +15,10 @@ if TYPE_CHECKING:
 __all__ = (
     "SingleObjectiveSolution",
 )
-_IT = TypeVar("_IT", bound=SingleObjectiveIndividual)
+if TYPE_CHECKING:
+    _IT = TypeVar("_IT", bound=SingleObjectiveIndividual)
+else:
+    _IT = TypeVar("_IT")
 
 
 class SingleObjectiveSolution(BaseSolution, BaseCostComparison, Generic[_IT]):
