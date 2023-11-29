@@ -60,7 +60,7 @@ class SingleObjectiveIndividual(BaseIndividual[_ST], BaseCostComparison):
         for _ in iterations:
             if isinstance(iterations, tqdm):
                 optimum = min(population)
-                iterations.set_description_str(f"GA ({optimum.cost():.2f})")
+                iterations.set_description_str(f"GA ({optimum.cost:.2f})")
 
             # Double the population, then perform natural selection
             counter = 0
