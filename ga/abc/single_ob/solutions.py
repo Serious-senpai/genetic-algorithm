@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, final
+import abc
+from typing import Generic, TypeVar, TYPE_CHECKING, final
 
 if TYPE_CHECKING:
     from typing_extensions import Self
@@ -8,21 +9,22 @@ if TYPE_CHECKING:
 from .costs import BaseCostComparison
 from ..bases import BaseSolution
 if TYPE_CHECKING:
-    from .individual import BaseSingleObjectiveIndividual
+    from .individual import SingleObjectiveIndividual
 
 
 __all__ = (
-    "BaseSingleObjectiveSolution",
+    "SingleObjectiveSolution",
 )
+_IT = TypeVar("_IT", bound=SingleObjectiveIndividual)
 
 
-class BaseSingleObjectiveSolution(BaseSolution, BaseCostComparison):
+class SingleObjectiveSolution(BaseSolution, BaseCostComparison, Generic[_IT]):
     """Base class for a solution to a single-objective optimization problem"""
 
     __slots__ = ()
 
-    def encode(self) -> BaseSingleObjectiveIndividual[Self]:
-        raise NotImplementedError
+    @abc.abstractmethod
+    def encode(self) -> _IT: ...
 
     @final
     @classmethod
@@ -32,7 +34,7 @@ class BaseSingleObjectiveSolution(BaseSolution, BaseCostComparison):
         generations_count: int,
         population_size: int,
         verbose: bool,
-    ) -> BaseSingleObjectiveSolution:
+    ) -> Self:
         """Perform genetic algorithm to find a solution with the lowest cost
 
         Parameters
@@ -48,7 +50,7 @@ class BaseSingleObjectiveSolution(BaseSolution, BaseCostComparison):
         -----
         A solution with the lowest cost
         """
-        return BaseSingleObjectiveIndividual.genetic_algorithm(
+        return SingleObjectiveIndividual.genetic_algorithm(
             generations_count=generations_count,
             population_size=population_size,
             solution_cls=cls,

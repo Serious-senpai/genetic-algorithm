@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import Final, Generic, List, Optional, Type, TypeVar, TYPE_CHECKING
+import abc
+from typing import Final, Generic, List, Optional, Type, TypeVar, TYPE_CHECKING, final
 
 if TYPE_CHECKING:
     from typing_extensions import Self
@@ -12,50 +13,69 @@ __all__ = (
 )
 
 
-class BaseSolution:
+class BaseSolution(abc.ABC):
     """Base class for solutions to any optimization problems."""
 
+    @abc.abstractmethod
     def encode(self) -> BaseIndividual[Self]:
         """Encode this solution to an individual
 
         Subclasses must implement this.
         """
-        raise NotImplementedError
+        ...
+
+    @final
+    @classmethod
+    def from_individual(cls, individual: BaseIndividual[Self], /) -> Self:
+        """Decode `individual` into a solution"""
+        return individual.decode()
 
 
 _ST = TypeVar("_ST", bound=BaseSolution)
 
 
-class BaseIndividual(Generic[_ST]):
+class BaseIndividual(abc.ABC, Generic[_ST]):
     """Base class for an individual encoded from a solution"""
 
     __slots__ = ("cls")
+    if TYPE_CHECKING:
+        cls: Final[Type[_ST]]  # type: ignore
 
     def __init__(self, cls: Type[_ST], /) -> None:
-        self.cls: Final[Type[_ST]] = cls
+        self.cls = cls
 
+    @abc.abstractmethod
     def decode(self) -> _ST:
         """Decode this individual into a solution
 
         Subclasses must implement this.
         """
-        raise NotImplementedError
+        ...
 
+    @abc.abstractmethod
     def crossover(self, other: Self, /) -> Optional[Self]:
         """Perform a crossover operation
 
         Subclasses must implement this.
         """
-        raise NotImplementedError
+        ...
 
+    @abc.abstractmethod
     def mutate(self) -> None:
         """Perform a mutation operation
 
         Subclasses must implement this.
         """
-        raise NotImplementedError
+        ...
+
+    @final
+    @classmethod
+    def from_solution(cls, solution: _ST, /) -> BaseIndividual[_ST]:
+        """Encode `solution` into an individual"""
+        return solution.encode()
 
     @classmethod
+    @abc.abstractmethod
     def initial(cls, *, solution_cls: Type[_ST], size: int) -> List[Self]:
         """Generate the initial population
 
@@ -72,4 +92,4 @@ class BaseIndividual(Generic[_ST]):
         -----
         The initial population
         """
-        raise NotImplementedError
+        ...

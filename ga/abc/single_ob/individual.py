@@ -8,21 +8,21 @@ from tqdm import tqdm
 from .costs import BaseCostComparison
 from ..bases import BaseIndividual
 if TYPE_CHECKING:
-    from .solutions import BaseSingleObjectiveSolution
+    from .solutions import SingleObjectiveSolution
 
 
 __all__ = (
-    "BaseSingleObjectiveIndividual",
+    "SingleObjectiveIndividual",
 )
 
 
 if TYPE_CHECKING:
-    _ST = TypeVar("_ST", bound=BaseSingleObjectiveSolution)
+    _ST = TypeVar("_ST", bound=SingleObjectiveSolution)
 else:
     _ST = TypeVar("_ST")
 
 
-class BaseSingleObjectiveIndividual(BaseIndividual[_ST], BaseCostComparison):
+class SingleObjectiveIndividual(BaseIndividual[_ST], BaseCostComparison):
     """Base class for an individual encoded from a solution to a single-objective optimization problem"""
 
     @final
@@ -34,7 +34,7 @@ class BaseSingleObjectiveIndividual(BaseIndividual[_ST], BaseCostComparison):
         population_size: int,
         solution_cls: Type[_ST],
         verbose: bool,
-    ) -> BaseSingleObjectiveIndividual:
+    ) -> SingleObjectiveIndividual[_ST]:
         """Perform genetic algorithm to find an individual with the lowest cost
 
         Parameters
