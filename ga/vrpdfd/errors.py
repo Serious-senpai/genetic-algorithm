@@ -24,8 +24,8 @@ class ConfigDataNotFound(VRPDFDException):
 
 class ConfigImportTwice(VRPDFDException):
 
-    def __init__(self) -> None:
-        super().__init__("Attempted to import problem configuration data twice")
+    def __init__(self, current: str, new: str) -> None:
+        super().__init__(f"Attempted to import problem configuration data twice, current problem {current!r}, attempted to import {new!r}")
 
 
 class ConfigImportException(VRPDFDException):

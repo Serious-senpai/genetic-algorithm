@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import abc
-from typing import Final, Generic, List, Optional, Type, TypeVar, TYPE_CHECKING, final
+from typing import Generic, List, Optional, Type, TypeVar, TYPE_CHECKING, final
 
 if TYPE_CHECKING:
     from typing_extensions import Self
