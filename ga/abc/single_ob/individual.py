@@ -58,11 +58,11 @@ class SingleObjectiveIndividual(BaseIndividual[_ST], BaseCostComparison):
         if verbose:
             iterations = tqdm(iterations, ascii=" █")
 
-        population = cls.initial(solution_cls=solution_cls, size=population_size)
+        population = sorted(cls.initial(solution_cls=solution_cls, size=population_size))
+        result = population[0]
         for _ in iterations:
             if isinstance(iterations, tqdm):
-                optimum = min(population)
-                iterations.set_description_str(f"GA ({optimum.cost:.2f})")
+                iterations.set_description_str(f"GA ({result.cost:.2f})")
 
             # Double the population, then perform natural selection
             counter = 0
@@ -72,10 +72,11 @@ class SingleObjectiveIndividual(BaseIndividual[_ST], BaseCostComparison):
 
                 if offspring is not None:
                     counter += 1
-                    offspring.mutate()
-                    population.append(offspring)
+                    result = min(result, offspring)
+                    population.append(offspring.mutate())
 
             population.sort()
             population = population[:population_size]
+            result = min(result, population[0])
 
-        return population[0]
+        return result

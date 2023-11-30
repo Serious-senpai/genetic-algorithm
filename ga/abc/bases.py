@@ -64,7 +64,7 @@ class BaseIndividual(abc.ABC, Generic[_ST]):
         ...
 
     @abc.abstractmethod
-    def mutate(self) -> None:
+    def mutate(self) -> Self:
         """Perform a mutation operation
 
         Subclasses must implement this.

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Final, Generic, Optional, Tuple, TypeVar, TYPE_CHECKING
+from typing import Final, Generic, List, Optional, Tuple, TypeVar, TYPE_CHECKING
 
 from .config import ProblemConfig
 
@@ -14,6 +14,8 @@ class SupportCostsEvaluation(Generic[_T]):
     __slots__ = (
         "__truck_distance",
         "__drone_distance",
+        "__truck_distances",
+        "__drone_distances",
         "__revenue",
         "truck_paths",
         "drone_paths",
@@ -21,6 +23,8 @@ class SupportCostsEvaluation(Generic[_T]):
     if TYPE_CHECKING:
         __truck_distance: Optional[float]
         __drone_distance: Optional[float]
+        __truck_distances: Optional[Tuple[float, ...]]
+        __drone_distances: Optional[Tuple[Tuple[float, ...], ...]]
         __revenue: Optional[float]
         truck_paths: Final[Tuple[Tuple[_T, ...], ...]]  # type: ignore
         drone_paths: Final[Tuple[Tuple[Tuple[_T, ...], ...], ...]]  # type: ignore
@@ -30,14 +34,16 @@ class SupportCostsEvaluation(Generic[_T]):
         *,
         truck_paths: Tuple[Tuple[_T, ...], ...],
         drone_paths: Tuple[Tuple[Tuple[_T, ...], ...], ...],
-        truck_distance: Optional[float] = None,
-        drone_distance: Optional[float] = None,
+        truck_distances: Optional[Tuple[float, ...]] = None,
+        drone_distances: Optional[Tuple[Tuple[float, ...]]] = None,
         revenue: Optional[float] = None,
     ) -> None:
         self.truck_paths = truck_paths
         self.drone_paths = drone_paths
-        self.__truck_distance = truck_distance
-        self.__drone_distance = drone_distance
+        self.__truck_distance = None
+        self.__drone_distance = None
+        self.__truck_distances = truck_distances
+        self.__drone_distances = drone_distances
         self.__revenue = revenue
 
     def get_waypoint(self, value: _T, /) -> int:
@@ -47,33 +53,52 @@ class SupportCostsEvaluation(Generic[_T]):
         return value
 
     @property
-    def truck_distance(self) -> float:
-        if self.__truck_distance is None:
-            distance = 0.0
+    def truck_distances(self) -> Tuple[float, ...]:
+        if self.__truck_distances is None:
+            distances: List[float] = []
             config = ProblemConfig()
             for path in self.truck_paths:
+                distances.append(0.0)
                 for index in range(len(path) - 1):
                     current = self.get_waypoint(path[index])
                     next = self.get_waypoint(path[index + 1])
-                    distance += config.distances[current][next]
+                    distances[-1] += config.distances[current][next]
 
-            self.__truck_distance = distance
+            self.__truck_distances = tuple(distances)
+
+        return self.__truck_distances
+
+    @property
+    def truck_distance(self) -> float:
+        if self.__truck_distance is None:
+            self.__truck_distance = sum(self.truck_distances)
 
         return self.__truck_distance
 
     @property
-    def drone_distance(self) -> float:
-        if self.__drone_distance is None:
-            distance = 0.0
+    def drone_distances(self) -> Tuple[Tuple[float, ...], ...]:
+        if self.__drone_distances is None:
+            distances: List[Tuple[float, ...]] = []
             config = ProblemConfig()
             for paths in self.drone_paths:
+                distance: List[float] = []
                 for path in paths:
+                    distance.append(0.0)
                     for index in range(len(path) - 1):
                         current = self.get_waypoint(path[index])
                         next = self.get_waypoint(path[index + 1])
-                        distance += config.distances[current][next]
+                        distance[-1] += config.distances[current][next]
 
-            self.__drone_distance = distance
+                distances.append(tuple(distance))
+
+            self.__drone_distances = tuple(distances)
+
+        return self.__drone_distances
+
+    @property
+    def drone_distance(self) -> float:
+        if self.__drone_distance is None:
+            self.__drone_distance = sum(map(sum, self.drone_distances))
 
         return self.__drone_distance
 

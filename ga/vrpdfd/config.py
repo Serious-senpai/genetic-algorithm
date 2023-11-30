@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import csv
 import itertools
+import json
 from dataclasses import dataclass
 from math import sqrt
 from os import path
@@ -93,8 +94,13 @@ class ProblemConfig:
                         self.drones_count = int(drones_count)
                         self.time_limit = time_limit
 
-                        self.truck = Vehicle(speed=truck_speed, capacity=truck_capacity, cost_coefficient=2.3, time_limit=float("inf"))
-                        self.drone = Vehicle(speed=drone_speed, capacity=drone_capacity, cost_coefficient=0.25, time_limit=drone_duration)
+                        with open("problems/vrpdfd/coefficients.json", "r", encoding="utf-8") as coefficients_file:
+                            data = json.load(coefficients_file)
+                            truck_coefficient = data["truck_cost_per_distance"]
+                            drone_coefficient = data["drone_cost_per_distance"]
+
+                        self.truck = Vehicle(speed=truck_speed, capacity=truck_capacity, cost_coefficient=truck_coefficient, time_limit=float("inf"))
+                        self.drone = Vehicle(speed=drone_speed, capacity=drone_capacity, cost_coefficient=drone_coefficient, time_limit=drone_duration)
 
                         break
 
