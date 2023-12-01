@@ -10,6 +10,7 @@ __all__ = (
 
 
 def maximum_flow(
+    *,
     size: int,
     capacities: Sequence[Sequence[float]],
     neighbors: Sequence[Set[int]],
@@ -18,4 +19,4 @@ def maximum_flow(
 ) -> Tuple[float, List[List[float]]]: ...
 
 
-def weighted_random(weights: Sequence[float], count: int = 1) -> List[int]: ...
+def weighted_random(weights: Sequence[float], *, count: int = 1) -> List[int]: ...

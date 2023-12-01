@@ -2,12 +2,7 @@
 
 #include <vector>
 
-#include <pybind11/pybind11.h>
-#include <pybind11/stl.h>
-
 #include "helpers.cpp"
-
-namespace py = pybind11;
 
 std::vector<int> weighted_random(std::vector<double> &weights, unsigned count = 1)
 {

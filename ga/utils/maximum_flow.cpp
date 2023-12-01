@@ -1,11 +1,6 @@
 #pragma once
 
-#include <pybind11/pybind11.h>
-#include <pybind11/stl.h>
-
 #include "helpers.cpp"
-
-namespace py = pybind11;
 
 double __flow(
     unsigned size,
