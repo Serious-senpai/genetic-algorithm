@@ -2,6 +2,7 @@
 
 #include <chrono>
 #include <random>
+#include <stdexcept>
 #include <string>
 
 template <typename... Args>
@@ -25,4 +26,33 @@ double random(double l, double r)
 {
     std::uniform_real_distribution<double> unif(l, r);
     return unif(rng);
+}
+
+double sqrt_impl(double value)
+{
+    if (value < 0)
+    {
+        throw std::out_of_range(format("Attempted to calculate square root of %lf", value));
+    }
+
+    if (value == 0.0)
+    {
+        return 0.0;
+    }
+
+    double low = 0.0, high = value;
+    while (high - low > 1.0e-9)
+    {
+        double mid = (low + high) / 2;
+        if (mid * mid < value)
+        {
+            low = mid;
+        }
+        else
+        {
+            high = mid;
+        }
+    }
+
+    return high;
 }
