@@ -89,7 +89,7 @@ std::pair<double, std::vector<std::vector<double>>> maximum_flow_no_checking(
     return {result, results};
 }
 
-std::pair<double, std::vector<std::vector<double>>> maximum_flow(
+void check_constraints(
     unsigned size,
     std::vector<std::vector<double>> &capacities,
     std::vector<std::set<unsigned>> &neighbors,
@@ -126,6 +126,15 @@ std::pair<double, std::vector<std::vector<double>>> maximum_flow(
     {
         throw std::invalid_argument(format("Sink mustn't have any outgoing edges, currently %d", neighbors[sink].size()));
     }
+}
 
+std::pair<double, std::vector<std::vector<double>>> maximum_flow(
+    unsigned size,
+    std::vector<std::vector<double>> &capacities,
+    std::vector<std::set<unsigned>> &neighbors,
+    unsigned source,
+    unsigned sink)
+{
+    check_constraints(size, capacities, neighbors, source, sink);
     return maximum_flow_no_checking(size, capacities, neighbors, source, sink);
 }
