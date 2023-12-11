@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import abc
-from typing import Generic, List, Optional, Type, TypeVar, TYPE_CHECKING, final
+from typing import Generic, Iterable, List, Type, TypeVar, TYPE_CHECKING, final
 
 if TYPE_CHECKING:
     from typing_extensions import Self
@@ -56,7 +56,7 @@ class BaseIndividual(abc.ABC, Generic[_ST]):
         ...
 
     @abc.abstractmethod
-    def crossover(self, other: Self, /) -> Optional[Self]:
+    def crossover(self, other: Self, /) -> Iterable[Self]:
         """Perform a crossover operation
 
         Subclasses must implement this.
@@ -70,6 +70,13 @@ class BaseIndividual(abc.ABC, Generic[_ST]):
         Subclasses must implement this.
         """
         ...
+
+    def educate(self) -> Self:
+        """Improve the quality of this individual
+
+        The default implementation does nothing.
+        """
+        return self
 
     @final
     @classmethod

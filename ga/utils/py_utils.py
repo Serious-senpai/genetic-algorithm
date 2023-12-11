@@ -2,8 +2,10 @@ from __future__ import annotations
 
 from typing import Any, Sequence, Tuple, TypeVar, overload
 
+from .cpp_utils import weighted_random
 
-__all__ = ("fast_get", "fast_set", "value")
+
+__all__ = ("fast_get", "fast_set", "value", "weighted_random_choice")
 _T = TypeVar("_T")
 
 
@@ -36,3 +38,8 @@ def fast_set(array: Any, index: Sequence[int], value: Any, /) -> Any:
 
 def value(__x: _T, /) -> _T:
     return __x
+
+
+def weighted_random_choice(choices: Sequence[Tuple[_T, float]], /) -> _T:
+    index = weighted_random([choice[1] for choice in choices], count=1)[0]
+    return choices[index][0]

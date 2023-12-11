@@ -36,6 +36,7 @@ class SingleObjectiveSolution(BaseSolution, BaseCostComparison, Generic[_IT]):
         *,
         generations_count: int,
         population_size: int,
+        population_expansion_limit: int,
         verbose: bool,
     ) -> Self:
         """Perform genetic algorithm to find a solution with the lowest cost
@@ -56,6 +57,7 @@ class SingleObjectiveSolution(BaseSolution, BaseCostComparison, Generic[_IT]):
         return SingleObjectiveIndividual.genetic_algorithm(
             generations_count=generations_count,
             population_size=population_size,
+            population_expansion_limit=population_expansion_limit,
             solution_cls=cls,
             verbose=verbose,
         ).decode()

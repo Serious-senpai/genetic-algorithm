@@ -20,7 +20,7 @@ PYBIND11_MODULE(cpp_utils, m)
         py::call_guard<py::gil_scoped_release>());
     m.def(
         "tsp_solver", &tsp_solver,
-        py::arg("cities"),
+        py::arg("cities"), py::kw_only(), py::arg("first") = 0,
         py::call_guard<py::gil_scoped_release>());
     m.def(
         "weighted_random", &weighted_random,

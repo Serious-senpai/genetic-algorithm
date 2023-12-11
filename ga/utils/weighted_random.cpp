@@ -1,12 +1,12 @@
 #pragma once
 
+#include <set>
 #include <stdexcept>
 #include <vector>
-#include <set>
 
 #include "helpers.cpp"
 
-std::vector<int> weighted_random(std::vector<double> &weights, unsigned count = 1)
+std::vector<unsigned> weighted_random(std::vector<double> &weights, unsigned count = 1)
 {
     unsigned n = weights.size();
     if (count > n)
@@ -24,7 +24,7 @@ std::vector<int> weighted_random(std::vector<double> &weights, unsigned count = 
         }
     }
 
-    std::set<int> results;
+    std::set<unsigned> results;
 
     unsigned limit = std::min(count, n - count);
     while (results.size() < limit)
@@ -47,10 +47,10 @@ std::vector<int> weighted_random(std::vector<double> &weights, unsigned count = 
 
     if (limit == count)
     {
-        return std::vector<int>(results.begin(), results.end());
+        return std::vector<unsigned>(results.begin(), results.end());
     }
 
-    std::vector<int> returns;
+    std::vector<unsigned> returns;
     for (unsigned index = 0; index < n; index++)
     {
         if (!results.count(index))

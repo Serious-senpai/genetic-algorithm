@@ -4,6 +4,8 @@ import random
 from typing import Type, TypeVar, Union, TYPE_CHECKING, final
 
 from tqdm import tqdm
+if TYPE_CHECKING:
+    from typing_extensions import Self
 
 from .costs import BaseCostComparison
 from ..bases import BaseIndividual
@@ -34,6 +36,7 @@ class SingleObjectiveIndividual(BaseIndividual[_ST], BaseCostComparison):
         *,
         generations_count: int,
         population_size: int,
+        population_expansion_limit: int,
         solution_cls: Type[_ST],
         verbose: bool,
     ) -> SingleObjectiveIndividual[_ST]:
@@ -59,24 +62,61 @@ class SingleObjectiveIndividual(BaseIndividual[_ST], BaseCostComparison):
             iterations = tqdm(iterations, ascii=" █")
 
         population = sorted(cls.initial(solution_cls=solution_cls, size=population_size))
+        if len(population) < population_size:
+            message = f"Initial population size {len(population)} < {population_size}"
+            raise ValueError(message)
+
         result = population[0]
-        for _ in iterations:
+        for iteration in iterations:
             if isinstance(iterations, tqdm):
                 iterations.set_description_str(f"GA ({result.cost:.2f})")
 
+            cls.before_generation_hook(iteration, result)
+
             # Double the population, then perform natural selection
-            counter = 0
-            while counter < population_size:
+            while len(population) < population_expansion_limit:
                 first, second = random.sample(population, 2)
                 offspring = first.crossover(second)
 
-                if offspring is not None:
-                    counter += 1
-                    result = min(result, offspring)
-                    population.append(offspring.mutate())
+                for o in offspring:
+                    result = min(result, o)  # offspring may be mutated later, so we update result here
+                    o = o.mutate().educate()
+                    population.append(o)
 
             population.sort()
             population = population[:population_size]
             result = min(result, population[0])
 
+            cls.after_generation_hook(iteration, result)
+
         return result
+
+    @classmethod
+    def before_generation_hook(cls, generation: int, result: Self, /) -> None:
+        """A classmethod to be called before each generation
+
+        The default implementation does nothing.
+
+        Parameters
+        -----
+        generation:
+            The current generation index (starting from 0)
+        result:
+            The current best individual
+        """
+        return
+
+    @classmethod
+    def after_generation_hook(cls, generation: int, result: Self, /) -> None:
+        """A classmethod to be called after each generation
+
+        The default implementation does nothing.
+
+        Parameters
+        -----
+        generation:
+            The current generation index (starting from 0)
+        result:
+            The current best individual
+        """
+        return

@@ -1,10 +1,22 @@
 #pragma once
 
+#include <algorithm>
 #include <vector>
 
 #include "helpers.cpp"
 
 const unsigned HELD_KARP_LIMIT = 17;
+
+void rotate_path(std::vector<unsigned> &path, unsigned first)
+{
+    auto first_iter = std::find(path.begin(), path.end(), first);
+    if (first_iter == path.end())
+    {
+        throw std::invalid_argument(format("First city %d not found in path", first));
+    }
+
+    std::rotate(path.begin(), first_iter, path.end());
+}
 
 std::pair<double, unsigned> __held_karp_solve(
     unsigned bitmask,
@@ -45,7 +57,7 @@ std::pair<double, unsigned> __held_karp_solve(
     return dp[bitmask][city] = result;
 }
 
-std::pair<double, std::vector<unsigned>> __held_karp(std::vector<std::vector<double>> &distances)
+std::pair<double, std::vector<unsigned>> __held_karp(std::vector<std::vector<double>> &distances, unsigned first)
 {
     // https://en.wikipedia.org/wiki/Held-Karp_algorithm
     unsigned n = distances.size();
@@ -78,10 +90,11 @@ std::pair<double, std::vector<unsigned>> __held_karp(std::vector<std::vector<dou
         path.push_back(path_end);
     }
 
+    rotate_path(path, first);
     return {distance_end.first, path};
 }
 
-std::pair<double, std::vector<unsigned>> tsp_solver(std::vector<std::pair<double, double>> &cities)
+std::pair<double, std::vector<unsigned>> tsp_solver(std::vector<std::pair<double, double>> &cities, unsigned first = 0)
 {
     unsigned n = cities.size();
     if (n == 0)
@@ -91,7 +104,9 @@ std::pair<double, std::vector<unsigned>> tsp_solver(std::vector<std::pair<double
 
     if (n == 1)
     {
-        return {0.0, {0}};
+        std::vector<unsigned> path = {0};
+        rotate_path(path, first);
+        return {0.0, path};
     }
 
     std::vector<std::vector<double>> distances(n, std::vector<double>(n, 0.0));
@@ -107,17 +122,21 @@ std::pair<double, std::vector<unsigned>> tsp_solver(std::vector<std::pair<double
 
     if (n == 2)
     {
-        return {2 * distances[0][1], {0, 1}};
+        std::vector<unsigned> path = {0, 1};
+        rotate_path(path, first);
+        return {2 * distances[0][1], path};
     }
 
     if (n == 3)
     {
-        return {distances[0][1] + distances[1][2] + distances[2][0], {0, 1, 2}};
+        std::vector<unsigned> path = {0, 1, 2};
+        rotate_path(path, first);
+        return {distances[0][1] + distances[1][2] + distances[2][0], path};
     }
 
     if (n <= HELD_KARP_LIMIT)
     {
-        return __held_karp(distances);
+        return __held_karp(distances, first);
     }
     else
     {
