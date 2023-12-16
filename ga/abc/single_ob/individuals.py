@@ -88,7 +88,7 @@ class SingleObjectiveIndividual(BaseIndividual[_ST], BaseCostComparison):
 
             # Expand the population, then perform natural selection
             while len(population) < population_expansion_limit:
-                first, second = random.sample(population, 2)
+                first, second = random.sample(tuple(population), 2)
                 offspring = first.crossover(second)
 
                 for o in offspring:
