@@ -1,11 +1,9 @@
 from __future__ import annotations
 
 import random
-from typing import Type, TypeVar, Union, TYPE_CHECKING, final
+from typing import Optional, Type, TypeVar, Union, TYPE_CHECKING, final
 
 from tqdm import tqdm
-if TYPE_CHECKING:
-    from typing_extensions import Self
 
 from .costs import BaseCostComparison
 from ..bases import BaseIndividual
@@ -39,8 +37,8 @@ class SingleObjectiveIndividual(BaseIndividual[_ST], BaseCostComparison):
         population_expansion_limit: int,
         solution_cls: Type[_ST],
         verbose: bool,
-    ) -> SingleObjectiveIndividual[_ST]:
-        """Perform genetic algorithm to find an individual with the lowest cost
+    ) -> Optional[_ST]:
+        """Perform genetic algorithm to find a solution with the lowest cost
 
         Parameters
         -----
@@ -55,68 +53,59 @@ class SingleObjectiveIndividual(BaseIndividual[_ST], BaseCostComparison):
 
         Returns
         -----
-        An individual with the lowest cost among the generations
+        A feasible solution with the lowest cost among the generations, or
+        None if no feasible individual is found
         """
+        def optional_min(first: Optional[_ST], second: Optional[_ST]) -> Optional[_ST]:
+            if first is None:
+                return second
+
+            if second is None:
+                return first
+
+            return min(first, second)
+
         iterations: Union[range, tqdm[int]] = range(generations_count)
         if verbose:
             iterations = tqdm(iterations, ascii=" █")
 
-        population = sorted(cls.initial(solution_cls=solution_cls, size=population_size))
+        result: Optional[_ST] = None
+        population = cls.initial(solution_cls=solution_cls, size=population_size)
         if len(population) < population_size:
             message = f"Initial population size {len(population)} < {population_size}"
             raise ValueError(message)
 
-        result = population[0]
+        for individual in population:
+            r = individual.decode()
+            result = optional_min(result, r)
+
         for iteration in iterations:
             if isinstance(iterations, tqdm):
-                iterations.set_description_str(f"GA ({result.cost:.2f})")
+                display = f"GA ({result.cost:.2f})" if result is not None else "GA"
+                iterations.set_description_str(display)
 
-            cls.before_generation_hook(iteration, result)
+            solution_cls.before_generation_hook(iteration, result)
 
-            # Double the population, then perform natural selection
+            # Expand the population, then perform natural selection
             while len(population) < population_expansion_limit:
                 first, second = random.sample(population, 2)
                 offspring = first.crossover(second)
 
                 for o in offspring:
-                    result = min(result, o)  # offspring may be mutated later, so we update result here
+                    result = optional_min(result, o.decode())  # offspring may be mutated later, so we update result here
                     o = o.mutate().educate()
-                    population.append(o)
+                    population.add(o)
 
-            population.sort()
-            population = population[:population_size]
-            result = min(result, population[0])
+            feasible = [individual for individual in population if individual.decode() is not None]
+            infeasible = [individual for individual in population if individual.decode() is None]
 
-            cls.after_generation_hook(iteration, result)
+            population.clear()
+            population.update(feasible[:population_size // 2])
+            population.update(infeasible[:population_size - len(population)])
+
+            if len(feasible) > 0:
+                result = optional_min(result, feasible[0].decode())
+
+            solution_cls.after_generation_hook(iteration, result)
 
         return result
-
-    @classmethod
-    def before_generation_hook(cls, generation: int, result: Self, /) -> None:
-        """A classmethod to be called before each generation
-
-        The default implementation does nothing.
-
-        Parameters
-        -----
-        generation:
-            The current generation index (starting from 0)
-        result:
-            The current best individual
-        """
-        return
-
-    @classmethod
-    def after_generation_hook(cls, generation: int, result: Self, /) -> None:
-        """A classmethod to be called after each generation
-
-        The default implementation does nothing.
-
-        Parameters
-        -----
-        generation:
-            The current generation index (starting from 0)
-        result:
-            The current best individual
-        """
-        return

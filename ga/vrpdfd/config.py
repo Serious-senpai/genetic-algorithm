@@ -24,6 +24,10 @@ class Customer:
     high: float
     w: float
 
+    @property
+    def location(self) -> Tuple[float, float]:
+        return self.x, self.y
+
 
 @dataclass(frozen=True, kw_only=True, slots=True)
 class Vehicle:
@@ -40,12 +44,16 @@ class ProblemConfig:
         "trucks_count",
         "drones_count",
         "customers",
+        "customers_by_profit",
         "distances",
 
         # Constraints
         "truck",
         "drone",
         "time_limit",
+
+        # Algorithm config
+        "mutation_rate",
     )
     __instance__: Optional[ProblemConfig] = None
     problem: ClassVar[Optional[str]] = None
@@ -53,12 +61,16 @@ class ProblemConfig:
         trucks_count: Final[int]
         drones_count: Final[int]
         customers: Final[Tuple[Customer, ...]]
+        customers_by_profit: Final[Tuple[int, ...]]
         distances: Final[Tuple[Tuple[float, ...], ...]]
 
         # Constraints
         truck: Final[Vehicle]
         drone: Final[Vehicle]
         time_limit: Final[float]
+
+        # Algorithm config
+        mutation_rate: float
 
     def __new__(cls, _: Optional[str] = None, /) -> ProblemConfig:
         if cls.__instance__ is None:
@@ -99,7 +111,7 @@ class ProblemConfig:
                             truck_coefficient = data["truck_cost_per_distance"]
                             drone_coefficient = data["drone_cost_per_distance"]
 
-                        self.truck = Vehicle(speed=truck_speed, capacity=truck_capacity, cost_coefficient=truck_coefficient, time_limit=float("inf"))
+                        self.truck = Vehicle(speed=truck_speed, capacity=truck_capacity, cost_coefficient=truck_coefficient, time_limit=10 ** 9)
                         self.drone = Vehicle(speed=drone_speed, capacity=drone_capacity, cost_coefficient=drone_coefficient, time_limit=drone_duration)
 
                         break
@@ -116,9 +128,10 @@ class ProblemConfig:
                     _, x, y, low, high, w = map(float, row)
                     customers.append(Customer(x=x, y=y, low=low, high=high, w=w))
 
-                self.customers = tuple(customers)
-
                 customers_count = len(customers)
+                self.customers = tuple(customers)
+                self.customers_by_profit = tuple(sorted(range(1, customers_count), key=lambda i: customers[i].w, reverse=True))
+
                 distances = [[0.0] * (customers_count) for _ in range(customers_count)]
                 for f, s in itertools.combinations(range(customers_count), 2):
                     distances[f][s] = distances[s][f] = sqrt((customers[f].x - customers[s].x) ** 2 + (customers[f].y - customers[s].y) ** 2)
@@ -132,3 +145,9 @@ class ProblemConfig:
     def customers_count(self) -> int:
         """Return the number of customers excluding the deport"""
         return len(self.customers) - 1
+
+    @classmethod
+    def reset_singleton(cls, problem: Optional[str] = None, /) -> None:
+        cls.__instance__ = None
+        cls.problem = None
+        cls(problem)

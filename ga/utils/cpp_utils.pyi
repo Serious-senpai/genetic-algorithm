@@ -4,18 +4,21 @@ from typing import List, Optional, Sequence, Set, Tuple
 
 
 __all__ = (
-    "flows_with_demands",
     "maximum_flow",
+    "maximum_weighted_flow",
     "tsp_solver",
+    "weighted_flows_with_demands",
     "weighted_random",
 )
 
 
-def flows_with_demands(
+def weighted_flows_with_demands(
     *,
     size: int,
+    demands: Sequence[Sequence[float]],
     capacities: Sequence[Sequence[float]],
     neighbors: Sequence[Set[int]],
+    flow_weights: Sequence[Sequence[float]],
     source: int,
     sink: int,
 ) -> Optional[Tuple[float, List[List[float]]]]: ...
@@ -26,6 +29,17 @@ def maximum_flow(
     size: int,
     capacities: Sequence[Sequence[float]],
     neighbors: Sequence[Set[int]],
+    source: int,
+    sink: int,
+) -> Tuple[float, List[List[float]]]: ...
+
+
+def maximum_weighted_flow(
+    *,
+    size: int,
+    capacities: Sequence[Sequence[float]],
+    neighbors: Sequence[Set[int]],
+    flow_weights: Sequence[Sequence[float]],
     source: int,
     sink: int,
 ) -> Tuple[float, List[List[float]]]: ...

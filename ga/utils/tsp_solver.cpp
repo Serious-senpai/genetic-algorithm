@@ -68,7 +68,7 @@ std::pair<double, std::vector<unsigned>> __held_karp(std::vector<std::vector<dou
     }
 
     unsigned path_end = -1, bitmask = (1 << n) - 2;
-    std::pair<double, unsigned> distance_end = {1.0e+18, -1};
+    std::pair<double, unsigned> distance_end = {1.0e+9, -1};
     for (unsigned end = 1; end < n; end++)
     {
         auto r = __held_karp_solve(bitmask, end, distances, dp);

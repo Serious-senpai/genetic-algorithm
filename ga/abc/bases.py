@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import abc
-from typing import Generic, Iterable, List, Type, TypeVar, TYPE_CHECKING, final
+from typing import Generic, Iterable, Optional, Set, Type, TypeVar, TYPE_CHECKING, final
 
 if TYPE_CHECKING:
     from typing_extensions import Self
@@ -28,7 +28,7 @@ class BaseSolution(abc.ABC):
 
     @final
     @classmethod
-    def from_individual(cls, individual: BaseIndividual[Self], /) -> Self:
+    def from_individual(cls, individual: BaseIndividual[Self], /) -> Optional[Self]:
         """Decode `individual` into a solution"""
         return individual.decode()
 
@@ -48,10 +48,15 @@ class BaseIndividual(abc.ABC, Generic[_ST]):
         ...
 
     @abc.abstractmethod
-    def decode(self) -> _ST:
+    def decode(self) -> Optional[_ST]:
         """Decode this individual into a solution
 
         Subclasses must implement this.
+
+        Returns
+        -----
+        The decoded solution, or None is this individual is infeasible. If the returned result is not None,
+        the algorithm will assume that the decoded solution is always feasible.
         """
         ...
 
@@ -78,15 +83,9 @@ class BaseIndividual(abc.ABC, Generic[_ST]):
         """
         return self
 
-    @final
-    @classmethod
-    def from_solution(cls, solution: _ST, /) -> BaseIndividual[_ST]:
-        """Encode `solution` into an individual"""
-        return solution.encode()
-
     @classmethod
     @abc.abstractmethod
-    def initial(cls, *, solution_cls: Type[_ST], size: int) -> List[Self]:
+    def initial(cls, *, solution_cls: Type[_ST], size: int) -> Set[Self]:
         """Generate the initial population
 
         Subclasses must implement this.

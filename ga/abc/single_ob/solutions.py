@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import abc
-from typing import Generic, TypeVar, TYPE_CHECKING, final
+from typing import Generic, Optional, TypeVar, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from typing_extensions import Self
@@ -9,7 +9,7 @@ if TYPE_CHECKING:
 from .costs import BaseCostComparison
 from ..bases import BaseSolution
 if TYPE_CHECKING:
-    from .individual import SingleObjectiveIndividual
+    from .individuals import SingleObjectiveIndividual
 
 
 __all__ = (
@@ -29,35 +29,32 @@ class SingleObjectiveSolution(BaseSolution, BaseCostComparison, Generic[_IT]):
     @abc.abstractmethod
     def encode(self) -> _IT: ...
 
-    @final
     @classmethod
-    def genetic_algorithm(
-        cls,
-        *,
-        generations_count: int,
-        population_size: int,
-        population_expansion_limit: int,
-        verbose: bool,
-    ) -> Self:
-        """Perform genetic algorithm to find a solution with the lowest cost
+    def before_generation_hook(cls, generation: int, result: Optional[Self], /) -> None:
+        """A classmethod to be called before each generation
+
+        The default implementation does nothing.
 
         Parameters
         -----
-        generations_count:
-            The number of generations to run
-        population_size:
-            The size of the population
-        verbose:
-            The verbose mode
-
-        Returns
-        -----
-        A solution with the lowest cost
+        generation:
+            The current generation index (starting from 0)
+        result:
+            The current best solution
         """
-        return SingleObjectiveIndividual.genetic_algorithm(
-            generations_count=generations_count,
-            population_size=population_size,
-            population_expansion_limit=population_expansion_limit,
-            solution_cls=cls,
-            verbose=verbose,
-        ).decode()
+        return
+
+    @classmethod
+    def after_generation_hook(cls, generation: int, result: Optional[Self], /) -> None:
+        """A classmethod to be called after each generation
+
+        The default implementation does nothing.
+
+        Parameters
+        -----
+        generation:
+            The current generation index (starting from 0)
+        result:
+            The current best solution
+        """
+        return

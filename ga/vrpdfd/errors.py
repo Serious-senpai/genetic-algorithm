@@ -8,6 +8,7 @@ __all__ = (
     "ConfigDataNotFound",
     "ConfigImportTwice",
     "ConfigImportException",
+    "PopulationInitializationException",
 )
 
 
@@ -37,3 +38,14 @@ class ConfigImportException(VRPDFDException):
     def __init__(self, original: BaseException, /) -> None:
         self.original = original
         super().__init__(f"Failed to import problem configuration data: {original}")
+
+
+class PopulationInitializationException(VRPDFDException):
+
+    __slots__ = ("original",)
+    if TYPE_CHECKING:
+        original: BaseException
+
+    def __init__(self, original: BaseException, /) -> None:
+        self.original = original
+        super().__init__(str(original))
