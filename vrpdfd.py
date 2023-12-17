@@ -45,7 +45,7 @@ solution = VRPDFDIndividual.genetic_algorithm(
     population_expansion_limit=2 * namespace.size,
     solution_cls=VRPDFDSolution,
     verbose=namespace.verbose,
-)
+).decode()
 total_time = time.perf_counter() - start
 
 
@@ -55,9 +55,7 @@ if solution is None:
 
 
 print(f"Got solution with profit = {-solution.cost}:\n{solution}")
-if solution is not None and not solution.feasible():
-    message = "Solution is infeasible"
-    raise ValueError(message)
+solution.assert_feasible()
 
 
 if namespace.dump is not None:

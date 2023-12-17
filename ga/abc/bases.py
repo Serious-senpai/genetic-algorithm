@@ -48,15 +48,14 @@ class BaseIndividual(abc.ABC, Generic[_ST]):
         ...
 
     @abc.abstractmethod
-    def decode(self) -> Optional[_ST]:
+    def decode(self) -> _ST:
         """Decode this individual into a solution
 
         Subclasses must implement this.
 
         Returns
         -----
-        The decoded solution, or None is this individual is infeasible. If the returned result is not None,
-        the algorithm will assume that the decoded solution is always feasible.
+        The decoded solution
         """
         ...
 

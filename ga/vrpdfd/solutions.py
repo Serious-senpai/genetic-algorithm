@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import itertools
-from typing import ClassVar, Final, Optional, Sequence, Tuple, TYPE_CHECKING, final
+from typing import Final, Optional, Sequence, Tuple, TYPE_CHECKING, final
 
 from .config import ProblemConfig
+from .errors import InfeasibleSolution
 from .individuals import VRPDFDIndividual
 from ..abc import SingleObjectiveSolution
 from ..utils import positive_max
@@ -16,7 +17,6 @@ __all__ = ("VRPDFDSolution",)
 class VRPDFDSolution(SingleObjectiveSolution[VRPDFDIndividual]):
 
     __slots__ = (
-        "__feasibility",
         "__truck_distance",
         "__drone_distance",
         "__truck_distances",
@@ -25,9 +25,7 @@ class VRPDFDSolution(SingleObjectiveSolution[VRPDFDIndividual]):
         "truck_paths",
         "drone_paths",
     )
-    genetic_algorithm_last_improved: ClassVar[int] = 0
     if TYPE_CHECKING:
-        __feasibility: Optional[bool]
         __truck_distance: Optional[float]
         __drone_distance: Optional[float]
         __truck_distances: Optional[Tuple[float, ...]]
@@ -49,43 +47,41 @@ class VRPDFDSolution(SingleObjectiveSolution[VRPDFDIndividual]):
     ) -> None:
         self.truck_paths = truck_paths
         self.drone_paths = drone_paths
-        self.__feasibility = None
         self.__truck_distance = truck_distance
         self.__drone_distance = drone_distance
         self.__truck_distances = truck_distances
         self.__drone_distances = drone_distances
         self.__revenue = revenue
 
-    def feasible(self) -> bool:
-        if self.__feasibility is None:
-            feasibility = True
-            config = ProblemConfig()
+    def assert_feasible(self) -> None:
+        config = ProblemConfig()
 
-            if (
-                positive_max(self.calculate_total_weight(path) for path in self.truck_paths) > config.truck.capacity
-                or positive_max(self.calculate_total_weight(path) for paths in self.drone_paths for path in paths) > config.drone.capacity
-                or positive_max(self.truck_distances) * config.truck.speed > config.time_limit
-                or positive_max(itertools.chain(*self.drone_distances)) * config.drone.speed > config.drone.time_limit
-                or any(sum(distances) * config.drone.speed > config.time_limit for distances in self.drone_distances)
-            ):
-                feasibility = False
+        if positive_max(self.calculate_total_weight(path) for path in self.truck_paths) > config.truck.capacity:
+            raise InfeasibleSolution("Truck capacity exceeded")
 
-            for index, customer in enumerate(config.customers):
-                total = 0.0
-                for path in self.truck_paths:
+        if positive_max(self.calculate_total_weight(path) for paths in self.drone_paths for path in paths) > config.drone.capacity:
+            raise InfeasibleSolution("Drone capacity exceeded")
+
+        if positive_max(self.truck_distances) * config.truck.speed > config.time_limit:
+            raise InfeasibleSolution("Truck paths violate system working time")
+
+        if positive_max(itertools.chain(*self.drone_distances)) * config.drone.speed > config.drone.time_limit:
+            raise InfeasibleSolution("Drone paths violate flight time")
+
+        if any(sum(distances) * config.drone.speed > config.time_limit for distances in self.drone_distances):
+            raise InfeasibleSolution("Drone paths violate system working time")
+
+        for index, customer in enumerate(config.customers):
+            total = 0.0
+            for path in self.truck_paths:
+                total += sum(weight for customer_index, weight in path if customer_index == index)
+
+            for paths in self.drone_paths:
+                for path in paths:
                     total += sum(weight for customer_index, weight in path if customer_index == index)
 
-                for paths in self.drone_paths:
-                    for path in paths:
-                        total += sum(weight for customer_index, weight in path if customer_index == index)
-
-                if total < customer.low or total > customer.high:
-                    feasibility = False
-                    break
-
-            self.__feasibility = feasibility
-
-        return self.__feasibility
+            if total < customer.low or total > customer.high:
+                raise InfeasibleSolution(f"Customer {index} has weight {total} outside [{customer.low}, {customer.high}]")
 
     @staticmethod
     def calculate_total_weight(path: Sequence[Tuple[int, float]]) -> float:
@@ -151,11 +147,36 @@ class VRPDFDSolution(SingleObjectiveSolution[VRPDFDIndividual]):
     @property
     def cost(self) -> float:
         config = ProblemConfig()
-        return (
+        result = (
             config.drone.cost_coefficient * self.drone_distance
             + config.truck.cost_coefficient * self.truck_distance
             - self.revenue
         )  # We want to maximize profit i.e. minimize cost = -profit
+
+        # Fine for exceeding time limit
+        result += 1000 * (
+            sum(max(0.0, self.calculate_total_weight(path) - config.truck.capacity) for path in self.truck_paths)
+            + sum(max(0.0, self.calculate_total_weight(path) - config.drone.capacity) for paths in self.drone_paths for path in paths)
+            + max(0.0, positive_max(self.truck_distances) * config.truck.speed - config.time_limit)
+            + max(0.0, positive_max(itertools.chain(*self.drone_distances)) * config.drone.speed - config.drone.time_limit)
+            + sum(max(0.0, sum(distances) * config.drone.speed - config.time_limit) for distances in self.drone_distances)
+        )
+
+        for index, customer in enumerate(config.customers):
+            total = 0.0
+            for path in self.truck_paths:
+                total += sum(weight for customer_index, weight in path if customer_index == index)
+
+            for paths in self.drone_paths:
+                for path in paths:
+                    total += sum(weight for customer_index, weight in path if customer_index == index)
+
+            result += 1000 * (
+                max(0.0, customer.low - total)
+                + max(0.0, total - customer.high)
+            )
+
+        return result
 
     def encode(self) -> VRPDFDIndividual:
         return VRPDFDIndividual(
@@ -163,10 +184,6 @@ class VRPDFDSolution(SingleObjectiveSolution[VRPDFDIndividual]):
             truck_paths=tuple(map(lambda path: frozenset(c[0] for c in path), self.truck_paths)),
             drone_paths=tuple(tuple(map(lambda path: frozenset(c[0] for c in path), paths)) for paths in self.drone_paths),
         )
-
-    @classmethod
-    def after_generation_hook(cls, generation: int, last_improved: int, result: Optional[VRPDFDSolution]) -> None:
-        cls.genetic_algorithm_last_improved = last_improved
 
     def __hash__(self) -> int:
         return hash((self.truck_paths, self.drone_paths))

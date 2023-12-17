@@ -1,10 +1,7 @@
 from __future__ import annotations
 
 import abc
-from typing import Generic, Optional, TypeVar, TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from typing_extensions import Self
+from typing import Generic, TypeVar, TYPE_CHECKING
 
 from .costs import BaseCostComparison
 from ..bases import BaseSolution
@@ -28,37 +25,3 @@ class SingleObjectiveSolution(BaseSolution, BaseCostComparison, Generic[_IT]):
 
     @abc.abstractmethod
     def encode(self) -> _IT: ...
-
-    @classmethod
-    def before_generation_hook(cls, generation: int, last_improved: int, result: Optional[Self], /) -> None:
-        """A classmethod to be called before each generation
-
-        The default implementation does nothing.
-
-        Parameters
-        -----
-        generation:
-            The current generation index (starting from 0)
-        last_improved:
-            The last generation when the best solution is improved
-        result:
-            The current best solution
-        """
-        return
-
-    @classmethod
-    def after_generation_hook(cls, generation: int, last_improved: int, result: Optional[Self], /) -> None:
-        """A classmethod to be called after each generation
-
-        The default implementation does nothing.
-
-        Parameters
-        -----
-        generation:
-            The current generation index (starting from 0)
-        last_improved:
-            The last generation when the best solution is improved
-        result:
-            The current best solution
-        """
-        return

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import itertools
 import random
-from typing import Final, FrozenSet, Iterable, List, Optional, Sequence, Set, Tuple, Type, Union, TYPE_CHECKING, final, overload
+from typing import ClassVar, Final, FrozenSet, Iterable, List, Optional, Sequence, Set, Tuple, Type, Union, TYPE_CHECKING, final, overload
 
 if TYPE_CHECKING:
     from typing_extensions import Self
@@ -10,7 +10,7 @@ if TYPE_CHECKING:
 from .config import ProblemConfig
 from .errors import PopulationInitializationException
 from ..abc import SingleObjectiveIndividual
-from ..utils import maximum_weighted_flow, positive_max, tsp_solver, weighted_flows_with_demands, weighted_random_choice
+from ..utils import maximum_weighted_flow, tsp_solver, weighted_flows_with_demands, weighted_random_choice
 if TYPE_CHECKING:
     from .solutions import VRPDFDSolution
 
@@ -38,6 +38,7 @@ class VRPDFDIndividual(BaseIndividual):
         "truck_paths",
         "drone_paths",
     )
+    genetic_algorithm_last_improved: ClassVar[int] = 0
     if TYPE_CHECKING:
         __cls: Final[Type[VRPDFDSolution]]
         __decoded: Optional[VRPDFDSolution]
@@ -133,18 +134,11 @@ class VRPDFDIndividual(BaseIndividual):
     @property
     def cost(self) -> float:
         decoded = self.decode()
-        return decoded.cost if decoded is not None else float("inf")
+        return decoded.cost
 
-    def decode(self) -> Optional[VRPDFDSolution]:
+    def decode(self) -> VRPDFDSolution:
         if self.__decoded is None:
             config = ProblemConfig()
-
-            if (
-                positive_max(self.truck_distances) * config.truck.speed > config.time_limit
-                or positive_max(itertools.chain(*self.drone_distances)) * config.drone.speed > config.drone.time_limit
-                or any(sum(distances) * config.drone.speed > config.time_limit for distances in self.drone_distances)
-            ):
-                return None
 
             network_size = 1 + (config.trucks_count + sum(map(len, self.drone_paths))) + config.customers_count + 1  # network with 4 layers
             network_source = 0
@@ -272,7 +266,7 @@ class VRPDFDIndividual(BaseIndividual):
                             break
 
                     if not patched:
-                        return None
+                        break
 
             self.__decoded = self.cls(
                 truck_paths=tuple(map(tuple, truck_paths)),
@@ -373,6 +367,10 @@ class VRPDFDIndividual(BaseIndividual):
             self.__drone_distance = sum(map(sum, self.drone_distances))
 
         return self.__drone_distance
+
+    @classmethod
+    def after_generation_hook(cls, generation: int, last_improved: int, result: Optional[VRPDFDSolution]) -> None:
+        cls.genetic_algorithm_last_improved = last_improved
 
     @classmethod
     def initial(cls, *, solution_cls: Type[VRPDFDSolution], size: int) -> Set[VRPDFDIndividual]:

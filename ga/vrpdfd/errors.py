@@ -9,6 +9,7 @@ __all__ = (
     "ConfigImportTwice",
     "ConfigImportException",
     "PopulationInitializationException",
+    "InfeasibleSolution",
 )
 
 
@@ -49,3 +50,7 @@ class PopulationInitializationException(VRPDFDException):
     def __init__(self, original: BaseException, /) -> None:
         self.original = original
         super().__init__(str(original))
+
+
+class InfeasibleSolution(VRPDFDException):
+    pass

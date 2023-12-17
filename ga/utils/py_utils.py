@@ -65,11 +65,8 @@ def isclose(first: Any, second: Any, /) -> bool:
 
 
 def positive_max(values: Iterable[float], /) -> float:
-    result = 0.0
-    for value in values:
-        result = max(result, value)
-
-    return result
+    """Equivalent to max(0.0, 0.0, *values)"""
+    return max(0.0, 0.0, *values)
 
 
 def value(__x: _T, /) -> _T:

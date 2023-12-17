@@ -7,7 +7,7 @@ def check_solution(solution: Optional[vrpdfd.VRPDFDSolution], *, expected: float
     assert solution is not None
 
     print(solution)
-    assert solution.feasible()
+    solution.assert_feasible()
     if not utils.isclose(solution.cost, expected):
         message = f"Optimal {expected}, got {solution.cost}"
         raise ValueError(message)
