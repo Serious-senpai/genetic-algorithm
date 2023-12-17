@@ -106,8 +106,7 @@ class SingleObjectiveIndividual(BaseIndividual[_ST], BaseCostComparison):
 
         last_improved = 0
         progress: List[float] = []
-        if result is not None:
-            progress.append(result.cost)
+        progress.append(result.cost)
 
         try:
             for iteration in iterations:
@@ -135,8 +134,7 @@ class SingleObjectiveIndividual(BaseIndividual[_ST], BaseCostComparison):
                 if current_result != result:
                     last_improved = iteration
 
-                if result is not None:
-                    progress.append(result.cost)
+                progress.append(result.cost)
 
                 cls.after_generation_hook(iteration, last_improved, result)
 

@@ -6,6 +6,10 @@
 #include "helpers.cpp"
 
 const unsigned HELD_KARP_LIMIT = 17;
+const unsigned GA_POPULATION_SIZE = 100;
+const unsigned GA_GENERATIONS_COUNT = 100;
+
+const double GA_MUTATION_RATE = 0.4;
 
 void rotate_path(std::vector<unsigned> &path, unsigned first)
 {
@@ -94,6 +98,75 @@ std::pair<double, std::vector<unsigned>> __held_karp(std::vector<std::vector<dou
     return {distance_end.first, path};
 }
 
+std::pair<std::vector<unsigned>, std::vector<unsigned>> crossover(std::vector<unsigned> &first, std::vector<unsigned> &second)
+{
+    unsigned n = first.size();
+    if (n != second.size())
+    {
+        throw std::invalid_argument(format("Crossover of paths with different lengths: %d and %d", n, second.size()));
+    }
+
+    std::vector<unsigned> first_child(n, -1), second_child(n, -1);
+    unsigned crossover_point = _random_int(1, n - 1);
+
+    std::vector<bool> in_first_child(n);
+    for (unsigned i = 0; i < n; i++)
+    {
+        if (i < crossover_point)
+        {
+            first_child[i] = first[i];
+            in_first_child[first[i]] = true;
+        }
+        else
+        {
+            second_child[i] = first[i];
+        }
+    }
+
+    unsigned first_offset = crossover_point, second_offset = 0;
+    for (unsigned i = 0; i < n; i++)
+    {
+        if (!in_first_child[second[i]])
+        {
+            first_child[first_offset] = second[i];
+            first_offset++;
+        }
+        else
+        {
+            second_child[second_offset] = second[i];
+            second_offset++;
+        }
+    }
+
+    return {first_child, second_child};
+}
+
+void mutate(std::vector<unsigned> &individual)
+{
+    unsigned first = _random_int(0, individual.size() - 1),
+             second = _random_int(0, individual.size() - 1);
+    while (first == second)
+    {
+        first = _random_int(0, individual.size() - 1);
+        second = _random_int(0, individual.size() - 1);
+    }
+
+    std::swap(individual[first], individual[second]);
+}
+
+double evaluate(std::vector<unsigned> &individual, std::vector<std::vector<double>> &distances)
+{
+    double result = 0.0;
+    unsigned n = individual.size();
+    for (unsigned i = 0; i < n; i++)
+    {
+        unsigned current = individual[i], next = individual[(i + 1) % n];
+        result += distances[current][next];
+    }
+
+    return result;
+}
+
 std::pair<double, std::vector<unsigned>> tsp_solver(std::vector<std::pair<double, double>> &cities, unsigned first = 0)
 {
     unsigned n = cities.size();
@@ -140,6 +213,79 @@ std::pair<double, std::vector<unsigned>> tsp_solver(std::vector<std::pair<double
     }
     else
     {
-        throw std::invalid_argument(format("Not yet supported n = %d > %d", n, HELD_KARP_LIMIT));
+        std::vector<std::vector<unsigned>> population;
+        for (unsigned i = 0; i < GA_POPULATION_SIZE; i++)
+        {
+            std::vector<unsigned> individual;
+            for (unsigned j = 0; j < n; j++)
+            {
+                individual.push_back(j);
+            }
+
+            std::shuffle(individual.begin(), individual.end(), rng);
+            population.push_back(individual);
+        }
+
+        double result_cost = evaluate(population[0], distances);
+        std::vector<unsigned> result = population[0];
+        for (unsigned i = 1; i < GA_POPULATION_SIZE; i++)
+        {
+            auto cost = evaluate(population[i], distances);
+            if (cost < result_cost)
+            {
+                result_cost = cost;
+                result = population[i];
+            }
+        }
+
+        std::vector<double> history = {result_cost};
+        for (unsigned generation = 0; generation < GA_GENERATIONS_COUNT; generation++)
+        {
+            while (population.size() < 2 * GA_POPULATION_SIZE)
+            {
+                // Select 2 random parents
+                unsigned first = _random_int(0, population.size() - 1),
+                         second = _random_int(0, population.size() - 1);
+                while (first == second)
+                {
+                    first = _random_int(0, population.size() - 1);
+                    second = _random_int(0, population.size() - 1);
+                }
+
+                auto results = crossover(population[first], population[second]);
+                if (_random_double(0.0, 1.0) < GA_MUTATION_RATE)
+                {
+                    mutate(results.first);
+                }
+                if (_random_double(0.0, 1.0) < GA_MUTATION_RATE)
+                {
+                    mutate(results.second);
+                }
+
+                population.push_back(results.first);
+                population.push_back(results.second);
+            }
+
+            std::sort(
+                population.begin(), population.end(),
+                [&distances](std::vector<unsigned> &f, std::vector<unsigned> &s)
+                { return evaluate(f, distances) < evaluate(s, distances); });
+
+            while (population.size() > GA_POPULATION_SIZE)
+            {
+                population.pop_back();
+            }
+
+            auto cost = evaluate(population[0], distances);
+            if (cost < result_cost)
+            {
+                result_cost = cost;
+                result = population[0];
+            }
+
+            history.push_back(result_cost);
+        }
+
+        return {result_cost, result};
     }
 }

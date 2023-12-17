@@ -369,7 +369,7 @@ class VRPDFDIndividual(BaseIndividual):
         return self.__drone_distance
 
     @classmethod
-    def after_generation_hook(cls, generation: int, last_improved: int, result: VRPDFDSolution) -> None:
+    def after_generation_hook(cls, generation: int, last_improved: int, result: VRPDFDIndividual) -> None:
         cls.genetic_algorithm_last_improved = last_improved
 
     @classmethod

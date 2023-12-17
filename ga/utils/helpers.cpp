@@ -22,9 +22,15 @@ std::string format(const std::string &format, Args... args)
 
 std::mt19937 rng(std::chrono::steady_clock::now().time_since_epoch().count());
 
-double random(double l, double r)
+double _random_double(double l, double r)
 {
     std::uniform_real_distribution<double> unif(l, r);
+    return unif(rng);
+}
+
+unsigned _random_int(unsigned l, unsigned r)
+{
+    std::uniform_int_distribution<unsigned> unif(l, r);
     return unif(rng);
 }
 
