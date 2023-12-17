@@ -154,7 +154,7 @@ class VRPDFDSolution(SingleObjectiveSolution[VRPDFDIndividual]):
         )  # We want to maximize profit i.e. minimize cost = -profit
 
         # Fine for exceeding time limit
-        result += 1000 * (
+        result += 100000 * (
             sum(max(0.0, self.calculate_total_weight(path) - config.truck.capacity) for path in self.truck_paths)
             + sum(max(0.0, self.calculate_total_weight(path) - config.drone.capacity) for paths in self.drone_paths for path in paths)
             + max(0.0, positive_max(self.truck_distances) * config.truck.speed - config.time_limit)
@@ -171,7 +171,7 @@ class VRPDFDSolution(SingleObjectiveSolution[VRPDFDIndividual]):
                 for path in paths:
                     total += sum(weight for customer_index, weight in path if customer_index == index)
 
-            result += 1000 * (
+            result += 100000 * (
                 max(0.0, customer.low - total)
                 + max(0.0, total - customer.high)
             )
