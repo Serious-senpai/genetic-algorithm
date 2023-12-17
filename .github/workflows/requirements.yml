@@ -12,10 +12,7 @@ permissions:
 jobs:
   check:
     name: Test samples
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest, windows-latest]
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository

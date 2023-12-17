@@ -26,5 +26,8 @@ jobs:
       - name: Install dependencies
         run: pip install -r dev-requirements.txt
 
+      - name: Build binary files
+        run: scripts/build.sh
+
       - name: Run pytest
         run: pytest tests
