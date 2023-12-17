@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import random
-from typing import Optional, Type, TypeVar, Union, TYPE_CHECKING, final
+from typing import List, Optional, Type, TypeVar, Union, TYPE_CHECKING, final
 
+
+from matplotlib import pyplot
 from tqdm import tqdm
 
 from .costs import BaseCostComparison
@@ -80,6 +82,10 @@ class SingleObjectiveIndividual(BaseIndividual[_ST], BaseCostComparison):
             result = optional_min(result, r)
 
         last_improved = 0
+        progress: List[float] = []
+        if result is not None:
+            progress.append(result.cost)
+
         for iteration in iterations:
             current_result = result
             if isinstance(iterations, tqdm):
@@ -111,6 +117,16 @@ class SingleObjectiveIndividual(BaseIndividual[_ST], BaseCostComparison):
             if current_result != result:
                 last_improved = iteration
 
+            if result is not None:
+                progress.append(result.cost)
+
             solution_cls.after_generation_hook(iteration, last_improved, result)
+
+        if verbose:
+            pyplot.plot(progress)
+            pyplot.xlabel("Generations")
+            pyplot.ylabel("Cost")
+            pyplot.show()
+            pyplot.close()
 
         return result
