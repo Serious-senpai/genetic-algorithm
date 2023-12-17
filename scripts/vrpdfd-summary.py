@@ -1,6 +1,5 @@
 import json
 import os
-from datetime import timedelta
 from pathlib import Path
 from typing import Any, List, Tuple, TypedDict
 
@@ -80,6 +79,6 @@ with open(summary_dir / "vrpdfd-summary.csv", "w") as csvfile:
                 assert milp_data["data_set"] == problem_name
                 fields.append(milp_data["obj_value"])
                 fields.append(milp_data["status"])
-                fields.append(timedelta(seconds=milp_data["solve_time"]))
+                fields.append(milp_data["solve_time"])
 
             csvfile.write(",".join(map(str, fields)) + "\n")

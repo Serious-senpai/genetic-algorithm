@@ -2,7 +2,6 @@ import argparse
 import json
 import random
 import time
-from datetime import timedelta
 from pathlib import Path
 from typing import Optional, TYPE_CHECKING
 
@@ -72,7 +71,7 @@ if namespace.dump is not None:
                 "truck_paths": solution.truck_paths,
                 "drone_paths": solution.drone_paths,
             },
-            "time": str(timedelta(seconds=total_time)),
+            "time": total_time,
             "last_improved": VRPDFDIndividual.genetic_algorithm_last_improved,
         }
         json.dump(data, file)
