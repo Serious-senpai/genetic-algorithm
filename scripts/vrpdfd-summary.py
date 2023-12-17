@@ -37,7 +37,8 @@ field_names = (
 )
 
 
-with open(summary_dir / "vrpdfd-summary.csv", "r") as csvfile:
+summary_dir.mkdir(parents=True, exist_ok=True)
+with open(summary_dir / "vrpdfd-summary.csv", "w") as csvfile:
     csvfile.write(",".join(field_names) + "\n")
     for file in os.listdir(summary_dir):
         if file.startswith("output-"):
