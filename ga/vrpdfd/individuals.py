@@ -10,7 +10,7 @@ if TYPE_CHECKING:
 from .config import ProblemConfig
 from .errors import PopulationInitializationException
 from ..abc import SingleObjectiveIndividual
-from ..utils import positive_max, tsp_solver, weighted_flows_with_demands, weighted_random_choice
+from ..utils import maximum_weighted_flow, positive_max, tsp_solver, weighted_flows_with_demands, weighted_random_choice
 if TYPE_CHECKING:
     from .solutions import VRPDFDSolution
 
@@ -157,8 +157,10 @@ class VRPDFDIndividual(BaseIndividual):
             network_neighbors: List[Set[int]] = [set() for _ in range(network_size)]
 
             network_neighbors[network_source].update(range(1, network_customers_offset))
+            total_flow = 0.0
             for network_route in range(1, network_customers_offset):
                 capacity = config.truck.capacity if network_route < 1 + config.trucks_count else config.drone.capacity
+                total_flow += capacity
                 if network_route < 1 + config.trucks_count:
                     network_capacities[network_source][network_route] = network_demands[network_source][network_route] = capacity
                 else:
@@ -167,13 +169,13 @@ class VRPDFDIndividual(BaseIndividual):
             for network_route, path in enumerate(self.truck_paths, start=1):
                 for customer in path:
                     if customer != 0:
-                        network_capacities[network_route][network_customers_offset + customer - 1] = 10 ** 9
+                        network_capacities[network_route][network_customers_offset + customer - 1] = 10 ** 6
                         network_neighbors[network_route].add(network_customers_offset + customer - 1)
 
             for network_route, path in enumerate(itertools.chain(*self.drone_paths), start=1 + config.trucks_count):
                 for customer in path:
                     if customer != 0:
-                        network_capacities[network_route][network_customers_offset + customer - 1] = 10 ** 9
+                        network_capacities[network_route][network_customers_offset + customer - 1] = 10 ** 6
                         network_neighbors[network_route].add(network_customers_offset + customer - 1)
 
             for customer, network_customer in enumerate(range(network_customers_offset, network_sink), start=1):
@@ -186,9 +188,8 @@ class VRPDFDIndividual(BaseIndividual):
                 network_weight = config.customers[customer].w
                 network_flow_weights[network_customers_offset + customer - 1][network_sink] = network_weight
 
-            packed = weighted_flows_with_demands(
+            packed = maximum_weighted_flow(
                 size=network_size,
-                demands=network_demands,
                 capacities=network_capacities,
                 neighbors=network_neighbors,
                 flow_weights=network_flow_weights,
@@ -200,6 +201,7 @@ class VRPDFDIndividual(BaseIndividual):
 
             _, flows = packed
 
+            total_weights = [0.0] * len(config.customers)
             truck_paths: List[List[Tuple[int, float]]] = []
             for route, path in enumerate(self.truck_paths, start=1):
                 _, cycle = self.path_order(path)
@@ -209,7 +211,9 @@ class VRPDFDIndividual(BaseIndividual):
                     if customer == 0:
                         truck_paths[-1].append((0, 0.0))
                     else:
-                        truck_paths[-1].append((customer, flows[route][network_customers_offset + customer - 1]))
+                        weight = flows[route][network_customers_offset + customer - 1]
+                        truck_paths[-1].append((customer, weight))
+                        total_weights[customer] += weight
 
             flatten_drone_paths: List[List[Tuple[int, float]]] = []
             for route, path in enumerate(itertools.chain(*self.drone_paths), start=1 + config.trucks_count):
@@ -220,7 +224,9 @@ class VRPDFDIndividual(BaseIndividual):
                     if customer == 0:
                         flatten_drone_paths[-1].append((0, 0.0))
                     else:
-                        flatten_drone_paths[-1].append((customer, flows[route][network_customers_offset + customer - 1]))
+                        weight = flows[route][network_customers_offset + customer - 1]
+                        flatten_drone_paths[-1].append((customer, weight))
+                        total_weights[customer] += weight
 
             drone_paths: List[List[List[Tuple[int, float]]]] = []
             flatten_drone_paths_iter = iter(flatten_drone_paths)
@@ -228,6 +234,49 @@ class VRPDFDIndividual(BaseIndividual):
                 drone_paths.append([])
                 for _ in range(len(paths)):
                     drone_paths[-1].append(next(flatten_drone_paths_iter))
+
+            # Rearrange paths to achieve lower bounds
+            for customer in range(1, len(config.customers)):
+                if config.customers[customer].low > total_weights[customer]:
+                    patched = False
+                    for c in reversed(config.customers_by_profit):
+                        if c == customer:
+                            continue
+
+                        for path in itertools.chain(truck_paths, itertools.chain(*drone_paths)):
+                            index_customer = -1
+                            for index, (_c, _) in enumerate(path):
+                                if _c == customer:
+                                    index_customer = index
+                                    break
+
+                            if index_customer > -1:
+                                for index, (_c, weight) in enumerate(path):
+                                    if _c == c:
+                                        d = min(
+                                            weight,
+                                            config.customers[customer].low - total_weights[customer],
+                                            total_weights[c] - config.customers[c].low,
+                                        )
+
+                                        path[index_customer] = (customer, path[index_customer][1] + d)
+                                        path[index] = (_c, weight - d)
+
+                                        total_weights[customer] += d
+                                        total_weights[c] -= d
+
+                                        if config.customers[customer].low == total_weights[customer]:
+                                            patched = True
+                                            break
+
+                            if patched:
+                                break
+
+                        if patched:
+                            break
+
+                    if not patched:
+                        return None
 
             self.__decoded = self.cls(
                 truck_paths=tuple(map(tuple, truck_paths)),

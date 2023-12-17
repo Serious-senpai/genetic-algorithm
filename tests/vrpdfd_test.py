@@ -5,6 +5,8 @@ from ga import utils, vrpdfd
 
 def check_solution(solution: Optional[vrpdfd.VRPDFDSolution], *, expected: float) -> None:
     assert solution is not None
+
+    print(solution)
     assert solution.feasible()
     if not utils.isclose(solution.cost, expected):
         message = f"Optimal {expected}, got {solution.cost}"
