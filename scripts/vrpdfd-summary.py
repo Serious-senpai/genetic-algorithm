@@ -1,5 +1,6 @@
 import json
 import os
+from datetime import timedelta
 from pathlib import Path
 from typing import Any, List, Tuple, TypedDict
 
@@ -17,6 +18,15 @@ class SolutionJSON(TypedDict):
     mutation_rate: float
     solution: SolutionInfo
     time: str
+    last_improved: int
+
+
+class MILPSolutionJSON(TypedDict):
+    # We only annotate the fields in need here
+    data_set: str
+    status: str
+    solve_time: float
+    obj_value: float
 
 
 def wrap_double_quotes(text: Any) -> str:
@@ -33,14 +43,17 @@ field_names = (
     "Truck paths",
     "Drone paths",
     "Computation time",
+    "Last improved",
     "MILP profit",
+    "MILP status",
+    "MILP computation time",
 )
 
 
 summary_dir.mkdir(parents=True, exist_ok=True)
 with open(summary_dir / "vrpdfd-summary.csv", "w") as csvfile:
     csvfile.write(",".join(field_names) + "\n")
-    for file in os.listdir(summary_dir):
+    for file in sorted(os.listdir(summary_dir)):
         if file.startswith("output-"):
             with open(summary_dir / file, "r", encoding="utf-8") as f:
                 data: SolutionJSON = json.load(f)
@@ -54,15 +67,19 @@ with open(summary_dir / "vrpdfd-summary.csv", "w") as csvfile:
                 wrap_double_quotes(data["solution"]["truck_paths"]),
                 wrap_double_quotes(data["solution"]["drone_paths"]),
                 data["time"],
+                data["last_improved"],
             ]
 
-            problem_size = data["problem"].split(".")[0]
             problem_name = data["problem"]
+            problem_size = problem_name.split(".")[0]
             milp_path = Path("problems/vrpdfd/results") / f"{problem_size}Cus" / f"result_{problem_name}.json"
             if milp_path.exists():
                 with open(milp_path, "r", encoding="utf-8") as f:
-                    milp_data = json.load(f)
+                    milp_data: MILPSolutionJSON = json.load(f)
 
+                assert milp_data["data_set"] == problem_name
                 fields.append(milp_data["obj_value"])
+                fields.append(milp_data["status"])
+                fields.append(timedelta(seconds=milp_data["solve_time"]))
 
             csvfile.write(",".join(map(str, fields)) + "\n")

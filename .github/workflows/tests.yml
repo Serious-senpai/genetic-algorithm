@@ -30,4 +30,6 @@ jobs:
         run: scripts/build.sh
 
       - name: Run pytest
-        run: pytest tests
+        run: |
+          export PYTHONPATH=$GITHUB_WORKSPACE
+          pytest tests
