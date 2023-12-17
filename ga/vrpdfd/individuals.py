@@ -188,7 +188,7 @@ class VRPDFDIndividual(BaseIndividual):
                 network_weight = config.customers[customer].w
                 network_flow_weights[network_customers_offset + customer - 1][network_sink] = network_weight
 
-            packed = maximum_weighted_flow(
+            _, flows = maximum_weighted_flow(
                 size=network_size,
                 capacities=network_capacities,
                 neighbors=network_neighbors,
@@ -196,10 +196,6 @@ class VRPDFDIndividual(BaseIndividual):
                 source=network_source,
                 sink=network_sink,
             )
-            if packed is None:
-                return None
-
-            _, flows = packed
 
             total_weights = [0.0] * len(config.customers)
             truck_paths: List[List[Tuple[int, float]]] = []
@@ -243,15 +239,15 @@ class VRPDFDIndividual(BaseIndividual):
                         if c == customer:
                             continue
 
-                        for path in itertools.chain(truck_paths, itertools.chain(*drone_paths)):
+                        for complete_path in itertools.chain(truck_paths, itertools.chain(*drone_paths)):
                             index_customer = -1
-                            for index, (_c, _) in enumerate(path):
+                            for index, (_c, _) in enumerate(complete_path):
                                 if _c == customer:
                                     index_customer = index
                                     break
 
                             if index_customer > -1:
-                                for index, (_c, weight) in enumerate(path):
+                                for index, (_c, weight) in enumerate(complete_path):
                                     if _c == c:
                                         d = min(
                                             weight,
@@ -259,8 +255,8 @@ class VRPDFDIndividual(BaseIndividual):
                                             total_weights[c] - config.customers[c].low,
                                         )
 
-                                        path[index_customer] = (customer, path[index_customer][1] + d)
-                                        path[index] = (_c, weight - d)
+                                        complete_path[index_customer] = (customer, complete_path[index_customer][1] + d)
+                                        complete_path[index] = (_c, weight - d)
 
                                         total_weights[customer] += d
                                         total_weights[c] -= d
@@ -340,11 +336,13 @@ class VRPDFDIndividual(BaseIndividual):
                 result = self.reconstruct(paths)
                 return result.append_drone_path(random.randint(0, config.drones_count - 1), frozenset([0, random_customers[0]]))
 
-            return min(
-                remove_customer(),
-                add_customer(),
-                append_path(),
+            factories = (
+                remove_customer,
+                add_customer,
+                append_path,
             )
+            factory = random.choice(factories)
+            return factory()
 
         return self
 

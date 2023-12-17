@@ -30,7 +30,7 @@ class SingleObjectiveSolution(BaseSolution, BaseCostComparison, Generic[_IT]):
     def encode(self) -> _IT: ...
 
     @classmethod
-    def before_generation_hook(cls, generation: int, result: Optional[Self], /) -> None:
+    def before_generation_hook(cls, generation: int, last_improved: int, result: Optional[Self], /) -> None:
         """A classmethod to be called before each generation
 
         The default implementation does nothing.
@@ -39,13 +39,15 @@ class SingleObjectiveSolution(BaseSolution, BaseCostComparison, Generic[_IT]):
         -----
         generation:
             The current generation index (starting from 0)
+        last_improved:
+            The last generation when the best solution is improved
         result:
             The current best solution
         """
         return
 
     @classmethod
-    def after_generation_hook(cls, generation: int, result: Optional[Self], /) -> None:
+    def after_generation_hook(cls, generation: int, last_improved: int, result: Optional[Self], /) -> None:
         """A classmethod to be called after each generation
 
         The default implementation does nothing.
@@ -54,6 +56,8 @@ class SingleObjectiveSolution(BaseSolution, BaseCostComparison, Generic[_IT]):
         -----
         generation:
             The current generation index (starting from 0)
+        last_improved:
+            The last generation when the best solution is improved
         result:
             The current best solution
         """

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import itertools
-from typing import Final, Optional, Sequence, Tuple, TYPE_CHECKING, final
+from typing import ClassVar, Final, Optional, Sequence, Tuple, TYPE_CHECKING, final
 
 from .config import ProblemConfig
 from .individuals import VRPDFDIndividual
@@ -25,6 +25,7 @@ class VRPDFDSolution(SingleObjectiveSolution[VRPDFDIndividual]):
         "truck_paths",
         "drone_paths",
     )
+    genetic_algorithm_last_improved: ClassVar[int] = 0
     if TYPE_CHECKING:
         __feasibility: Optional[bool]
         __truck_distance: Optional[float]
@@ -162,6 +163,10 @@ class VRPDFDSolution(SingleObjectiveSolution[VRPDFDIndividual]):
             truck_paths=tuple(map(lambda path: frozenset(c[0] for c in path), self.truck_paths)),
             drone_paths=tuple(tuple(map(lambda path: frozenset(c[0] for c in path), paths)) for paths in self.drone_paths),
         )
+
+    @classmethod
+    def after_generation_hook(cls, generation: int, last_improved: int, result: Optional[VRPDFDSolution]) -> None:
+        cls.genetic_algorithm_last_improved = last_improved
 
     def __hash__(self) -> int:
         return hash((self.truck_paths, self.drone_paths))

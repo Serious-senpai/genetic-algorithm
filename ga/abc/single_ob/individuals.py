@@ -79,12 +79,14 @@ class SingleObjectiveIndividual(BaseIndividual[_ST], BaseCostComparison):
             r = individual.decode()
             result = optional_min(result, r)
 
+        last_improved = 0
         for iteration in iterations:
+            current_result = result
             if isinstance(iterations, tqdm):
                 display = f"GA ({result.cost:.2f})" if result is not None else "GA"
                 iterations.set_description_str(display)
 
-            solution_cls.before_generation_hook(iteration, result)
+            solution_cls.before_generation_hook(iteration, last_improved, result)
 
             # Expand the population, then perform natural selection
             while len(population) < population_expansion_limit:
@@ -106,6 +108,9 @@ class SingleObjectiveIndividual(BaseIndividual[_ST], BaseCostComparison):
             if len(feasible) > 0:
                 result = optional_min(result, feasible[0].decode())
 
-            solution_cls.after_generation_hook(iteration, result)
+            if current_result != result:
+                last_improved = iteration
+
+            solution_cls.after_generation_hook(iteration, last_improved, result)
 
         return result
