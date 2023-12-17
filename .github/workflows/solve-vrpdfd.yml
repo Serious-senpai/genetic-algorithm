@@ -44,7 +44,7 @@ jobs:
           do
             echo "Run #$i"
             python vrpdfd.py ${{ matrix.problem }} \
-            --dump "output-${{ matrix.problem }}-$i.json" \
+            --dump "output-${{ matrix.problem }}-$i.json"
           done
 
       - name: Upload solutions
@@ -82,7 +82,7 @@ jobs:
           do
             echo "Run #$i"
             python d2d.py ${{ matrix.problem }} \
-            --dump "output-${{ matrix.problem }}-$i.json" \
+            --dump "output-${{ matrix.problem }}-$i.json"
           done
 
       - name: Upload solutions
