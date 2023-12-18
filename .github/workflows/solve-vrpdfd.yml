@@ -42,12 +42,15 @@ jobs:
 
       - name: Run optimizer
         run: |
-          for i in 0 1 2 3 4 5 6 7 8 9
+          for i in $(seq 0 9)
           do
-            echo "Run #$i"
             python vrpdfd.py ${{ matrix.problem }} \
-            --dump "output-${{ matrix.problem }}-$i.json"
+            --dump "output-${{ matrix.problem }}-$i.json" \
+            --extra "run #$i"
           done
+
+# It is also possible to run the algorithm 10 times in parallel (by delegating to 10 child processes and add `wait` at the end),
+# but it will affect the computation time
 
       - name: Upload solutions
         uses: actions/upload-artifact@v3

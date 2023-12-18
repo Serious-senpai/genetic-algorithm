@@ -16,6 +16,7 @@ class Namespace(argparse.Namespace):
         mutation_rate: float
         verbose: bool
         dump: Optional[str]
+        extra: Optional[str]
 
 
 parser = argparse.ArgumentParser(description="Genetic algorithm for VRPDFD problem")
@@ -25,6 +26,7 @@ parser.add_argument("-s", "--size", default=100, type=int, help="the population 
 parser.add_argument("-m", "--mutation-rate", default=0.6, type=float, help="the mutation rate (default: 0.6)")
 parser.add_argument("-v", "--verbose", action="store_true", help="turn on verbose mode")
 parser.add_argument("--dump", type=str, help="dump the solution to a file")
+parser.add_argument("--extra", type=str, help="extra data dump to file specified by --dump")
 
 
 namespace = Namespace()
@@ -73,6 +75,7 @@ if namespace.dump is not None:
             },
             "time": total_time,
             "last_improved": VRPDFDIndividual.genetic_algorithm_last_improved,
+            "extra": namespace.extra,
         }
         json.dump(data, file)
 

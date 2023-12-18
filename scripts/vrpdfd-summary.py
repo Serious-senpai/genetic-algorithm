@@ -1,7 +1,7 @@
 import json
 import os
 from pathlib import Path
-from typing import Any, List, Tuple, TypedDict
+from typing import Any, List, Optional, Tuple, TypedDict
 
 
 class SolutionInfo(TypedDict):
@@ -18,6 +18,7 @@ class SolutionJSON(TypedDict):
     solution: SolutionInfo
     time: str
     last_improved: int
+    extra: Optional[str]
 
 
 class MILPSolutionJSON(TypedDict):
@@ -43,6 +44,7 @@ field_names = (
     "Drone paths",
     "Computation time",
     "Last improved",
+    "Extra",
     "MILP profit",
     "MILP status",
     "MILP computation time",
@@ -67,6 +69,7 @@ with open(summary_dir / "vrpdfd-summary.csv", "w") as csvfile:
                 wrap_double_quotes(data["solution"]["drone_paths"]),
                 data["time"],
                 data["last_improved"],
+                data["extra"],
             ]
 
             problem_name = data["problem"]
