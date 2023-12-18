@@ -91,11 +91,49 @@ jobs:
           name: vrpdfd-summary
           path: output-*.json
 
+  test-12:
+    name: 12-customer problems
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        problem: ["12.10.1", "12.10.2", "12.10.3", "12.10.4", "12.20.1", "12.20.2", "12.20.3", "12.20.4", "12.5.1", "12.5.2", "12.5.3", "12.5.4"]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          submodules: recursive
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Build binary files
+        run: scripts/build.sh
+
+      - name: Run optimizer
+        run: |
+          for i in 0 1 2 3 4 5 6 7 8 9
+          do
+            echo "Run #$i"
+            python vrpdfd.py ${{ matrix.problem }} \
+            --dump "output-${{ matrix.problem }}-$i.json"
+          done
+
+      - name: Upload solutions
+        uses: actions/upload-artifact@v3
+        with:
+          name: vrpdfd-summary
+          path: output-*.json
+
   summary:
     name: Summarize solutions
     runs-on: ubuntu-latest
     if: ${{ !cancelled() }}
-    needs: [test-6, test-10]
+    needs: [test-6, test-10, test-12]
 
     steps:
       - name: Checkout repository
