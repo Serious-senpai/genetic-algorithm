@@ -379,99 +379,101 @@ class VRPDFDIndividual(BaseIndividual):
         results: Set[VRPDFDIndividual] = set()
         try:
             # Solve flows with demands problem with 4 layers: source - routes - customers - sink
-            network_size = 1 + (config.trucks_count + config.drones_count) + config.customers_count + 1  # network with 4 layers
-            network_source = 0
-            network_sink = network_size - 1
+            paths_per_drone = 1
+            while True:
+                network_size = 1 + (config.trucks_count + config.drones_count * paths_per_drone) + config.customers_count + 1  # network with 4 layers
+                network_source = 0
+                network_sink = network_size - 1
 
-            network_customers_offset = config.trucks_count + config.drones_count + 1
+                network_customers_offset = config.trucks_count + config.drones_count * paths_per_drone + 1
 
-            network_demands = [[0.0] * network_size for _ in range(network_size)]
-            network_capacities = [[0.0] * network_size for _ in range(network_size)]
+                network_demands = [[0.0] * network_size for _ in range(network_size)]
+                network_capacities = [[0.0] * network_size for _ in range(network_size)]
 
-            for network_route in range(1, network_customers_offset):
-                if network_route < 1 + config.trucks_count:
-                    network_capacities[network_source][network_route] = config.truck.capacity
-                else:
-                    network_capacities[network_source][network_route] = config.drone.capacity
+                for network_route in range(1, network_customers_offset):
+                    if network_route < 1 + config.trucks_count:
+                        network_capacities[network_source][network_route] = config.truck.capacity
+                    else:
+                        network_capacities[network_source][network_route] = config.drone.capacity
 
-            for network_route, network_customer in itertools.product(range(1, network_customers_offset), range(network_customers_offset, network_sink)):
-                network_capacities[network_route][network_customer] = 10 ** 9
-
-            for customer, network_customer in enumerate(range(network_customers_offset, network_sink), start=1):
-                network_demands[network_customer][network_sink] = config.customers[customer].low
-                network_capacities[network_customer][network_sink] = config.customers[customer].high
-
-            network_neighbors: List[Set[int]] = [set() for _ in range(network_size)]
-            network_neighbors[network_source].update(range(1, network_customers_offset))
-
-            for network_route in range(1, network_customers_offset):
-                network_neighbors[network_route].update(range(network_customers_offset, network_sink))
-
-            for network_customer in range(network_customers_offset, network_sink):
-                network_neighbors[network_customer].add(network_sink)
-
-            network_flow_weights: List[List[float]] = [[0.0] * network_size for _ in range(network_size)]
-            for customer in range(1, len(config.customers)):
-                network_weight = config.customers[customer].w
-                network_flow_weights[network_customers_offset + customer - 1][network_sink] = network_weight
-
-            packed = weighted_flows_with_demands(
-                size=network_size,
-                demands=network_demands,
-                capacities=network_capacities,
-                neighbors=network_neighbors,
-                flow_weights=network_flow_weights,
-                source=network_source,
-                sink=network_sink,
-            )
-            if packed is None:
-                message = "Customers' lower bounds will never be satisfied"
-                raise ValueError(message)
-
-            _, flows = packed
-
-            truck_paths = [{0} for _ in range(config.trucks_count)]
-            drone_paths = [[{0}] for _ in range(config.drones_count)]
-            customer_demands = [customer.low for customer in config.customers]
-            for vehicle, network_route in zip(itertools.chain(range(config.trucks_count), range(config.drones_count)), range(1, network_customers_offset)):
-                if network_route < 1 + config.trucks_count:
-                    path = truck_paths[vehicle]
-                    capacity = config.truck.capacity
-                else:
-                    path = drone_paths[vehicle][0]
-                    capacity = config.drone.capacity
+                for network_route, network_customer in itertools.product(range(1, network_customers_offset), range(network_customers_offset, network_sink)):
+                    network_capacities[network_route][network_customer] = 10 ** 9
 
                 for customer, network_customer in enumerate(range(network_customers_offset, network_sink), start=1):
-                    deliver = min(customer_demands[customer], flows[network_route][network_customer])
-                    if deliver > 0.0:
+                    network_demands[network_customer][network_sink] = config.customers[customer].low
+                    network_capacities[network_customer][network_sink] = config.customers[customer].high
+
+                network_neighbors: List[Set[int]] = [set() for _ in range(network_size)]
+                network_neighbors[network_source].update(range(1, network_customers_offset))
+
+                for network_route in range(1, network_customers_offset):
+                    network_neighbors[network_route].update(range(network_customers_offset, network_sink))
+
+                for network_customer in range(network_customers_offset, network_sink):
+                    network_neighbors[network_customer].add(network_sink)
+
+                network_flow_weights: List[List[float]] = [[0.0] * network_size for _ in range(network_size)]
+                for customer in range(1, len(config.customers)):
+                    network_weight = config.customers[customer].w
+                    network_flow_weights[network_customers_offset + customer - 1][network_sink] = network_weight
+
+                packed = weighted_flows_with_demands(
+                    size=network_size,
+                    demands=network_demands,
+                    capacities=network_capacities,
+                    neighbors=network_neighbors,
+                    flow_weights=network_flow_weights,
+                    source=network_source,
+                    sink=network_sink,
+                )
+                if packed is None:
+                    paths_per_drone += 1
+                    continue
+
+                _, flows = packed
+
+                truck_paths = [{0} for _ in range(config.trucks_count)]
+                drone_paths = [[{0}, {0}] for _ in range(config.drones_count)]
+                customer_demands = [customer.low for customer in config.customers]
+                for vehicle, network_route in zip(itertools.chain(range(config.trucks_count), range(config.drones_count)), range(1, network_customers_offset)):
+                    if network_route < 1 + config.trucks_count:
+                        path = truck_paths[vehicle]
+                        capacity = config.truck.capacity
+                    else:
+                        path = drone_paths[vehicle][(network_route - config.trucks_count - 1) // config.drones_count]
+                        capacity = config.drone.capacity
+
+                    for customer, network_customer in enumerate(range(network_customers_offset, network_sink), start=1):
+                        deliver = min(customer_demands[customer], flows[network_route][network_customer])
+                        if deliver > 0.0:
+                            capacity -= deliver
+                            customer_demands[customer] -= deliver
+                            path.add(customer)
+
+                    for customer in sorted(path, key=customer_demands.__getitem__):
+                        deliver = min(capacity, customer_demands[customer])
                         capacity -= deliver
                         customer_demands[customer] -= deliver
-                        path.add(customer)
+                        if capacity == 0.0:
+                            break
 
-                for customer in sorted(path, key=customer_demands.__getitem__):
-                    deliver = min(capacity, customer_demands[customer])
-                    capacity -= deliver
-                    customer_demands[customer] -= deliver
-                    if capacity == 0.0:
-                        break
-
-            results.add(
-                cls(
-                    cls=solution_cls,
-                    truck_paths=map(frozenset, truck_paths),
-                    drone_paths=(map(frozenset, paths) for paths in drone_paths),
+                results.add(
+                    cls(
+                        cls=solution_cls,
+                        truck_paths=map(frozenset, truck_paths),
+                        drone_paths=(map(frozenset, paths) for paths in drone_paths),
+                    )
                 )
-            )
 
-            while len(results) < size:
-                array = list(results)
-                base = random.choice(array)
-                results.add(base.mutate())
+                while len(results) < size:
+                    array = list(results)
+                    base = random.choice(array)
+                    results.add(base.mutate())
+
+                return results
 
         except BaseException as e:
             raise PopulationInitializationException(e) from e
-
-        return results
 
     def __repr__(self) -> str:
         return f"VRPDFDIndividual(truck_paths={self.truck_paths!r}, drone_paths={self.drone_paths!r})"
