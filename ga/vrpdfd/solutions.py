@@ -22,6 +22,7 @@ class VRPDFDSolution(SingleObjectiveSolution[VRPDFDIndividual]):
         "__truck_distances",
         "__drone_distances",
         "__revenue",
+        "__cost",
         "truck_paths",
         "drone_paths",
     )
@@ -31,6 +32,7 @@ class VRPDFDSolution(SingleObjectiveSolution[VRPDFDIndividual]):
         __truck_distances: Optional[Tuple[float, ...]]
         __drone_distances: Optional[Tuple[Tuple[float, ...], ...]]
         __revenue: Optional[float]
+        __cost: Optional[float]
         truck_paths: Final[Tuple[Tuple[Tuple[int, float], ...], ...]]
         drone_paths: Final[Tuple[Tuple[Tuple[Tuple[int, float], ...], ...], ...]]
 
@@ -44,6 +46,7 @@ class VRPDFDSolution(SingleObjectiveSolution[VRPDFDIndividual]):
         truck_distances: Optional[Tuple[float, ...]] = None,
         drone_distances: Optional[Tuple[Tuple[float, ...], ...]] = None,
         revenue: Optional[float] = None,
+        cost: Optional[float] = None,
     ) -> None:
         self.truck_paths = truck_paths
         self.drone_paths = drone_paths
@@ -52,6 +55,7 @@ class VRPDFDSolution(SingleObjectiveSolution[VRPDFDIndividual]):
         self.__truck_distances = truck_distances
         self.__drone_distances = drone_distances
         self.__revenue = revenue
+        self.__cost = cost
 
     def assert_feasible(self) -> None:
         config = ProblemConfig()
@@ -146,37 +150,40 @@ class VRPDFDSolution(SingleObjectiveSolution[VRPDFDIndividual]):
 
     @property
     def cost(self) -> float:
-        config = ProblemConfig()
-        result = (
-            config.drone.cost_coefficient * self.drone_distance
-            + config.truck.cost_coefficient * self.truck_distance
-            - self.revenue
-        )  # We want to maximize profit i.e. minimize cost = -profit
+        if self.__cost is None:
+            config = ProblemConfig()
+            result = (
+                config.drone.cost_coefficient * self.drone_distance
+                + config.truck.cost_coefficient * self.truck_distance
+                - self.revenue
+            )  # We want to maximize profit i.e. minimize cost = -profit
 
-        # Fine for exceeding time limit
-        result += 100000 * (
-            sum(max(0.0, self.calculate_total_weight(path) - config.truck.capacity) for path in self.truck_paths)
-            + sum(max(0.0, self.calculate_total_weight(path) - config.drone.capacity) for paths in self.drone_paths for path in paths)
-            + max(0.0, positive_max(self.truck_distances) * config.truck.speed - config.time_limit)
-            + max(0.0, positive_max(itertools.chain(*self.drone_distances)) * config.drone.speed - config.drone.time_limit)
-            + sum(max(0.0, sum(distances) * config.drone.speed - config.time_limit) for distances in self.drone_distances)
-        )
-
-        for index, customer in enumerate(config.customers):
-            total = 0.0
-            for path in self.truck_paths:
-                total += sum(weight for customer_index, weight in path if customer_index == index)
-
-            for paths in self.drone_paths:
-                for path in paths:
-                    total += sum(weight for customer_index, weight in path if customer_index == index)
-
+            # Fine for exceeding time limit
             result += 100000 * (
-                max(0.0, customer.low - total)
-                + max(0.0, total - customer.high)
+                sum(max(0.0, self.calculate_total_weight(path) - config.truck.capacity) for path in self.truck_paths)
+                + sum(max(0.0, self.calculate_total_weight(path) - config.drone.capacity) for paths in self.drone_paths for path in paths)
+                + max(0.0, positive_max(self.truck_distances) * config.truck.speed - config.time_limit)
+                + max(0.0, positive_max(itertools.chain(*self.drone_distances)) * config.drone.speed - config.drone.time_limit)
+                + sum(max(0.0, sum(distances) * config.drone.speed - config.time_limit) for distances in self.drone_distances)
             )
 
-        return result
+            for index, customer in enumerate(config.customers):
+                total = 0.0
+                for path in self.truck_paths:
+                    total += sum(weight for customer_index, weight in path if customer_index == index)
+
+                for paths in self.drone_paths:
+                    for path in paths:
+                        total += sum(weight for customer_index, weight in path if customer_index == index)
+
+                result += 100000 * (
+                    max(0.0, customer.low - total)
+                    + max(0.0, total - customer.high)
+                )
+
+            self.__cost = result
+
+        return self.__cost
 
     def encode(self) -> VRPDFDIndividual:
         return VRPDFDIndividual(
