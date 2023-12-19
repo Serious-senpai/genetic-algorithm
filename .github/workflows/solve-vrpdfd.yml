@@ -49,7 +49,7 @@ jobs:
           for i in $(seq 0 9)
           do
             python vrpdfd.py ${{ matrix.problem }} \
-            --dump "output-${{ matrix.problem }}-$i.json" \
+            --dump "output-${{ matrix.problem }}${{ matrix.fake_tsp_solver }}-$i.json" \
             ${{ matrix.fake_tsp_solver }} \
             --extra "run #$i"
           done
