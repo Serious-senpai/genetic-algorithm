@@ -5,7 +5,7 @@ import time
 from pathlib import Path
 from typing import Optional, TYPE_CHECKING
 
-from ga.vrpdfd import ProblemConfig, VRPDFDIndividual, VRPDFDSolution
+from ga.vrpdfd import InfeasibleSolution, ProblemConfig, VRPDFDIndividual, VRPDFDSolution
 
 
 class Namespace(argparse.Namespace):
@@ -55,8 +55,13 @@ if solution is None:
     raise ValueError(message)
 
 
-print(f"Got solution with profit = {-solution.cost}:\n{solution}")
-solution.assert_feasible()
+print(f"Got solution with profit = {-solution.cost} after {total_time:.4f}s:\n{solution}")
+try:
+    solution.assert_feasible()
+except InfeasibleSolution:
+    feasible = False
+else:
+    feasible = True
 
 
 if namespace.dump is not None:
@@ -70,6 +75,7 @@ if namespace.dump is not None:
             "mutation_rate": namespace.mutation_rate,
             "solution": {
                 "profit": -solution.cost,
+                "feasible": feasible,
                 "truck_paths": solution.truck_paths,
                 "drone_paths": solution.drone_paths,
             },

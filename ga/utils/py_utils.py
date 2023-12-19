@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Iterable, Sequence, TypeVar, overload
+from typing import Any, Iterable, Sequence, TypeVar, Union, overload
 
 from .cpp_utils import weighted_random
 
@@ -64,9 +64,16 @@ def isclose(first: Any, second: Any, /) -> bool:
         return abs(first - second) < 0.0001
 
 
-def positive_max(values: Iterable[float], /) -> float:
+def positive_max(*values: Union[float, Iterable[float]]) -> float:
     """Equivalent to max(0.0, 0.0, *values)"""
-    return max(0.0, 0.0, *values)
+    result = 0.0
+    for value in values:
+        if isinstance(value, (float, int)):
+            result = max(result, value)
+        else:
+            result = max(result, result, *value)  # must have at least 2 arguments
+
+    return result
 
 
 def value(__x: _T, /) -> _T:

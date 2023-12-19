@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import itertools
 import random
-from functools import cache
 from typing import ClassVar, Final, FrozenSet, Iterable, List, Optional, Sequence, Set, Tuple, Type, Union, TYPE_CHECKING, final, overload
 
 if TYPE_CHECKING:
@@ -82,7 +81,7 @@ class VRPDFDIndividual(BaseIndividual):
     def calculate_distance(path: Union[Sequence[int], FrozenSet[int]]) -> float:
         config = ProblemConfig()
         if isinstance(path, frozenset):
-            distance, _ = VRPDFDIndividual.path_order(path)
+            distance, _ = config.path_order(path)
             return distance
 
         distance = 0.0
@@ -92,19 +91,6 @@ class VRPDFDIndividual(BaseIndividual):
             distance += config.distances[current][next]
 
         return distance
-
-    @staticmethod
-    @cache
-    def path_order(path: FrozenSet[int]) -> Tuple[float, Tuple[int, ...]]:  # Return path as a tuple due to functools.cache
-        config = ProblemConfig()
-        customers = tuple(path)
-        locations = [config.customers[i].location for i in customers]
-        distance, path_index = tsp_solver(locations, first=customers.index(0))
-
-        ordered = list(map(customers.__getitem__, path_index))
-        ordered.append(0)
-
-        return distance, tuple(ordered)
 
     def flatten(self) -> List[FrozenSet[int]]:
         return list(itertools.chain(self.truck_paths, itertools.chain(*self.drone_paths)))
@@ -196,7 +182,7 @@ class VRPDFDIndividual(BaseIndividual):
             total_weights = [0.0] * len(config.customers)
             truck_paths: List[List[Tuple[int, float]]] = []
             for route, path in enumerate(self.truck_paths, start=1):
-                _, cycle = self.path_order(path)
+                _, cycle = config.path_order(path)
 
                 truck_paths.append([])
                 for customer in cycle:
@@ -210,7 +196,7 @@ class VRPDFDIndividual(BaseIndividual):
             flatten_drone_paths: List[List[Tuple[int, float]]] = []
             for route, path in enumerate(itertools.chain(*self.drone_paths), start=1 + config.trucks_count):
                 flatten_drone_paths.append([])
-                _, cycle = self.path_order(path)
+                _, cycle = config.path_order(path)
 
                 for customer in cycle:
                     if customer == 0:

@@ -58,6 +58,7 @@ class VRPDFDSolution(SingleObjectiveSolution[VRPDFDIndividual]):
         self.__cost = cost
 
     def assert_feasible(self) -> None:
+        """Raise InfeasibleSolution if solution is infeasible"""
         config = ProblemConfig()
 
         if positive_max(self.calculate_total_weight(path) for path in self.truck_paths) > config.truck.capacity:
@@ -159,15 +160,15 @@ class VRPDFDSolution(SingleObjectiveSolution[VRPDFDIndividual]):
             )  # We want to maximize profit i.e. minimize cost = -profit
 
             # Fine for exceeding time limit
-            result += 100000 * (
-                sum(max(0.0, self.calculate_total_weight(path) - config.truck.capacity) for path in self.truck_paths)
-                + sum(max(0.0, self.calculate_total_weight(path) - config.drone.capacity) for paths in self.drone_paths for path in paths)
-                + max(0.0, positive_max(self.truck_distances) * config.truck.speed - config.time_limit)
-                + max(0.0, positive_max(itertools.chain(*self.drone_distances)) * config.drone.speed - config.drone.time_limit)
-                + sum(max(0.0, sum(distances) * config.drone.speed - config.time_limit) for distances in self.drone_distances)
+            result += 10 ** 5 * (
+                sum(positive_max(self.calculate_total_weight(path) / config.truck.capacity - 1) for path in self.truck_paths)
+                + sum(positive_max(self.calculate_total_weight(path) / config.drone.capacity - 1) for paths in self.drone_paths for path in paths)
+                + sum(positive_max(distance / config.truck.speed / config.time_limit - 1) for distance in self.truck_distances)
+                + sum(positive_max(distance / config.drone.speed / config.drone.time_limit - 1) for distances in self.drone_distances for distance in distances)
+                + sum(positive_max(sum(distances) / config.drone.speed / config.time_limit - 1) for distances in self.drone_distances)
             )
 
-            for index, customer in enumerate(config.customers):
+            for index, customer in enumerate(config.customers[1:], start=1):
                 total = 0.0
                 for path in self.truck_paths:
                     total += sum(weight for customer_index, weight in path if customer_index == index)
@@ -176,10 +177,7 @@ class VRPDFDSolution(SingleObjectiveSolution[VRPDFDIndividual]):
                     for path in paths:
                         total += sum(weight for customer_index, weight in path if customer_index == index)
 
-                result += 100000 * (
-                    max(0.0, customer.low - total)
-                    + max(0.0, total - customer.high)
-                )
+                result += 10 ** 5 * (positive_max(customer.low - total) + positive_max(total - customer.high)) / customer.high
 
             self.__cost = result
 

@@ -6,9 +6,10 @@ import json
 from dataclasses import dataclass
 from math import sqrt
 from os import path
-from typing import ClassVar, Final, Optional, Tuple, TYPE_CHECKING, final
+from typing import ClassVar, Dict, Final, FrozenSet, Optional, Tuple, TYPE_CHECKING, final
 
 from .errors import ConfigDataNotFound, ConfigImportException, ConfigImportTwice
+from ..utils import tsp_solver
 
 
 __all__ = (
@@ -41,6 +42,8 @@ class Vehicle:
 class ProblemConfig:
 
     __slots__ = (
+        "__tsp_cache",
+
         "trucks_count",
         "drones_count",
         "customers",
@@ -58,6 +61,8 @@ class ProblemConfig:
     __instance__: Optional[ProblemConfig] = None
     problem: ClassVar[Optional[str]] = None
     if TYPE_CHECKING:
+        __tsp_cache: Dict[FrozenSet[int], Tuple[float, Tuple[int, ...]]]
+
         trucks_count: Final[int]
         drones_count: Final[int]
         customers: Final[Tuple[Customer, ...]]
@@ -72,7 +77,7 @@ class ProblemConfig:
         # Algorithm config
         mutation_rate: float
 
-    def __new__(cls, _: Optional[str] = None, /) -> ProblemConfig:
+    def __new__(cls, problem: Optional[str] = None, /) -> ProblemConfig:
         if cls.__instance__ is None:
             cls.__instance__ = super().__new__(cls)
 
@@ -89,6 +94,7 @@ class ProblemConfig:
             raise ConfigDataNotFound
 
         ProblemConfig.problem = problem = problem.removesuffix(".csv")
+        self.__tsp_cache = {}
         try:
             config_path = "problems/vrpdfd/params.csv"
             with open(config_path, "r", encoding="utf-8", newline="") as file:
@@ -151,3 +157,18 @@ class ProblemConfig:
         cls.__instance__ = None
         cls.problem = None
         return cls(problem)
+
+    def path_order(self, path: FrozenSet[int]) -> Tuple[float, Tuple[int, ...]]:
+        try:
+            return self.__tsp_cache[path]
+        except KeyError:
+            config = ProblemConfig()
+            customers = tuple(path)
+            locations = [config.customers[i].location for i in customers]
+            distance, path_index = tsp_solver(locations, first=customers.index(0))
+
+            ordered = list(map(customers.__getitem__, path_index))
+            ordered.append(0)
+
+            self.__tsp_cache[path] = distance, tuple(ordered)
+            return self.__tsp_cache[path]

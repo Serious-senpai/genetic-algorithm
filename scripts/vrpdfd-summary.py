@@ -6,6 +6,7 @@ from typing import Any, List, Optional, Tuple, TypedDict
 
 class SolutionInfo(TypedDict):
     profit: float
+    feasible: bool
     truck_paths: List[List[Tuple[int, float]]]
     drone_paths: List[List[List[Tuple[int, float]]]]
 
@@ -40,6 +41,7 @@ field_names = (
     "Population size",
     "Mutation rate",
     "Profit",
+    "Feasible",
     "Truck paths",
     "Drone paths",
     "Computation time",
@@ -65,6 +67,7 @@ with open(summary_dir / "vrpdfd-summary.csv", "w") as csvfile:
                 data["population_size"],
                 data["mutation_rate"],
                 data["solution"]["profit"],
+                data["solution"]["feasible"],
                 wrap_double_quotes(data["solution"]["truck_paths"]),
                 wrap_double_quotes(data["solution"]["drone_paths"]),
                 data["time"],
