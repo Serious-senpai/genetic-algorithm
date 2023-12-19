@@ -4,12 +4,16 @@ from typing import List, Optional, Sequence, Set, Tuple
 
 
 __all__ = (
+    "fake_tsp_solver",
     "maximum_flow",
     "maximum_weighted_flow",
     "tsp_solver",
     "weighted_flows_with_demands",
     "weighted_random",
 )
+
+
+def fake_tsp_solver(cities: Sequence[Tuple[float, float]], *, first: int = 0) -> Tuple[float, List[int]]: ...
 
 
 def weighted_flows_with_demands(

@@ -18,6 +18,7 @@ class SolutionJSON(TypedDict):
     mutation_rate: float
     solution: SolutionInfo
     time: str
+    fake_tsp_solver: bool
     last_improved: int
     extra: Optional[str]
 
@@ -45,6 +46,7 @@ field_names = (
     "Truck paths",
     "Drone paths",
     "Computation time",
+    "Fake TSP solver",
     "Last improved",
     "Extra",
     "MILP profit",
@@ -71,6 +73,7 @@ with open(summary_dir / "vrpdfd-summary.csv", "w") as csvfile:
                 wrap_double_quotes(data["solution"]["truck_paths"]),
                 wrap_double_quotes(data["solution"]["drone_paths"]),
                 data["time"],
+                data["fake_tsp_solver"],
                 data["last_improved"],
                 data["extra"],
             ]

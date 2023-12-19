@@ -6,6 +6,7 @@ import traceback
 from pathlib import Path
 from typing import Optional, TYPE_CHECKING
 
+from ga import utils
 from ga.vrpdfd import InfeasibleSolution, ProblemConfig, VRPDFDIndividual, VRPDFDSolution
 
 
@@ -16,6 +17,7 @@ class Namespace(argparse.Namespace):
         size: int
         mutation_rate: float
         verbose: bool
+        fake_tsp_solver: bool
         dump: Optional[str]
         extra: Optional[str]
 
@@ -26,6 +28,7 @@ parser.add_argument("-i", "--iterations", default=200, type=int, help="the numbe
 parser.add_argument("-s", "--size", default=100, type=int, help="the population size (default: 100)")
 parser.add_argument("-m", "--mutation-rate", default=0.6, type=float, help="the mutation rate (default: 0.6)")
 parser.add_argument("-v", "--verbose", action="store_true", help="turn on verbose mode")
+parser.add_argument("--fake-tsp-solver", action="store_true", help="use fake TSP solver")
 parser.add_argument("--dump", type=str, help="dump the solution to a file")
 parser.add_argument("--extra", type=str, help="extra data dump to file specified by --dump")
 
@@ -33,6 +36,11 @@ parser.add_argument("--extra", type=str, help="extra data dump to file specified
 namespace = Namespace()
 parser.parse_args(namespace=namespace)
 print(namespace)
+
+
+if namespace.fake_tsp_solver:
+    utils.tsp_solver = utils.fake_tsp_solver
+    print(f"Using fake TSP solver {utils.tsp_solver!r}")
 
 
 config = ProblemConfig(namespace.problem)
@@ -82,6 +90,7 @@ if namespace.dump is not None:
                 "drone_paths": solution.drone_paths,
             },
             "time": total_time,
+            "fake_tsp_solver": namespace.fake_tsp_solver,
             "last_improved": VRPDFDIndividual.genetic_algorithm_last_improved,
             "extra": namespace.extra,
         }
