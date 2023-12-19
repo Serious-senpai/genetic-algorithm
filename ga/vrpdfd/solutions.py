@@ -61,20 +61,25 @@ class VRPDFDSolution(SingleObjectiveSolution[VRPDFDIndividual]):
         """Raise InfeasibleSolution if solution is infeasible"""
         config = ProblemConfig()
 
-        if positive_max(self.calculate_total_weight(path) for path in self.truck_paths) > config.truck.capacity:
-            raise InfeasibleSolution("Truck capacity exceeded")
+        exceed = positive_max(self.calculate_total_weight(path) for path in self.truck_paths) - config.truck.capacity
+        if exceed > 0.0:
+            raise InfeasibleSolution(f"Truck capacity exceeded by {exceed}")
 
-        if positive_max(self.calculate_total_weight(path) for paths in self.drone_paths for path in paths) > config.drone.capacity:
-            raise InfeasibleSolution("Drone capacity exceeded")
+        exceed = positive_max(self.calculate_total_weight(path) for paths in self.drone_paths for path in paths) - config.drone.capacity
+        if exceed > 0.0:
+            raise InfeasibleSolution(f"Drone capacity exceeded by {exceed}")
 
-        if positive_max(self.truck_distances) * config.truck.speed > config.time_limit:
-            raise InfeasibleSolution("Truck paths violate system working time")
+        exceed = positive_max(self.truck_distances) / config.truck.speed - config.time_limit
+        if exceed > 0.0:
+            raise InfeasibleSolution(f"Truck paths violate system working time by {exceed}")
 
-        if positive_max(itertools.chain(*self.drone_distances)) * config.drone.speed > config.drone.time_limit:
-            raise InfeasibleSolution("Drone paths violate flight time")
+        exceed = positive_max(itertools.chain(*self.drone_distances)) / config.drone.speed - config.drone.time_limit
+        if exceed > 0.0:
+            raise InfeasibleSolution(f"Drone paths violate flight time by {exceed}")
 
-        if any(sum(distances) * config.drone.speed > config.time_limit for distances in self.drone_distances):
-            raise InfeasibleSolution("Drone paths violate system working time")
+        exceed = max(sum(distances) / config.drone.speed - config.time_limit for distances in self.drone_distances)
+        if exceed > 0.0:
+            raise InfeasibleSolution(f"Drone paths violate system working time by {exceed}")
 
         for index, customer in enumerate(config.customers):
             total = 0.0
@@ -159,8 +164,10 @@ class VRPDFDSolution(SingleObjectiveSolution[VRPDFDIndividual]):
                 - self.revenue
             )  # We want to maximize profit i.e. minimize cost = -profit
 
+            fine_coefficient = 10 ** 9
+
             # Fine for exceeding time limit
-            result += 10 ** 5 * (
+            result += fine_coefficient * (
                 sum(positive_max(self.calculate_total_weight(path) / config.truck.capacity - 1) for path in self.truck_paths)
                 + sum(positive_max(self.calculate_total_weight(path) / config.drone.capacity - 1) for paths in self.drone_paths for path in paths)
                 + sum(positive_max(distance / config.truck.speed / config.time_limit - 1) for distance in self.truck_distances)
@@ -177,7 +184,7 @@ class VRPDFDSolution(SingleObjectiveSolution[VRPDFDIndividual]):
                     for path in paths:
                         total += sum(weight for customer_index, weight in path if customer_index == index)
 
-                result += 10 ** 5 * (positive_max(customer.low - total) + positive_max(total - customer.high)) / customer.high
+                result += fine_coefficient * (positive_max(customer.low - total) + positive_max(total - customer.high)) / customer.high
 
             self.__cost = result
 
