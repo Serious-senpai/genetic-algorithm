@@ -147,7 +147,7 @@ class ProblemConfig:
         return len(self.customers) - 1
 
     @classmethod
-    def reset_singleton(cls, problem: Optional[str] = None, /) -> None:
+    def reset_singleton(cls, problem: str, /) -> ProblemConfig:
         cls.__instance__ = None
         cls.problem = None
-        cls(problem)
+        return cls(problem)

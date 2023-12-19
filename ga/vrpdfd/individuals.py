@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import itertools
 import random
+from functools import cache
 from typing import ClassVar, Final, FrozenSet, Iterable, List, Optional, Sequence, Set, Tuple, Type, Union, TYPE_CHECKING, final, overload
 
 if TYPE_CHECKING:
@@ -93,7 +94,8 @@ class VRPDFDIndividual(BaseIndividual):
         return distance
 
     @staticmethod
-    def path_order(path: FrozenSet[int]) -> Tuple[float, List[int]]:
+    @cache
+    def path_order(path: FrozenSet[int]) -> Tuple[float, Tuple[int, ...]]:  # Return path as a tuple due to functools.cache
         config = ProblemConfig()
         customers = tuple(path)
         locations = [config.customers[i].location for i in customers]
@@ -102,7 +104,7 @@ class VRPDFDIndividual(BaseIndividual):
         ordered = list(map(customers.__getitem__, path_index))
         ordered.append(0)
 
-        return distance, ordered
+        return distance, tuple(ordered)
 
     def flatten(self) -> List[FrozenSet[int]]:
         return list(itertools.chain(self.truck_paths, itertools.chain(*self.drone_paths)))
