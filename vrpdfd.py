@@ -2,6 +2,7 @@ import argparse
 import json
 import random
 import time
+import traceback
 from pathlib import Path
 from typing import Optional, TYPE_CHECKING
 
@@ -59,6 +60,7 @@ print(f"Got solution with profit = {-solution.cost} after {total_time:.4f}s:\n{s
 try:
     solution.assert_feasible()
 except InfeasibleSolution:
+    traceback.print_exc()
     feasible = False
 else:
     feasible = True
