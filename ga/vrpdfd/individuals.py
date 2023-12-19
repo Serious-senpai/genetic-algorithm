@@ -10,7 +10,7 @@ if TYPE_CHECKING:
 from .config import ProblemConfig
 from .errors import PopulationInitializationException
 from ..abc import SingleObjectiveIndividual
-from ..utils import maximum_weighted_flow, tsp_solver, weighted_flows_with_demands, weighted_random_choice
+from ..utils import maximum_weighted_flow, weighted_flows_with_demands, weighted_random_choice
 if TYPE_CHECKING:
     from .solutions import VRPDFDSolution
 
