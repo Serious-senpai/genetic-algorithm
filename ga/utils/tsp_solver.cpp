@@ -1,6 +1,5 @@
 #pragma once
 
-#include <algorithm>
 #include <vector>
 
 #include "helpers.cpp"
@@ -11,22 +10,12 @@ const unsigned GA_GENERATIONS_COUNT = 100;
 
 const double GA_MUTATION_RATE = 0.4;
 
-void rotate_path(std::vector<unsigned> &path, unsigned first)
-{
-    auto first_iter = std::find(path.begin(), path.end(), first);
-    if (first_iter == path.end())
-    {
-        throw std::invalid_argument(format("First city %d not found in path", first));
-    }
-
-    std::rotate(path.begin(), first_iter, path.end());
-}
-
 std::pair<double, unsigned> __held_karp_solve(
-    unsigned bitmask,
-    unsigned city,
-    std::vector<std::vector<double>> &distances,
-    std::vector<std::vector<std::pair<double, unsigned>>> &dp, unsigned level = 0)
+    const unsigned bitmask,
+    const unsigned city,
+    const std::vector<std::vector<double>> &distances,
+    std::vector<std::vector<std::pair<double, unsigned>>> &dp,
+    const unsigned level = 0)
 {
     if (dp[bitmask][city].first != -1.0)
     {
@@ -61,7 +50,7 @@ std::pair<double, unsigned> __held_karp_solve(
     return dp[bitmask][city] = result;
 }
 
-std::pair<double, std::vector<unsigned>> __held_karp(std::vector<std::vector<double>> &distances, unsigned first)
+std::pair<double, std::vector<unsigned>> __held_karp(const std::vector<std::vector<double>> &distances, const unsigned first)
 {
     // https://en.wikipedia.org/wiki/Held-Karp_algorithm
     unsigned n = distances.size();
@@ -94,11 +83,11 @@ std::pair<double, std::vector<unsigned>> __held_karp(std::vector<std::vector<dou
         path.push_back(path_end);
     }
 
-    rotate_path(path, first);
+    rotate_to_first(path, first);
     return {distance_end.first, path};
 }
 
-std::pair<std::vector<unsigned>, std::vector<unsigned>> crossover(std::vector<unsigned> &first, std::vector<unsigned> &second)
+std::pair<std::vector<unsigned>, std::vector<unsigned>> crossover(const std::vector<unsigned> &first, const std::vector<unsigned> &second)
 {
     unsigned n = first.size();
     if (n != second.size())
@@ -107,7 +96,7 @@ std::pair<std::vector<unsigned>, std::vector<unsigned>> crossover(std::vector<un
     }
 
     std::vector<unsigned> first_child(n, -1), second_child(n, -1);
-    unsigned crossover_point = _random_int(1, n - 1);
+    unsigned crossover_point = random_int(1, n - 1);
 
     std::vector<bool> in_first_child(n);
     for (unsigned i = 0; i < n; i++)
@@ -143,18 +132,19 @@ std::pair<std::vector<unsigned>, std::vector<unsigned>> crossover(std::vector<un
 
 void mutate(std::vector<unsigned> &individual)
 {
-    unsigned first = _random_int(0, individual.size() - 1),
-             second = _random_int(0, individual.size() - 1);
+    unsigned n = individual.size(),
+             first = random_int(0, n - 1),
+             second = random_int(0, n - 1);
     while (first == second)
     {
-        first = _random_int(0, individual.size() - 1);
-        second = _random_int(0, individual.size() - 1);
+        first = random_int(0, n - 1);
+        second = random_int(0, n - 1);
     }
 
     std::swap(individual[first], individual[second]);
 }
 
-double evaluate(std::vector<unsigned> &individual, std::vector<std::vector<double>> &distances)
+double evaluate(const std::vector<unsigned> &individual, const std::vector<std::vector<double>> &distances)
 {
     double result = 0.0;
     unsigned n = individual.size();
@@ -167,7 +157,7 @@ double evaluate(std::vector<unsigned> &individual, std::vector<std::vector<doubl
     return result;
 }
 
-std::pair<double, std::vector<unsigned>> tsp_solver(std::vector<std::pair<double, double>> &cities, unsigned first = 0)
+std::pair<double, std::vector<unsigned>> tsp_solver(const std::vector<std::pair<double, double>> &cities, const unsigned first = 0)
 {
     unsigned n = cities.size();
     if (n == 0)
@@ -178,7 +168,7 @@ std::pair<double, std::vector<unsigned>> tsp_solver(std::vector<std::pair<double
     if (n == 1)
     {
         std::vector<unsigned> path = {0};
-        rotate_path(path, first);
+        rotate_to_first(path, first);
         return {0.0, path};
     }
 
@@ -196,14 +186,14 @@ std::pair<double, std::vector<unsigned>> tsp_solver(std::vector<std::pair<double
     if (n == 2)
     {
         std::vector<unsigned> path = {0, 1};
-        rotate_path(path, first);
+        rotate_to_first(path, first);
         return {2 * distances[0][1], path};
     }
 
     if (n == 3)
     {
         std::vector<unsigned> path = {0, 1, 2};
-        rotate_path(path, first);
+        rotate_to_first(path, first);
         return {distances[0][1] + distances[1][2] + distances[2][0], path};
     }
 
@@ -244,20 +234,20 @@ std::pair<double, std::vector<unsigned>> tsp_solver(std::vector<std::pair<double
             while (population.size() < 2 * GA_POPULATION_SIZE)
             {
                 // Select 2 random parents
-                unsigned first = _random_int(0, population.size() - 1),
-                         second = _random_int(0, population.size() - 1);
+                unsigned first = random_int(0, population.size() - 1),
+                         second = random_int(0, population.size() - 1);
                 while (first == second)
                 {
-                    first = _random_int(0, population.size() - 1);
-                    second = _random_int(0, population.size() - 1);
+                    first = random_int(0, population.size() - 1);
+                    second = random_int(0, population.size() - 1);
                 }
 
                 auto results = crossover(population[first], population[second]);
-                if (_random_double(0.0, 1.0) < GA_MUTATION_RATE)
+                if (random_double(0.0, 1.0) < GA_MUTATION_RATE)
                 {
                     mutate(results.first);
                 }
-                if (_random_double(0.0, 1.0) < GA_MUTATION_RATE)
+                if (random_double(0.0, 1.0) < GA_MUTATION_RATE)
                 {
                     mutate(results.second);
                 }
@@ -286,6 +276,7 @@ std::pair<double, std::vector<unsigned>> tsp_solver(std::vector<std::pair<double
             history.push_back(result_cost);
         }
 
+        rotate_to_first(result, first);
         return {result_cost, result};
     }
 }

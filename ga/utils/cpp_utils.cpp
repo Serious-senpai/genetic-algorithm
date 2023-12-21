@@ -5,7 +5,7 @@
 #include "maximum_flow.cpp"
 #include "maximum_weighted_flow.cpp"
 #include "tsp_solver.cpp"
-#include "weighted_flows_with_demands.cpp"
+#include "flows_with_demands.cpp"
 #include "weighted_random.cpp"
 
 namespace py = pybind11;
@@ -17,8 +17,8 @@ PYBIND11_MODULE(cpp_utils, m)
         py::arg("cities"), py::kw_only(), py::arg("first") = 0,
         py::call_guard<py::gil_scoped_release>());
     m.def(
-        "weighted_flows_with_demands", &weighted_flows_with_demands,
-        py::kw_only(), py::arg("size"), py::arg("demands"), py::arg("capacities"), py::arg("neighbors"), py::arg("flow_weights"), py::arg("source"), py::arg("sink"),
+        "flows_with_demands", &flows_with_demands,
+        py::kw_only(), py::arg("size"), py::arg("demands"), py::arg("capacities"), py::arg("neighbors"), py::arg("source"), py::arg("sink"),
         py::call_guard<py::gil_scoped_release>());
     m.def(
         "maximum_flow", &maximum_flow,

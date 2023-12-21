@@ -59,7 +59,7 @@ def isclose(
 
 def isclose(first: Any, second: Any, /) -> bool:
     try:
-        return all(isclose(f, s) for f, s in zip(first, second))
+        return all(isclose(f, s) for f, s in zip(first, second, strict=True))
     except TypeError:
         return abs(first - second) < 0.0001
 

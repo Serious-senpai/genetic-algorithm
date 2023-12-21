@@ -5,12 +5,12 @@
 
 #include "helpers.cpp"
 
-double pow_2(double x)
+double pow_2(const double x)
 {
     return x * x;
 }
 
-std::pair<double, std::vector<unsigned>> fake_tsp_solver(std::vector<std::pair<double, double>> &cities, unsigned first = 0)
+std::pair<double, std::vector<unsigned>> fake_tsp_solver(const std::vector<std::pair<double, double>> &cities, const unsigned first = 0)
 {
     unsigned n = cities.size();
 
@@ -21,8 +21,7 @@ std::pair<double, std::vector<unsigned>> fake_tsp_solver(std::vector<std::pair<d
     }
 
     std::shuffle(result.begin(), result.end(), rng);
-    unsigned first_index = std::find(result.begin(), result.end(), first) - result.begin();
-    std::swap(result[0], result[first_index]);
+    rotate_to_first(result, first);
 
     double distance = 0.0;
     for (unsigned i = 0; i < n; i++)

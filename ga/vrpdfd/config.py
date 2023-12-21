@@ -9,6 +9,7 @@ from os import path
 from typing import ClassVar, Dict, Final, FrozenSet, Optional, Tuple, TYPE_CHECKING, final
 
 from .errors import ConfigDataNotFound, ConfigImportException, ConfigImportTwice
+from .utils import set_customers
 from ..utils import tsp_solver
 
 
@@ -58,7 +59,7 @@ class ProblemConfig:
         # Algorithm config
         "mutation_rate",
     )
-    __instance__: Optional[ProblemConfig] = None
+    __instance__: ClassVar[Optional[ProblemConfig]] = None
     problem: ClassVar[Optional[str]] = None
     if TYPE_CHECKING:
         __tsp_cache: Dict[FrozenSet[int], Tuple[float, Tuple[int, ...]]]
@@ -144,6 +145,12 @@ class ProblemConfig:
 
                 self.distances = tuple(map(tuple, distances))
 
+                set_customers(
+                    [customer.low for customer in customers],
+                    [customer.high for customer in customers],
+                    [customer.w for customer in customers],
+                )
+
         except BaseException as error:
             raise ConfigImportException(error) from error
 
@@ -161,10 +168,10 @@ class ProblemConfig:
     def path_order(self, path: FrozenSet[int]) -> Tuple[float, Tuple[int, ...]]:
         try:
             return self.__tsp_cache[path]
+
         except KeyError:
-            config = ProblemConfig()
             customers = tuple(path)
-            locations = [config.customers[i].location for i in customers]
+            locations = [self.customers[i].location for i in customers]
             distance, path_index = tsp_solver(locations, first=customers.index(0))
 
             ordered = list(map(customers.__getitem__, path_index))

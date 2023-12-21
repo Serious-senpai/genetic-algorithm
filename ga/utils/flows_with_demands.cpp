@@ -8,18 +8,16 @@
 
 #include "helpers.cpp"
 #include "maximum_flow.cpp"
-#include "maximum_weighted_flow.cpp"
 
 void check_constraints(
-    unsigned size,
-    std::vector<std::vector<double>> &demands,
-    std::vector<std::vector<double>> &capacities,
-    std::vector<std::set<unsigned>> &neighbors,
-    std::vector<std::vector<double>> &flow_weights,
-    unsigned source,
-    unsigned sink)
+    const unsigned size,
+    const std::vector<std::vector<double>> &demands,
+    const std::vector<std::vector<double>> &capacities,
+    const std::vector<std::set<unsigned>> &neighbors,
+    const unsigned source,
+    const unsigned sink)
 {
-    check_constraints(size, capacities, neighbors, flow_weights, source, sink);
+    check_constraints(size, capacities, neighbors, source, sink);
     for (unsigned i = 0; i < size; i++)
     {
         for (unsigned j = 0; j < size; j++)
@@ -34,16 +32,15 @@ void check_constraints(
     }
 }
 
-std::optional<std::pair<double, std::vector<std::vector<double>>>> weighted_flows_with_demands(
-    unsigned size,
-    std::vector<std::vector<double>> &demands,
-    std::vector<std::vector<double>> &capacities,
-    std::vector<std::set<unsigned>> &neighbors,
-    std::vector<std::vector<double>> &flow_weights,
-    unsigned source,
-    unsigned sink)
+std::optional<std::vector<std::vector<double>>> flows_with_demands(
+    const unsigned size,
+    const std::vector<std::vector<double>> &demands,
+    const std::vector<std::vector<double>> &capacities,
+    const std::vector<std::set<unsigned>> &neighbors,
+    const unsigned source,
+    const unsigned sink)
 {
-    check_constraints(size, demands, capacities, neighbors, flow_weights, source, sink);
+    check_constraints(size, demands, capacities, neighbors, source, sink);
 
     std::vector<double> demands_in(size), demands_out(size);
     for (unsigned i = 0; i < size; i++)
@@ -89,7 +86,7 @@ std::optional<std::pair<double, std::vector<std::vector<double>>>> weighted_flow
     {
         if (satisfy_demands.second[size][i] < new_capacities[size][i])
         {
-            return std::optional<std::pair<double, std::vector<std::vector<double>>>>();
+            return std::optional<std::vector<std::vector<double>>>();
         }
     }
 
@@ -98,22 +95,18 @@ std::optional<std::pair<double, std::vector<std::vector<double>>>> weighted_flow
         for (auto j : neighbors[i])
         {
             satisfy_demands.second[i][j] += demands[i][j]; // add flows from s'-v and u-t' back to u-v
-            capacities[i][j] -= satisfy_demands.second[i][j];
+            // capacities[i][j] -= satisfy_demands.second[i][j];
         }
     }
 
-    auto extend = maximum_weighted_flow_no_checking(size, capacities, neighbors, flow_weights, source, sink);
-
-    double result = 0.0;
     std::vector<std::vector<double>> flow(size, std::vector<double>(size));
     for (unsigned i = 0; i < size; i++)
     {
         for (auto j : neighbors[i])
         {
-            flow[i][j] = satisfy_demands.second[i][j] + extend.second[i][j];
-            result += flow[i][j] * flow_weights[i][j];
+            flow[i][j] = satisfy_demands.second[i][j];
         }
     }
 
-    return std::pair<double, std::vector<std::vector<double>>>{result, flow};
+    return flow;
 }

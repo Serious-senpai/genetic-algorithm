@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import itertools
-from typing import Final, Optional, Sequence, Tuple, TYPE_CHECKING, final
+from typing import Final, List, Optional, Sequence, Tuple, TYPE_CHECKING, final
 
 from .config import ProblemConfig
 from .errors import InfeasibleSolution
@@ -61,25 +61,26 @@ class VRPDFDSolution(SingleObjectiveSolution[VRPDFDIndividual]):
         """Raise InfeasibleSolution if solution is infeasible"""
         config = ProblemConfig()
 
+        errors: List[str] = []
         exceed = positive_max(self.calculate_total_weight(path) for path in self.truck_paths) - config.truck.capacity
         if exceed > 0.0:
-            raise InfeasibleSolution(f"Truck capacity exceeded by {exceed}")
+            errors.append(f"Truck capacity exceeded by {exceed}")
 
         exceed = positive_max(self.calculate_total_weight(path) for paths in self.drone_paths for path in paths) - config.drone.capacity
         if exceed > 0.0:
-            raise InfeasibleSolution(f"Drone capacity exceeded by {exceed}")
+            errors.append(f"Drone capacity exceeded by {exceed}")
 
         exceed = positive_max(self.truck_distances) / config.truck.speed - config.time_limit
         if exceed > 0.0:
-            raise InfeasibleSolution(f"Truck paths violate system working time by {exceed}")
+            errors.append(f"Truck paths violate system working time by {exceed}")
 
         exceed = positive_max(itertools.chain(*self.drone_distances)) / config.drone.speed - config.drone.time_limit
         if exceed > 0.0:
-            raise InfeasibleSolution(f"Drone paths violate flight time by {exceed}")
+            errors.append(f"Drone paths violate flight time by {exceed}")
 
         exceed = max(sum(distances) / config.drone.speed - config.time_limit for distances in self.drone_distances)
         if exceed > 0.0:
-            raise InfeasibleSolution(f"Drone paths violate system working time by {exceed}")
+            errors.append(f"Drone paths violate system working time by {exceed}")
 
         for index, customer in enumerate(config.customers):
             total = 0.0
@@ -91,7 +92,10 @@ class VRPDFDSolution(SingleObjectiveSolution[VRPDFDIndividual]):
                     total += sum(weight for customer_index, weight in path if customer_index == index)
 
             if total < customer.low or total > customer.high:
-                raise InfeasibleSolution(f"Customer {index} has weight {total} outside [{customer.low}, {customer.high}]")
+                errors.append(f"Customer {index} has weight {total} outside [{customer.low}, {customer.high}]")
+
+        if len(errors) > 0:
+            raise InfeasibleSolution("Solution is infeasible\n" + "\n".join(errors))
 
     @staticmethod
     def calculate_total_weight(path: Sequence[Tuple[int, float]]) -> float:

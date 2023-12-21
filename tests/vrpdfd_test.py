@@ -81,3 +81,11 @@ def test_decode_10_5_3() -> None:
         ],
     ).decode()
     check_solution(solution, expected=-22063.12298397885)
+
+
+def test_decode_100_20_1() -> None:
+    vrpdfd.ProblemConfig.reset_singleton("100.20.1")
+    solution = next(iter(vrpdfd.VRPDFDIndividual.initial(solution_cls=vrpdfd.VRPDFDSolution, size=1))).decode()
+
+    print(solution)
+    solution.assert_feasible()

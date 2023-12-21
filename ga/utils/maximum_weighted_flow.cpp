@@ -9,12 +9,12 @@
 #include "maximum_flow.cpp"
 
 std::pair<std::pair<double, double>, std::vector<unsigned>> __weighted_flow(
-    unsigned size,
-    std::vector<std::vector<double>> &capacities,
-    std::vector<std::set<unsigned>> &neighbors,
-    std::vector<std::vector<double>> &flow_weights,
-    unsigned source,
-    unsigned sink)
+    const unsigned size,
+    const std::vector<std::vector<double>> &capacities,
+    const std::vector<std::set<unsigned>> &neighbors,
+    const std::vector<std::vector<double>> &flow_weights,
+    const unsigned source,
+    const unsigned sink)
 {
     double sink_flow = 0.0;
     std::vector<unsigned> parents(size, size);
@@ -61,12 +61,12 @@ std::pair<std::pair<double, double>, std::vector<unsigned>> __weighted_flow(
 }
 
 std::pair<double, std::vector<std::vector<double>>> maximum_weighted_flow_no_checking(
-    unsigned size,
-    std::vector<std::vector<double>> &capacities,
-    std::vector<std::set<unsigned>> &neighbors,
-    std::vector<std::vector<double>> &flow_weights,
-    unsigned source,
-    unsigned sink)
+    const unsigned size,
+    const std::vector<std::vector<double>> &capacities,
+    const std::vector<std::set<unsigned>> &neighbors,
+    const std::vector<std::vector<double>> &flow_weights,
+    const unsigned source,
+    const unsigned sink)
 {
     std::vector<std::vector<double>> complete_capacities(size, std::vector<double>(size));
     for (unsigned i = 0; i < size; i++)
@@ -139,12 +139,12 @@ std::pair<double, std::vector<std::vector<double>>> maximum_weighted_flow_no_che
 }
 
 void check_constraints(
-    unsigned size,
-    std::vector<std::vector<double>> &capacities,
-    std::vector<std::set<unsigned>> &neighbors,
-    std::vector<std::vector<double>> &flow_weights,
-    unsigned source,
-    unsigned sink)
+    const unsigned size,
+    const std::vector<std::vector<double>> &capacities,
+    const std::vector<std::set<unsigned>> &neighbors,
+    const std::vector<std::vector<double>> &flow_weights,
+    const unsigned source,
+    const unsigned sink)
 {
     check_constraints(size, capacities, neighbors, source, sink);
     for (unsigned i = 0; i < size; i++)

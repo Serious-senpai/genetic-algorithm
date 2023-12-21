@@ -9,8 +9,9 @@ if TYPE_CHECKING:
 
 from .config import ProblemConfig
 from .errors import PopulationInitializationException
+from .utils import paths_from_flow_chained
 from ..abc import SingleObjectiveIndividual
-from ..utils import maximum_weighted_flow, weighted_flows_with_demands, weighted_random_choice
+from ..utils import flows_with_demands, weighted_random_choice
 if TYPE_CHECKING:
     from .solutions import VRPDFDSolution
 
@@ -128,133 +129,34 @@ class VRPDFDIndividual(BaseIndividual):
         if self.__decoded is None:
             config = ProblemConfig()
 
-            network_size = 1 + (config.trucks_count + sum(map(len, self.drone_paths))) + config.customers_count + 1  # network with 4 layers
-            network_source = 0
-            network_sink = network_size - 1
-
-            network_customers_offset = config.trucks_count + sum(map(len, self.drone_paths)) + 1
-
-            network_demands = [[0.0] * network_size for _ in range(network_size)]
-            network_capacities = [[0.0] * network_size for _ in range(network_size)]
-            network_neighbors: List[Set[int]] = [set() for _ in range(network_size)]
-
-            network_neighbors[network_source].update(range(1, network_customers_offset))
-            total_flow = 0.0
-            for network_route in range(1, network_customers_offset):
-                capacity = config.truck.capacity if network_route < 1 + config.trucks_count else config.drone.capacity
-                total_flow += capacity
-                if network_route < 1 + config.trucks_count:
-                    network_capacities[network_source][network_route] = network_demands[network_source][network_route] = capacity
-                else:
-                    network_capacities[network_source][network_route] = network_demands[network_source][network_route] = capacity
-
-            for network_route, path in enumerate(self.truck_paths, start=1):
-                for customer in path:
-                    if customer != 0:
-                        network_capacities[network_route][network_customers_offset + customer - 1] = 10 ** 6
-                        network_neighbors[network_route].add(network_customers_offset + customer - 1)
-
-            for network_route, path in enumerate(itertools.chain(*self.drone_paths), start=1 + config.trucks_count):
-                for customer in path:
-                    if customer != 0:
-                        network_capacities[network_route][network_customers_offset + customer - 1] = 10 ** 6
-                        network_neighbors[network_route].add(network_customers_offset + customer - 1)
-
-            for customer, network_customer in enumerate(range(network_customers_offset, network_sink), start=1):
-                network_demands[network_customer][network_sink] = config.customers[customer].low
-                network_capacities[network_customer][network_sink] = config.customers[customer].high
-                network_neighbors[network_customer].add(network_sink)
-
-            network_flow_weights: List[List[float]] = [[0.0] * network_size for _ in range(network_size)]
-            for customer in range(1, len(config.customers)):
-                network_weight = config.customers[customer].w
-                network_flow_weights[network_customers_offset + customer - 1][network_sink] = network_weight
-
-            _, flows = maximum_weighted_flow(
-                size=network_size,
-                capacities=network_capacities,
-                neighbors=network_neighbors,
-                flow_weights=network_flow_weights,
-                source=network_source,
-                sink=network_sink,
+            truck_paths_mapping, drone_paths_mapping = paths_from_flow_chained(
+                self.truck_paths,
+                self.drone_paths,
+                truck_capacity=config.truck.capacity,
+                drone_capacity=config.drone.capacity,
             )
 
-            total_weights = [0.0] * len(config.customers)
             truck_paths: List[List[Tuple[int, float]]] = []
-            for route, path in enumerate(self.truck_paths, start=1):
-                _, cycle = config.path_order(path)
-
+            for truck, path in enumerate(self.truck_paths):
                 truck_paths.append([])
-                for customer in cycle:
-                    if customer == 0:
-                        truck_paths[-1].append((0, 0.0))
-                    else:
-                        weight = flows[route][network_customers_offset + customer - 1]
-                        truck_paths[-1].append((customer, weight))
-                        total_weights[customer] += weight
+                _, ordered = config.path_order(path)
 
-            flatten_drone_paths: List[List[Tuple[int, float]]] = []
-            for route, path in enumerate(itertools.chain(*self.drone_paths), start=1 + config.trucks_count):
-                flatten_drone_paths.append([])
-                _, cycle = config.path_order(path)
+                for customer in ordered:
+                    truck_paths[-1].append((customer, truck_paths_mapping[truck][customer]))
 
-                for customer in cycle:
-                    if customer == 0:
-                        flatten_drone_paths[-1].append((0, 0.0))
-                    else:
-                        weight = flows[route][network_customers_offset + customer - 1]
-                        flatten_drone_paths[-1].append((customer, weight))
-                        total_weights[customer] += weight
+                truck_paths[-1].append((0, 0.0))
 
             drone_paths: List[List[List[Tuple[int, float]]]] = []
-            flatten_drone_paths_iter = iter(flatten_drone_paths)
-            for paths in self.drone_paths:
+            for drone, paths in enumerate(self.drone_paths):
                 drone_paths.append([])
-                for _ in range(len(paths)):
-                    drone_paths[-1].append(next(flatten_drone_paths_iter))
+                for path_index, path in enumerate(paths):
+                    drone_paths[-1].append([])
+                    _, ordered = config.path_order(path)
 
-            # Rearrange paths to achieve lower bounds
-            for customer in range(1, len(config.customers)):
-                if config.customers[customer].low > total_weights[customer]:
-                    patched = False
-                    for c in reversed(config.customers_by_profit):
-                        if c == customer:
-                            continue
+                    for customer in ordered:
+                        drone_paths[-1][-1].append((customer, drone_paths_mapping[drone][path_index][customer]))
 
-                        for complete_path in itertools.chain(truck_paths, itertools.chain(*drone_paths)):
-                            index_customer = -1
-                            for index, (_c, _) in enumerate(complete_path):
-                                if _c == customer:
-                                    index_customer = index
-                                    break
-
-                            if index_customer > -1:
-                                for index, (_c, weight) in enumerate(complete_path):
-                                    if _c == c:
-                                        d = min(
-                                            weight,
-                                            config.customers[customer].low - total_weights[customer],
-                                            total_weights[c] - config.customers[c].low,
-                                        )
-
-                                        complete_path[index_customer] = (customer, complete_path[index_customer][1] + d)
-                                        complete_path[index] = (_c, weight - d)
-
-                                        total_weights[customer] += d
-                                        total_weights[c] -= d
-
-                                        if config.customers[customer].low == total_weights[customer]:
-                                            patched = True
-                                            break
-
-                            if patched:
-                                break
-
-                        if patched:
-                            break
-
-                    if not patched:
-                        break
+                    drone_paths[-1][-1].append((0, 0.0))
 
             self.__decoded = self.cls(
                 truck_paths=tuple(map(tuple, truck_paths)),
@@ -291,8 +193,7 @@ class VRPDFDIndividual(BaseIndividual):
             random_customers = list(range(1, len(config.customers)))
             random.shuffle(random_customers)
 
-            def remove_customer() -> VRPDFDIndividual:
-                paths = self.flatten()
+            def remove_customer(paths: List[FrozenSet[int]]) -> VRPDFDIndividual:
                 distances = [self.calculate_distance(path) for path in paths]
                 path_index = weighted_random_choice(distances)
                 for customer in random_customers:
@@ -302,8 +203,7 @@ class VRPDFDIndividual(BaseIndividual):
 
                 return self.reconstruct(paths)
 
-            def add_customer() -> VRPDFDIndividual:
-                paths = self.flatten()
+            def add_customer(paths: List[FrozenSet[int]]) -> VRPDFDIndividual:
                 distances = [self.calculate_distance(path) for path in paths]
                 path_index = weighted_random_choice([1 / d if d > 0.0 else 10 ** 9 for d in distances])
                 for customer in random_customers:
@@ -313,8 +213,7 @@ class VRPDFDIndividual(BaseIndividual):
 
                 return self.reconstruct(paths)
 
-            def append_path() -> VRPDFDIndividual:
-                paths = self.flatten()
+            def append_path(paths: List[FrozenSet[int]]) -> VRPDFDIndividual:
                 result = self.reconstruct(paths)
                 return result.append_drone_path(random.randint(0, config.drones_count - 1), frozenset([0, random_customers[0]]))
 
@@ -324,7 +223,7 @@ class VRPDFDIndividual(BaseIndividual):
                 append_path,
             )
             factory = random.choice(factories)
-            return factory()
+            return factory(self.flatten())
 
         return self
 
@@ -405,25 +304,25 @@ class VRPDFDIndividual(BaseIndividual):
                     network_weight = config.customers[customer].w
                     network_flow_weights[network_customers_offset + customer - 1][network_sink] = network_weight
 
-                packed = weighted_flows_with_demands(
+                flows = flows_with_demands(
                     size=network_size,
                     demands=network_demands,
                     capacities=network_capacities,
                     neighbors=network_neighbors,
-                    flow_weights=network_flow_weights,
                     source=network_source,
                     sink=network_sink,
                 )
-                if packed is None:
+                if flows is None:
                     paths_per_drone += 1
                     continue
 
-                _, flows = packed
-
                 truck_paths = [{0} for _ in range(config.trucks_count)]
-                drone_paths = [[{0}, {0}] for _ in range(config.drones_count)]
-                customer_demands = [customer.low for customer in config.customers]
-                for vehicle, network_route in zip(itertools.chain(range(config.trucks_count), range(config.drones_count)), range(1, network_customers_offset)):
+                drone_paths = [[{0} for _ in range(paths_per_drone)] for _ in range(config.drones_count)]
+                for vehicle, network_route in zip(
+                    list(range(config.trucks_count)) + list(range(config.drones_count)) * paths_per_drone,
+                    range(1, network_customers_offset),
+                    strict=True,
+                ):
                     if network_route < 1 + config.trucks_count:
                         path = truck_paths[vehicle]
                         capacity = config.truck.capacity
@@ -432,18 +331,10 @@ class VRPDFDIndividual(BaseIndividual):
                         capacity = config.drone.capacity
 
                     for customer, network_customer in enumerate(range(network_customers_offset, network_sink), start=1):
-                        deliver = min(customer_demands[customer], flows[network_route][network_customer])
+                        deliver = flows[network_route][network_customer]
                         if deliver > 0.0:
                             capacity -= deliver
-                            customer_demands[customer] -= deliver
                             path.add(customer)
-
-                    for customer in sorted(path, key=customer_demands.__getitem__):
-                        deliver = min(capacity, customer_demands[customer])
-                        capacity -= deliver
-                        customer_demands[customer] -= deliver
-                        if capacity == 0.0:
-                            break
 
                 results.add(
                     cls(

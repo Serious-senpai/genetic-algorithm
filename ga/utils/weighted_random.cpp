@@ -6,7 +6,7 @@
 
 #include "helpers.cpp"
 
-std::vector<unsigned> weighted_random(std::vector<double> &weights, unsigned count = 1)
+std::vector<unsigned> weighted_random(const std::vector<double> &weights, const unsigned count = 1)
 {
     unsigned n = weights.size();
     if (count > n)
@@ -29,7 +29,7 @@ std::vector<unsigned> weighted_random(std::vector<double> &weights, unsigned cou
     unsigned limit = std::min(count, n - count);
     while (results.size() < limit)
     {
-        double value = _random_double(0.0, sum_weight);
+        double value = random_double(0.0, sum_weight);
         for (unsigned index = 0; index < n; index++)
         {
             if (!results.count(index))

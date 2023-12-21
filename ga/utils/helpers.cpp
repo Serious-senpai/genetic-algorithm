@@ -1,5 +1,6 @@
 #pragma once
 
+#include <algorithm>
 #include <chrono>
 #include <random>
 #include <stdexcept>
@@ -22,19 +23,30 @@ std::string format(const std::string &format, Args... args)
 
 std::mt19937 rng(std::chrono::steady_clock::now().time_since_epoch().count());
 
-double _random_double(double l, double r)
+double random_double(const double l, const double r)
 {
     std::uniform_real_distribution<double> unif(l, r);
     return unif(rng);
 }
 
-unsigned _random_int(unsigned l, unsigned r)
+unsigned random_int(const unsigned l, const unsigned r)
 {
     std::uniform_int_distribution<unsigned> unif(l, r);
     return unif(rng);
 }
 
-double sqrt_impl(double value)
+void rotate_to_first(std::vector<unsigned> &path, const unsigned first)
+{
+    auto first_iter = std::find(path.begin(), path.end(), first);
+    if (first_iter == path.end())
+    {
+        throw std::invalid_argument(format("First city %d not found in path", first));
+    }
+
+    std::rotate(path.begin(), first_iter, path.end());
+}
+
+double sqrt_impl(const double value)
 {
     if (value < 0)
     {
@@ -61,4 +73,10 @@ double sqrt_impl(double value)
     }
 
     return high;
+}
+
+template <typename T>
+const T &min(const T &_x, const T &_y, const T &_z)
+{
+    return std::min(_x, std::min(_y, _z));
 }

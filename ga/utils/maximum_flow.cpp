@@ -8,11 +8,11 @@
 #include "helpers.cpp"
 
 std::pair<double, std::vector<unsigned>> __flow(
-    unsigned size,
-    std::vector<std::vector<double>> &capacities,
-    std::vector<std::set<unsigned>> &neighbors,
-    unsigned source,
-    unsigned sink)
+    const unsigned size,
+    const std::vector<std::vector<double>> &capacities,
+    const std::vector<std::set<unsigned>> &neighbors,
+    const unsigned source,
+    const unsigned sink)
 {
     std::vector<unsigned> parents(size, size);
     std::deque<std::pair<unsigned, double>> queue = {{source, 1.0e+18}};
@@ -44,11 +44,11 @@ std::pair<double, std::vector<unsigned>> __flow(
 }
 
 std::pair<double, std::vector<std::vector<double>>> maximum_flow_no_checking(
-    unsigned size,
-    std::vector<std::vector<double>> &capacities,
-    std::vector<std::set<unsigned>> &neighbors,
-    unsigned source,
-    unsigned sink)
+    const unsigned size,
+    const std::vector<std::vector<double>> &capacities,
+    const std::vector<std::set<unsigned>> &neighbors,
+    const unsigned source,
+    const unsigned sink)
 {
     std::vector<std::vector<double>> complete_capacities(size, std::vector<double>(size));
     for (unsigned i = 0; i < size; i++)
@@ -111,11 +111,11 @@ std::pair<double, std::vector<std::vector<double>>> maximum_flow_no_checking(
 }
 
 void check_constraints(
-    unsigned size,
-    std::vector<std::vector<double>> &capacities,
-    std::vector<std::set<unsigned>> &neighbors,
-    unsigned source,
-    unsigned sink)
+    const unsigned size,
+    const std::vector<std::vector<double>> &capacities,
+    const std::vector<std::set<unsigned>> &neighbors,
+    const unsigned source,
+    const unsigned sink)
 {
     if (capacities.size() != size)
     {

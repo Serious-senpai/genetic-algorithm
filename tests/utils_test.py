@@ -83,56 +83,8 @@ def test_maximum_weighted_flow() -> None:
     check_valid_flow(flows)
 
 
-def test_weighted_flows_with_demands() -> None:
-    packed = utils.weighted_flows_with_demands(
-        size=6,
-        demands=[
-            [0, 0, 0, 0, 0, 0],
-            [0, 0, 0, 0, 0, 0],
-            [0, 0, 0, 0, 0, 0],
-            [0, 0, 0, 0, 0, 0],
-            [0, 0, 0, 0, 0, 0],
-            [0, 0, 0, 0, 0, 0],
-        ],
-        capacities=[
-            [0, 7, 0, 0, 4, 0],
-            [0, 0, 5, 3, 0, 0],
-            [0, 0, 0, 0, 0, 8],
-            [0, 0, 3, 0, 0, 5],
-            [0, 3, 0, 2, 0, 0],
-            [0, 0, 0, 0, 0, 0],
-        ],
-        neighbors=[
-            {1, 4},
-            {2, 3},
-            {5},
-            {2, 5},
-            {1, 3},
-            set(),
-        ],
-        flow_weights=[
-            [0, 1, 0, 0, 1, 0],
-            [0, 0, 1, 1, 0, 0],
-            [0, 0, 0, 0, 0, 1],
-            [0, 0, 1, 0, 0, 1],
-            [0, 1, 0, 1, 0, 0],
-            [0, 0, 0, 0, 0, 0],
-        ],
-        source=0,
-        sink=5,
-    )
-
-    assert packed is not None
-    result, flows = packed
-
-    print(flows)
-    assert result == 35
-    assert sum(flows[0]) == 10
-    check_valid_flow(flows)
-
-
 def test_flows_with_answers_as_demands() -> None:
-    packed = utils.weighted_flows_with_demands(
+    flows = utils.flows_with_demands(
         size=6,
         demands=[
             [0, 6, 0, 0, 4, 0],
@@ -158,22 +110,12 @@ def test_flows_with_answers_as_demands() -> None:
             {1, 3},
             set(),
         ],
-        flow_weights=[
-            [0, 1, 0, 0, 1, 0],
-            [0, 0, 1, 1, 0, 0],
-            [0, 0, 0, 0, 0, 1],
-            [0, 0, 1, 0, 0, 1],
-            [0, 1, 0, 1, 0, 0],
-            [0, 0, 0, 0, 0, 0],
-        ],
         source=0,
         sink=5,
     )
 
-    assert packed is not None
-    result, flows = packed
+    assert flows is not None
 
     print(flows)
-    assert result == 35
     assert sum(flows[0]) == 10
     check_valid_flow(flows)

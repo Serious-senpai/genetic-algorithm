@@ -5,10 +5,10 @@ from typing import List, Optional, Sequence, Set, Tuple
 
 __all__ = (
     "fake_tsp_solver",
+    "flows_with_demands",
     "maximum_flow",
     "maximum_weighted_flow",
     "tsp_solver",
-    "weighted_flows_with_demands",
     "weighted_random",
 )
 
@@ -16,16 +16,15 @@ __all__ = (
 def fake_tsp_solver(cities: Sequence[Tuple[float, float]], *, first: int = 0) -> Tuple[float, List[int]]: ...
 
 
-def weighted_flows_with_demands(
+def flows_with_demands(
     *,
     size: int,
     demands: Sequence[Sequence[float]],
     capacities: Sequence[Sequence[float]],
     neighbors: Sequence[Set[int]],
-    flow_weights: Sequence[Sequence[float]],
     source: int,
     sink: int,
-) -> Optional[Tuple[float, List[List[float]]]]: ...
+) -> Optional[List[List[float]]]: ...
 
 
 def maximum_flow(
