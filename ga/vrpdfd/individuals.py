@@ -144,8 +144,6 @@ class VRPDFDIndividual(BaseIndividual):
                 for customer in ordered:
                     truck_paths[-1].append((customer, truck_paths_mapping[truck][customer]))
 
-                truck_paths[-1].append((0, 0.0))
-
             drone_paths: List[List[List[Tuple[int, float]]]] = []
             for drone, paths in enumerate(self.drone_paths):
                 drone_paths.append([])
@@ -155,8 +153,6 @@ class VRPDFDIndividual(BaseIndividual):
 
                     for customer in ordered:
                         drone_paths[-1][-1].append((customer, drone_paths_mapping[drone][path_index][customer]))
-
-                    drone_paths[-1][-1].append((0, 0.0))
 
             self.__decoded = self.cls(
                 truck_paths=tuple(map(tuple, truck_paths)),
