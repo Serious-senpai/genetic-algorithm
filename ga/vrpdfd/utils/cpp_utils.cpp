@@ -13,7 +13,7 @@ namespace py = pybind11;
 
 struct Customer
 {
-    double low, high, w;
+    const double low, high, w;
 
     Customer(double low, double high, double w) : low(low), high(high), w(w) {}
 };
@@ -118,6 +118,25 @@ paths_from_flow(
         [](unsigned i, unsigned j)
         { return customers[i].w > customers[j].w; });
 
+    std::vector<std::set<std::vector<std::map<unsigned, double>>::iterator>> in_path(customers.size());
+    for (unsigned i = 0; i < truck_paths.size(); i++)
+    {
+        for (auto &[customer, _] : truck_paths[i])
+        {
+            in_path[customer].insert(truck_paths.begin() + i);
+        }
+    }
+    for (unsigned i = 0; i < drone_paths.size(); i++)
+    {
+        for (unsigned j = 0; j < drone_paths[i].size(); j++)
+        {
+            for (auto &[customer, _] : drone_paths[i][j])
+            {
+                in_path[customer].insert(drone_paths[i].begin() + j);
+            }
+        }
+    }
+
     // Rearrange delivery volumes
     for (auto receiver : receivers)
     {
@@ -125,33 +144,22 @@ paths_from_flow(
         {
             if (total_weights[sender] > customers[sender].low)
             {
-                auto transfer = [&total_weights, sender, receiver](std::map<unsigned int, double> &path)
+                for (auto &path_iter : in_path[sender])
                 {
-                    if (path.count(sender) && path.count(receiver))
+                    if (path_iter->count(receiver))
                     {
-                        double transfer = min(
-                            path[sender],
-                            total_weights[sender] - customers[sender].low,
-                            customers[receiver].low - total_weights[receiver]);
+                        double original_sender = path_iter->at(sender),
+                               original_receiver = path_iter->at(receiver),
+                               transfer = min(
+                                   original_sender,
+                                   total_weights[sender] - customers[sender].low,
+                                   customers[receiver].low - total_weights[receiver]);
 
-                        path[sender] -= transfer;
-                        path[receiver] += transfer;
+                        path_iter->insert_or_assign(sender, original_sender - transfer);
+                        path_iter->insert_or_assign(receiver, original_receiver + transfer);
 
                         total_weights[sender] -= transfer;
                         total_weights[receiver] += transfer;
-                    }
-                };
-
-                for (auto &path : truck_paths)
-                {
-                    transfer(path);
-                }
-
-                for (auto &paths : drone_paths)
-                {
-                    for (auto &path : paths)
-                    {
-                        transfer(path);
                     }
                 }
             }
