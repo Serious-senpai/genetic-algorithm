@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <deque>
 #include <map>
 #include <set>
 #include <vector>
@@ -146,20 +147,83 @@ paths_from_flow(
             {
                 for (auto &path_iter : in_path[sender])
                 {
-                    if (path_iter->count(receiver))
+                    typedef std::pair<unsigned, std::vector<std::map<unsigned, double>>::iterator> customer_pos;
+
+                    customer_pos initial = {sender, path_iter};
+                    std::map<customer_pos, customer_pos> parents;
+                    parents[initial] = initial;
+                    std::deque<std::pair<customer_pos, double>> queue = {
+                        {initial,
+                         min(path_iter->at(sender),
+                             total_weights[sender] - customers[sender].low,
+                             customers[receiver].low - total_weights[receiver])}};
+
+                    while (queue.size() > 0)
                     {
-                        double original_sender = path_iter->at(sender),
-                               original_receiver = path_iter->at(receiver),
-                               transfer = min(
-                                   original_sender,
-                                   total_weights[sender] - customers[sender].low,
-                                   customers[receiver].low - total_weights[receiver]);
+                        auto &[pos, transfer] = queue.front();
+                        queue.pop_front();
 
-                        path_iter->insert_or_assign(sender, original_sender - transfer);
-                        path_iter->insert_or_assign(receiver, original_receiver + transfer);
+                        if (transfer == 0.0)
+                        {
+                            continue;
+                        }
 
-                        total_weights[sender] -= transfer;
-                        total_weights[receiver] += transfer;
+                        if (pos.first == receiver)
+                        {
+                            bool receive = true;
+                            while (true)
+                            {
+                                auto original = pos.second->at(pos.first);
+                                if (receive)
+                                {
+                                    pos.second->insert_or_assign(pos.first, original + transfer);
+                                    total_weights[pos.first] += transfer;
+                                }
+                                else
+                                {
+                                    pos.second->insert_or_assign(pos.first, original - transfer);
+                                    total_weights[pos.first] -= transfer;
+                                }
+
+                                if (pos == parents[pos])
+                                {
+                                    break;
+                                }
+
+                                receive = !receive;
+                                pos = parents[pos];
+                            }
+                        }
+                        else
+                        {
+                            // Transfer within the same path
+                            for (auto &[next_customer, _] : *pos.second)
+                            {
+                                if (next_customer != pos.first)
+                                {
+                                    auto next_pos = std::make_pair(next_customer, pos.second);
+                                    if (!parents.count(next_pos))
+                                    {
+                                        parents.emplace(next_pos, pos);
+                                        queue.emplace_back(next_pos, transfer);
+                                    }
+                                }
+                            }
+
+                            // Transfer to another path
+                            for (auto &next_path_iter : in_path[pos.first])
+                            {
+                                if (next_path_iter != pos.second)
+                                {
+                                    auto next_pos = std::make_pair(pos.first, next_path_iter);
+                                    if (!parents.count(next_pos))
+                                    {
+                                        parents.emplace(next_pos, pos);
+                                        queue.emplace_back(next_pos, std::min(transfer, next_path_iter->at(pos.first)));
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
