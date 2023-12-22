@@ -101,7 +101,12 @@ class SingleObjectiveIndividual(BaseIndividual[_ST], BaseCostComparison):
             iterations = tqdm(iterations, ascii=" █")
 
         population = cls.initial(solution_cls=solution_cls, size=population_size)
-        result = min(filter(lambda i: i.feasible(), population))
+        filtered = tuple(filter(lambda i: i.feasible(), population))
+        if len(filtered) > 0:
+            result = min(filtered)
+        else:
+            result = min(population)
+
         if len(population) < population_size:
             message = f"Initial population size {len(population)} < {population_size}"
             raise ValueError(message)

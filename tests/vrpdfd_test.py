@@ -14,7 +14,7 @@ def check_solution(solution: Optional[vrpdfd.VRPDFDSolution], *, expected: float
 
 
 def test_decode_6_5_1() -> None:
-    vrpdfd.ProblemConfig.reset_singleton("6.5.1")
+    vrpdfd.ProblemConfig.reset_singleton("6.5.1").initial_fine_coefficient = 10 ** 3
     solution = vrpdfd.VRPDFDIndividual(
         cls=vrpdfd.VRPDFDSolution,
         truck_paths=[frozenset([0, 6, 3, 2, 5, 1])],
@@ -41,7 +41,7 @@ def test_decode_6_5_1() -> None:
 
 
 def test_decode_6_5_2() -> None:
-    vrpdfd.ProblemConfig.reset_singleton("6.5.2")
+    vrpdfd.ProblemConfig.reset_singleton("6.5.2").initial_fine_coefficient = 10 ** 3
     solution = vrpdfd.VRPDFDIndividual(
         cls=vrpdfd.VRPDFDSolution,
         truck_paths=[frozenset([0, 1, 2, 5, 4])],
@@ -61,7 +61,7 @@ def test_decode_6_5_2() -> None:
 
 
 def test_decode_10_5_3() -> None:
-    vrpdfd.ProblemConfig.reset_singleton("10.5.3")
+    vrpdfd.ProblemConfig.reset_singleton("10.5.3").initial_fine_coefficient = 10 ** 3
     solution = vrpdfd.VRPDFDIndividual(
         cls=vrpdfd.VRPDFDSolution,
         truck_paths=[frozenset([0, 2, 3, 6, 9, 10, 1, 7, 8, 5, 0])],
@@ -84,7 +84,7 @@ def test_decode_10_5_3() -> None:
 
 
 def test_decode_50_10_1() -> None:
-    vrpdfd.ProblemConfig.reset_singleton("50.10.1")
+    vrpdfd.ProblemConfig.reset_singleton("50.10.1").initial_fine_coefficient = 10 ** 3
     solution = next(iter(vrpdfd.VRPDFDIndividual.initial(solution_cls=vrpdfd.VRPDFDSolution, size=1))).decode()
 
     print(solution)
@@ -92,7 +92,7 @@ def test_decode_50_10_1() -> None:
 
 
 def test_decode_100_20_1() -> None:
-    vrpdfd.ProblemConfig.reset_singleton("100.20.1")
+    vrpdfd.ProblemConfig.reset_singleton("100.20.1").initial_fine_coefficient = 10 ** 3
     solution = next(iter(vrpdfd.VRPDFDIndividual.initial(solution_cls=vrpdfd.VRPDFDSolution, size=1))).decode()
 
     print(solution)
