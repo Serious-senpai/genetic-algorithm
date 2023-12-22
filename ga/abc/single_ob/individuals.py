@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import random
-from typing import List, Type, TypeVar, Union, TYPE_CHECKING, final
+from typing import FrozenSet, List, Type, TypeVar, Union, TYPE_CHECKING, final
 
 from matplotlib import pyplot
 from tqdm import tqdm
@@ -31,7 +31,7 @@ class SingleObjectiveIndividual(BaseIndividual[_ST], BaseCostComparison):
     __slots__ = ()
 
     @classmethod
-    def before_generation_hook(cls, generation: int, last_improved: int, result: Self, /) -> None:
+    def before_generation_hook(cls, generation: int, last_improved: int, result: Self, population: FrozenSet[Self], /) -> None:
         """A classmethod to be called before each generation
 
         The default implementation does nothing.
@@ -44,11 +44,13 @@ class SingleObjectiveIndividual(BaseIndividual[_ST], BaseCostComparison):
             The last generation when the best solution is improved
         result:
             The current best individual
+        population:
+            The current population
         """
         return
 
     @classmethod
-    def after_generation_hook(cls, generation: int, last_improved: int, result: Self, /) -> None:
+    def after_generation_hook(cls, generation: int, last_improved: int, result: Self, population: FrozenSet[Self], /) -> None:
         """A classmethod to be called after each generation
 
         The default implementation does nothing.
@@ -61,6 +63,8 @@ class SingleObjectiveIndividual(BaseIndividual[_ST], BaseCostComparison):
             The last generation when the best solution is improved
         result:
             The current best individual
+        population:
+            The current population
         """
         return
 
@@ -97,12 +101,10 @@ class SingleObjectiveIndividual(BaseIndividual[_ST], BaseCostComparison):
             iterations = tqdm(iterations, ascii=" █")
 
         population = cls.initial(solution_cls=solution_cls, size=population_size)
-        result = min(population)
+        result = min(filter(lambda i: i.feasible(), population))
         if len(population) < population_size:
             message = f"Initial population size {len(population)} < {population_size}"
             raise ValueError(message)
-
-        result = min(result, *population)
 
         last_improved = 0
         progress: List[float] = []
@@ -112,10 +114,10 @@ class SingleObjectiveIndividual(BaseIndividual[_ST], BaseCostComparison):
             for iteration in iterations:
                 current_result = result
                 if isinstance(iterations, tqdm):
-                    display = f"GA ({result.cost:.2f})" if result is not None else "GA"
+                    display = f"GA ({result.cost:.2f})"
                     iterations.set_description_str(display)
 
-                cls.before_generation_hook(iteration, last_improved, result)
+                cls.before_generation_hook(iteration, last_improved, result, frozenset(population))
 
                 # Expand the population, then perform natural selection
                 while len(population) < population_expansion_limit:
@@ -123,20 +125,26 @@ class SingleObjectiveIndividual(BaseIndividual[_ST], BaseCostComparison):
                     offspring = first.crossover(second)
 
                     for o in offspring:
-                        result = min(result, o)  # offspring may be mutated later, so we update result here
+                        if o.feasible():
+                            # offspring may be mutated later, so we update result here
+                            result = min(result, o)
+
                         o = o.mutate().educate()
                         population.add(o)
 
                 next_population = sorted(population)[:population_size]
                 population = set(next_population)
-                result = min(result, next_population[0])
+
+                filtered = tuple(filter(lambda i: i.feasible(), next_population))
+                if len(filtered) > 0:
+                    result = min(result, *filtered)
 
                 if current_result != result:
                     last_improved = iteration
 
                 progress.append(result.cost)
 
-                cls.after_generation_hook(iteration, last_improved, result)
+                cls.after_generation_hook(iteration, last_improved, result, frozenset(population))
 
             if verbose:
                 pyplot.plot(progress)

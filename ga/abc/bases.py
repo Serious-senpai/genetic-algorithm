@@ -41,6 +41,14 @@ class BaseIndividual(abc.ABC, Generic[_ST]):
 
     __slots__ = ()
 
+    @abc.abstractmethod
+    def feasible(self) -> bool:
+        """Whether this individual is feasible
+
+        Subclasses must implement this.
+        """
+        ...
+
     @property
     @abc.abstractmethod
     def cls(self) -> Type[_ST]:

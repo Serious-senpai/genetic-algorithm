@@ -120,6 +120,10 @@ class VRPDFDIndividual(BaseIndividual):
             drone_paths=drone_paths,
         )
 
+    def feasible(self) -> bool:
+        decoded = self.decode()
+        return decoded.fine == 0.0
+
     @property
     def cost(self) -> float:
         decoded = self.decode()
@@ -252,8 +256,10 @@ class VRPDFDIndividual(BaseIndividual):
         return self.__drone_distance
 
     @classmethod
-    def after_generation_hook(cls, generation: int, last_improved: int, result: VRPDFDIndividual) -> None:
+    def after_generation_hook(cls, generation: int, last_improved: int, result: VRPDFDIndividual, population: FrozenSet[VRPDFDIndividual]) -> None:
         cls.genetic_algorithm_last_improved = last_improved
+        for individual in population:
+            individual.decode().bump_fine_coefficient()
 
     @classmethod
     def initial(cls, *, solution_cls: Type[VRPDFDSolution], size: int) -> Set[VRPDFDIndividual]:

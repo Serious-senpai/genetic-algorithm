@@ -16,6 +16,8 @@ class SolutionJSON(TypedDict):
     generations: int
     population_size: int
     mutation_rate: float
+    initial_fine_coefficient: float
+    fine_coefficient_increase_rate: float
     solution: SolutionInfo
     time: str
     fake_tsp_solver: bool
@@ -41,6 +43,8 @@ field_names = (
     "Generations",
     "Population size",
     "Mutation rate",
+    "Initial fine coefficient",
+    "Fine coefficient increase rate",
     "Profit",
     "Feasible",
     "Truck paths",
@@ -68,6 +72,8 @@ with open(summary_dir / "vrpdfd-summary.csv", "w") as csvfile:
                 data["generations"],
                 data["population_size"],
                 data["mutation_rate"],
+                data["initial_fine_coefficient"],
+                data["fine_coefficient_increase_rate"],
                 data["solution"]["profit"],
                 data["solution"]["feasible"],
                 wrap_double_quotes(data["solution"]["truck_paths"]),

@@ -23,6 +23,8 @@ class VRPDFDSolution(SingleObjectiveSolution[VRPDFDIndividual]):
         "__drone_distances",
         "__revenue",
         "__cost",
+        "__fine",
+        "__fine_coefficient",
         "truck_paths",
         "drone_paths",
     )
@@ -33,6 +35,8 @@ class VRPDFDSolution(SingleObjectiveSolution[VRPDFDIndividual]):
         __drone_distances: Optional[Tuple[Tuple[float, ...], ...]]
         __revenue: Optional[float]
         __cost: Optional[float]
+        __fine: Optional[float]
+        __fine_coefficient: float
         truck_paths: Final[Tuple[Tuple[Tuple[int, float], ...], ...]]
         drone_paths: Final[Tuple[Tuple[Tuple[Tuple[int, float], ...], ...], ...]]
 
@@ -47,7 +51,10 @@ class VRPDFDSolution(SingleObjectiveSolution[VRPDFDIndividual]):
         drone_distances: Optional[Tuple[Tuple[float, ...], ...]] = None,
         revenue: Optional[float] = None,
         cost: Optional[float] = None,
+        fine: Optional[float] = None,
     ) -> None:
+        config = ProblemConfig()
+
         self.truck_paths = truck_paths
         self.drone_paths = drone_paths
         self.__truck_distance = truck_distance
@@ -56,6 +63,8 @@ class VRPDFDSolution(SingleObjectiveSolution[VRPDFDIndividual]):
         self.__drone_distances = drone_distances
         self.__revenue = revenue
         self.__cost = cost
+        self.__fine = fine
+        self.__fine_coefficient = config.initial_fine_coefficient
 
     def assert_feasible(self) -> None:
         """Raise InfeasibleSolution if solution is infeasible"""
@@ -162,16 +171,20 @@ class VRPDFDSolution(SingleObjectiveSolution[VRPDFDIndividual]):
     def cost(self) -> float:
         if self.__cost is None:
             config = ProblemConfig()
-            result = (
+            self.__cost = (
                 config.drone.cost_coefficient * self.drone_distance
                 + config.truck.cost_coefficient * self.truck_distance
                 - self.revenue
             )  # We want to maximize profit i.e. minimize cost = -profit
 
-            fine_coefficient = 10 ** 9
+        return self.__cost + self.__fine_coefficient * self.fine
 
+    @property
+    def fine(self) -> float:
+        if self.__fine is None:
             # Fine for exceeding time limit
-            result += fine_coefficient * (
+            config = ProblemConfig()
+            result = (
                 sum(positive_max(self.calculate_total_weight(path) / config.truck.capacity - 1) for path in self.truck_paths)
                 + sum(positive_max(self.calculate_total_weight(path) / config.drone.capacity - 1) for paths in self.drone_paths for path in paths)
                 + sum(positive_max(distance / config.truck.speed / config.time_limit - 1) for distance in self.truck_distances)
@@ -188,11 +201,19 @@ class VRPDFDSolution(SingleObjectiveSolution[VRPDFDIndividual]):
                     for path in paths:
                         total += sum(weight for customer_index, weight in path if customer_index == index)
 
-                result += fine_coefficient * (positive_max(customer.low - total) + positive_max(total - customer.high)) / customer.high
+                result += (positive_max(customer.low - total) + positive_max(total - customer.high)) / customer.high
 
-            self.__cost = result
+            self.__fine = result
 
-        return self.__cost
+        return self.__fine
+
+    @property
+    def fine_coefficient(self) -> float:
+        return self.__fine_coefficient
+
+    def bump_fine_coefficient(self) -> None:
+        config = ProblemConfig()
+        self.__fine_coefficient *= config.fine_coefficient_increase_rate
 
     def encode(self) -> VRPDFDIndividual:
         return VRPDFDIndividual(

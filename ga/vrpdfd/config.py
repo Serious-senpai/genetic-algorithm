@@ -58,6 +58,8 @@ class ProblemConfig:
 
         # Algorithm config
         "mutation_rate",
+        "initial_fine_coefficient",
+        "fine_coefficient_increase_rate",
     )
     __instance__: ClassVar[Optional[ProblemConfig]] = None
     problem: ClassVar[Optional[str]] = None
@@ -77,6 +79,8 @@ class ProblemConfig:
 
         # Algorithm config
         mutation_rate: float
+        initial_fine_coefficient: float
+        fine_coefficient_increase_rate: float
 
     def __new__(cls, problem: Optional[str] = None, /) -> ProblemConfig:
         if cls.__instance__ is None:
