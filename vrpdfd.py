@@ -50,7 +50,8 @@ if namespace.fake_tsp_solver:
     print(f"Using fake TSP solver {utils.tsp_solver!r}")
 
 
-config = ProblemConfig(namespace.problem)
+config = ProblemConfig.get_config(namespace.problem)
+ProblemConfig.context = namespace.problem
 config.mutation_rate = namespace.mutation_rate
 config.initial_fine_coefficient = namespace.initial_fine_coefficient
 config.fine_coefficient_increase_rate = namespace.fine_coefficient_increase_rate
