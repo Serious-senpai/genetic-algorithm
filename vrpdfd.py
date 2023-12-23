@@ -1,5 +1,6 @@
 import argparse
 import json
+import math
 import random
 import time
 import traceback
@@ -71,6 +72,21 @@ if solution is None:
 
 
 print(f"Got solution with profit = {-solution.cost} after {total_time:.4f}s:\n{solution}")
+if math.isnan(solution.cost):
+    print(f"Oops! Got a solution with NaN cost {solution.cost}. The underlying attributes are as follows:")
+    print(f"truck_distance = {solution.truck_distance}")
+    print(f"drone_distance = {solution.drone_distance}")
+    print(f"fine_coefficient = {solution.fine_coefficient}")
+
+    print("Evaluating solution again:")
+    re_solution = VRPDFDSolution(
+        truck_paths=solution.truck_paths,
+        drone_paths=solution.drone_paths,
+    )
+
+    print(f"Got solution with profit = {-re_solution.cost}")
+
+
 try:
     solution.assert_feasible()
 except InfeasibleSolution:

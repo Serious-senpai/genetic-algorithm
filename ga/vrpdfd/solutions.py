@@ -225,6 +225,7 @@ class VRPDFDSolution(SingleObjectiveSolution[VRPDFDIndividual]):
     def bump_fine_coefficient(self) -> None:
         config = ProblemConfig()
         self.__fine_coefficient *= config.fine_coefficient_increase_rate
+        self.__fine_coefficient = min(self.__fine_coefficient, 10 ** 9)
 
     def encode(self) -> VRPDFDIndividual:
         return VRPDFDIndividual(
