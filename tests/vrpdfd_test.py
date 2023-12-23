@@ -60,6 +60,27 @@ def test_decode_6_5_2() -> None:
     check_solution(solution, expected=-17105.399401003662)
 
 
+def test_decode_6_5_3() -> None:
+    vrpdfd.ProblemConfig.reset_singleton("6.5.3").initial_fine_coefficient = 10 ** 3
+    solution = vrpdfd.VRPDFDIndividual(
+        cls=vrpdfd.VRPDFDSolution,
+        truck_paths=[frozenset([0, 6, 5, 1, 4, 3])],
+        drone_paths=[
+            [
+                frozenset([0, 2]),
+                frozenset([0, 2]),
+                frozenset([0, 6]),
+                frozenset([0, 6]),
+                frozenset([0, 6]),
+                frozenset([0, 6]),
+                frozenset([0, 6]),
+                frozenset([0, 6]),
+            ],
+        ],
+    ).decode()
+    check_solution(solution, expected=-14901.444958783168)
+
+
 def test_decode_10_5_3() -> None:
     vrpdfd.ProblemConfig.reset_singleton("10.5.3").initial_fine_coefficient = 10 ** 3
     solution = vrpdfd.VRPDFDIndividual(

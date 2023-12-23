@@ -1,7 +1,13 @@
 import json
 import os
+import re
+from collections import defaultdict
 from pathlib import Path
-from typing import Any, List, Optional, Tuple, TypedDict
+from traceback import print_exc
+from typing import Any, Dict, DefaultDict, List, Optional, Tuple, TypedDict
+
+from ga.utils import isclose
+from ga.vrpdfd import ProblemConfig, VRPDFDSolution
 
 
 class SolutionInfo(TypedDict):
@@ -31,10 +37,114 @@ class MILPSolutionJSON(TypedDict):
     status: str
     solve_time: float
     obj_value: float
+    truck: Dict[str, float]
+    drone: Dict[str, float]
+    cusWeightByDrone: Dict[str, float]
+    cusWeightByTruck: Dict[str, float]
 
 
 def wrap_double_quotes(text: Any) -> str:
     return f"\"{text}\""
+
+
+_read_milp_solution_cache: Dict[str, VRPDFDSolution] = {}
+
+
+def read_milp_solution(data: MILPSolutionJSON) -> VRPDFDSolution:
+    try:
+        return _read_milp_solution_cache[data["data_set"]]
+
+    except KeyError:
+        problem_size = int(data["data_set"].split(".")[0])
+
+        truck_volumes: List[DefaultDict[int, float]] = []
+        for key, value in data["cusWeightByTruck"].items():
+            match = re.fullmatch(r"m\[(\d+),(\d+)\]", key)
+            assert match is not None
+
+            customer, truck = map(int, match.groups())
+            while len(truck_volumes) <= truck:
+                truck_volumes.append(defaultdict(lambda: 0.0))
+
+            truck_volumes[truck][customer] = value
+
+        drone_volumes: List[List[DefaultDict[int, float]]] = []
+        for key, value in data["cusWeightByDrone"].items():
+            match = re.fullmatch(r"m\[(\d+),(\d+),(\d+)\]", key)
+            assert match is not None
+
+            customer, drone, path_id = map(int, match.groups())
+            while len(drone_volumes) <= drone:
+                drone_volumes.append([])
+
+            while len(drone_volumes[drone]) <= path_id:
+                drone_volumes[drone].append(defaultdict(lambda: 0.0))
+
+            drone_volumes[drone][path_id][customer] = value
+
+        truck_after: List[Dict[int, int]] = []
+        for key, value in data["truck"].items():
+            if isclose(value, 1.0):
+                match = re.fullmatch(r"x\[(\d+),(\d+),(\d+)\]", key)
+                assert match is not None
+
+                before, after, truck = map(int, match.groups())
+                while len(truck_after) <= truck:
+                    truck_after.append({})
+
+                truck_after[truck][before] = after
+
+        drone_after: List[List[Dict[int, int]]] = []
+        for key, value in data["drone"].items():
+            if isclose(value, 1.0):
+                match = re.fullmatch(r"y\[(\d+),(\d+),(\d+),(\d+)\]", key)
+                assert match is not None
+
+                before, after, drone, path_id = map(int, match.groups())
+                while len(drone_after) <= drone:
+                    drone_after.append([])
+
+                while len(drone_after[drone]) <= path_id:
+                    drone_after[drone].append({})
+
+                drone_after[drone][path_id][before] = after
+
+        truck_paths: List[List[Tuple[int, float]]] = []
+        for truck, path_data in enumerate(truck_after):
+            truck_paths.append([])
+            current = 0
+            while current != problem_size + 1:
+                truck_paths[-1].append((current, truck_volumes[truck][current]))
+                current = path_data[current]
+
+            truck_paths[-1].append((0, 0.0))
+
+        drone_paths: List[List[List[Tuple[int, float]]]] = []
+        for drone, paths_data in enumerate(drone_after):
+            drone_paths.append([])
+            for path_id, path_data in enumerate(paths_data):
+                drone_paths[-1].append([])
+                current = 0
+                while current != problem_size + 1:
+                    drone_paths[-1][-1].append((current, drone_volumes[drone][path_id][current]))
+                    current = path_data[current]
+
+                drone_paths[-1][-1].append((0, 0.0))
+
+        _read_milp_solution_cache[data["data_set"]] = solution = VRPDFDSolution(
+            truck_paths=tuple(map(tuple, truck_paths)),
+            drone_paths=tuple(tuple(map(tuple, paths)) for paths in drone_paths),
+        )
+
+        try:
+            if not isclose(milp_data["obj_value"], -solution.cost):
+                message = f"MILP solution for {problem_name} reported profit {milp_data['obj_value']}, actual value {-solution.cost}:\n{solution}"
+                raise ValueError(message) from None
+
+        except ValueError:
+            print_exc()
+
+        return solution
 
 
 summary_dir = Path("vrpdfd-summary")
@@ -75,11 +185,11 @@ with open(summary_dir / "vrpdfd-summary.csv", "w") as csvfile:
                 data["initial_fine_coefficient"],
                 data["fine_coefficient_increase_rate"],
                 data["solution"]["profit"],
-                data["solution"]["feasible"],
+                int(data["solution"]["feasible"]),
                 wrap_double_quotes(data["solution"]["truck_paths"]),
                 wrap_double_quotes(data["solution"]["drone_paths"]),
                 data["time"],
-                data["fake_tsp_solver"],
+                int(data["fake_tsp_solver"]),
                 data["last_improved"],
                 data["extra"],
             ]
@@ -92,7 +202,10 @@ with open(summary_dir / "vrpdfd-summary.csv", "w") as csvfile:
                     milp_data: MILPSolutionJSON = json.load(f)
 
                 assert milp_data["data_set"] == problem_name
-                fields.append(milp_data["obj_value"])
+                ProblemConfig.reset_singleton(problem_name).initial_fine_coefficient = 10 ** 3
+                milp_solution = read_milp_solution(milp_data)
+
+                fields.append(-milp_solution.cost)
                 fields.append(milp_data["status"])
                 fields.append(milp_data["solve_time"])
 

@@ -80,3 +80,9 @@ const T &min(const T &_x, const T &_y, const T &_z)
 {
     return std::min(_x, std::min(_y, _z));
 }
+
+double round(const double value, const unsigned precision)
+{
+    double factor = std::pow(10, precision);
+    return std::round(value * factor) / factor;
+}

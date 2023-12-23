@@ -119,8 +119,8 @@ class ProblemConfig:
 
                         with open("problems/vrpdfd/coefficients.json", "r", encoding="utf-8") as coefficients_file:
                             data = json.load(coefficients_file)
-                            truck_coefficient = data["truck_cost_per_distance"]
-                            drone_coefficient = data["drone_cost_per_distance"]
+                            truck_coefficient = data["truck_cost_over_time"] / truck_speed
+                            drone_coefficient = data["drone_cost_over_time"] / drone_speed
 
                         self.truck = Vehicle(speed=truck_speed, capacity=truck_capacity, cost_coefficient=truck_coefficient, time_limit=10 ** 9)
                         self.drone = Vehicle(speed=drone_speed, capacity=drone_capacity, cost_coefficient=drone_coefficient, time_limit=drone_duration)
