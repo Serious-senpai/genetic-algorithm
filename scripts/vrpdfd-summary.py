@@ -202,7 +202,9 @@ with open(summary_dir / "vrpdfd-summary.csv", "w") as csvfile:
                     milp_data: MILPSolutionJSON = json.load(f)
 
                 assert milp_data["data_set"] == problem_name
-                ProblemConfig.reset_singleton(problem_name).initial_fine_coefficient = 10 ** 3
+                ProblemConfig.get_config(problem_name).initial_fine_coefficient = 10 ** 3
+                ProblemConfig.context = problem_name
+
                 milp_solution = read_milp_solution(milp_data)
 
                 fields.append(-milp_solution.cost)

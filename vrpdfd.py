@@ -23,6 +23,7 @@ class Namespace(argparse.Namespace):
         fake_tsp_solver: bool
         dump: Optional[str]
         extra: Optional[str]
+        log: Optional[str]
 
 
 parser = argparse.ArgumentParser(description="Genetic algorithm for VRPDFD problem")
@@ -31,11 +32,12 @@ parser.add_argument("-i", "--iterations", default=200, type=int, help="the numbe
 parser.add_argument("-s", "--size", default=100, type=int, help="the population size (default: 100)")
 parser.add_argument("-m", "--mutation-rate", default=0.6, type=float, help="the mutation rate (default: 0.6)")
 parser.add_argument("-f", "--initial-fine-coefficient", default=1000.0, type=float, help="the initial fine coefficient (default: 1000.0)")
-parser.add_argument("-r", "--fine-coefficient-increase-rate", default=50.0, type=float, help="the fine coefficient increase rate (default: 50.0")
+parser.add_argument("-r", "--fine-coefficient-increase-rate", default=10.0, type=float, help="the fine coefficient increase rate (default: 10.0")
 parser.add_argument("-v", "--verbose", action="store_true", help="turn on verbose mode")
 parser.add_argument("--fake-tsp-solver", action="store_true", help="use fake TSP solver")
 parser.add_argument("--dump", type=str, help="dump the solution to a file")
 parser.add_argument("--extra", type=str, help="extra data dump to file specified by --dump")
+parser.add_argument("--log", type=str, help="log each generation to a file")
 
 
 namespace = Namespace()
@@ -52,6 +54,10 @@ config = ProblemConfig(namespace.problem)
 config.mutation_rate = namespace.mutation_rate
 config.initial_fine_coefficient = namespace.initial_fine_coefficient
 config.fine_coefficient_increase_rate = namespace.fine_coefficient_increase_rate
+if namespace.log is not None:
+    config.logger = open(namespace.log, "w", encoding="utf-8")
+
+
 random.seed(time.time())
 
 

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import random
-from typing import FrozenSet, List, Type, TypeVar, Union, TYPE_CHECKING, final
+from typing import FrozenSet, List, Set, Type, TypeVar, Union, TYPE_CHECKING, final
 
 from matplotlib import pyplot
 from tqdm import tqdm
@@ -67,6 +67,27 @@ class SingleObjectiveIndividual(BaseIndividual[_ST], BaseCostComparison):
             The current population
         """
         return
+
+    @classmethod
+    def selection(cls, *, population: Set[Self], size: int) -> Set[Self]:
+        """Perform natural selection
+
+        The default implementation selects the best individuals, but subclasses
+        may override this behavior.
+
+        Parameters
+        -----
+        population:
+            The population to select from
+        size:
+            The selection size
+
+        Returns
+        -----
+        The selected population
+        """
+        sorted_population = sorted(population, key=lambda x: x.cost)
+        return set(sorted_population[:size])
 
     @final
     @classmethod
@@ -141,8 +162,10 @@ class SingleObjectiveIndividual(BaseIndividual[_ST], BaseCostComparison):
                 if len(filtered) > 0:
                     result = min(result, *filtered)
 
-                next_population = sorted(population)[:population_size]
-                population = set(next_population)
+                population = cls.selection(population=population, size=population_size)
+                if len(population) > population_size:
+                    message = f"Population size {len(population)} > {population_size}"
+                    raise ValueError(message)
 
                 if current_result != result:
                     last_improved = iteration

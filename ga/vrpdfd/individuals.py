@@ -2,7 +2,23 @@ from __future__ import annotations
 
 import itertools
 import random
-from typing import ClassVar, Final, FrozenSet, Iterable, List, Optional, Sequence, Set, Tuple, Type, Union, TYPE_CHECKING, final, overload
+from typing import (
+    ClassVar,
+    Dict,
+    Final,
+    FrozenSet,
+    Iterable,
+    List,
+    Optional,
+    Sequence,
+    Set,
+    Tuple,
+    Type,
+    Union,
+    TYPE_CHECKING,
+    final,
+    overload,
+)
 
 if TYPE_CHECKING:
     from typing_extensions import Self
@@ -41,6 +57,7 @@ class VRPDFDIndividual(BaseIndividual):
         "drone_paths",
     )
     genetic_algorithm_last_improved: ClassVar[int] = 0
+    __cache__: ClassVar[Dict[Tuple[int, FrozenSet[FrozenSet[int]]], VRPDFDIndividual]] = {}
     if TYPE_CHECKING:
         __cls: Final[Type[VRPDFDSolution]]
         __hash: Final[int]
@@ -57,7 +74,7 @@ class VRPDFDIndividual(BaseIndividual):
         *,
         cls: Type[VRPDFDSolution],
         truck_paths: Tuple[FrozenSet[int], ...],
-        drone_paths: Iterable[Iterable[FrozenSet[int]]],
+        drone_paths: Tuple[Tuple[FrozenSet[int], ...], ...],
     ) -> None:
         self.__cls = cls
         self.__hash = hash((frozenset(truck_paths), frozenset(frozenset(paths) for paths in drone_paths)))
@@ -67,7 +84,29 @@ class VRPDFDIndividual(BaseIndividual):
         self.__truck_distances = None
         self.__drone_distances = None
         self.truck_paths = truck_paths
-        self.drone_paths = tuple(tuple(path for path in paths if len(path) > 1) for paths in drone_paths)
+        self.drone_paths = drone_paths
+
+        self.__cache__[self.__hash, frozenset(truck_paths)] = self
+
+    @classmethod
+    def from_cache(
+        cls,
+        *,
+        solution_cls: Type[VRPDFDSolution],
+        truck_paths: Tuple[FrozenSet[int], ...],
+        drone_paths: Iterable[Iterable[FrozenSet[int]]],
+    ) -> VRPDFDIndividual:
+        tuplized_drone_paths = tuple(tuple(path for path in paths if len(path) > 1) for paths in drone_paths)
+        hashed = hash((frozenset(truck_paths), frozenset(frozenset(paths) for paths in tuplized_drone_paths)))
+        try:
+            return cls.__cache__[hashed, frozenset(truck_paths)]
+
+        except KeyError:
+            return cls(
+                cls=solution_cls,
+                truck_paths=truck_paths,
+                drone_paths=tuplized_drone_paths,
+            )
 
     @property
     def cls(self) -> Type[VRPDFDSolution]:
@@ -83,7 +122,7 @@ class VRPDFDIndividual(BaseIndividual):
 
     @staticmethod
     def calculate_distance(path: Union[Sequence[int], FrozenSet[int]]) -> float:
-        config = ProblemConfig()
+        config = ProblemConfig.get_config()
         if isinstance(path, frozenset):
             distance, _ = config.path_order(path)
             return distance
@@ -108,8 +147,8 @@ class VRPDFDIndividual(BaseIndividual):
             for _ in range(len(paths)):
                 drone_paths[-1].append(next(drone_paths_iter))
 
-        return VRPDFDIndividual(
-            cls=self.cls,
+        return VRPDFDIndividual.from_cache(
+            solution_cls=self.cls,
             truck_paths=tuple(truck_paths),
             drone_paths=drone_paths,
         )
@@ -117,8 +156,8 @@ class VRPDFDIndividual(BaseIndividual):
     def append_drone_path(self, drone: int, path: FrozenSet[int]) -> VRPDFDIndividual:
         drone_paths = list(map(list, self.drone_paths))
         drone_paths[drone].append(path)
-        return VRPDFDIndividual(
-            cls=self.cls,
+        return VRPDFDIndividual.from_cache(
+            solution_cls=self.cls,
             truck_paths=self.truck_paths,
             drone_paths=drone_paths,
         )
@@ -134,7 +173,7 @@ class VRPDFDIndividual(BaseIndividual):
 
     def decode(self) -> VRPDFDSolution:
         if self.__decoded is None:
-            config = ProblemConfig()
+            config = ProblemConfig.get_config()
 
             truck_paths_mapping, drone_paths_mapping = paths_from_flow_chained(
                 self.truck_paths,
@@ -194,8 +233,9 @@ class VRPDFDIndividual(BaseIndividual):
         return [self.reconstruct(self_paths), other.reconstruct(other_paths)]
 
     def mutate(self) -> VRPDFDIndividual:
-        config = ProblemConfig()
+        config = ProblemConfig.get_config()
 
+        assert config.mutation_rate is not None
         if random.random() < config.mutation_rate:
             random_customers = list(range(1, len(config.customers)))
             random.shuffle(random_customers)
@@ -273,9 +313,17 @@ class VRPDFDIndividual(BaseIndividual):
         for individual in population:
             individual.decode().bump_fine_coefficient()
 
+        config = ProblemConfig.get_config()
+        if config.logger is not None:
+            config.logger.write(f"After generation #{generation + 1}:\nCost,Fine coefficient,Feasible,Individual\n")
+            config.logger.write(
+                "\n".join(f"{i.cost},{i.decode().fine_coefficient},{int(i.feasible())},\"{i}\"" for i in sorted(population, key=lambda x: x.cost))
+            )
+            config.logger.write("\n")
+
     @classmethod
     def initial(cls, *, solution_cls: Type[VRPDFDSolution], size: int) -> Set[VRPDFDIndividual]:
-        config = ProblemConfig()
+        config = ProblemConfig.get_config()
 
         results: Set[VRPDFDIndividual] = set()
         try:
@@ -351,8 +399,8 @@ class VRPDFDIndividual(BaseIndividual):
                             path.add(customer)
 
                 results.add(
-                    cls(
-                        cls=solution_cls,
+                    cls.from_cache(
+                        solution_cls=solution_cls,
                         truck_paths=tuple(map(frozenset, truck_paths)),
                         drone_paths=[map(frozenset, paths) for paths in drone_paths],
                     )

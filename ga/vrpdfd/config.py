@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import csv
+import io
 import itertools
 import json
 from dataclasses import dataclass
@@ -8,7 +9,7 @@ from math import sqrt
 from os import path
 from typing import ClassVar, Dict, Final, FrozenSet, Optional, Tuple, TYPE_CHECKING, final
 
-from .errors import ConfigDataNotFound, ConfigImportException, ConfigImportTwice
+from .errors import ConfigImportException
 from .utils import set_customers
 from ..utils import tsp_solver
 
@@ -45,6 +46,7 @@ class ProblemConfig:
     __slots__ = (
         "__tsp_cache",
 
+        "problem",
         "trucks_count",
         "drones_count",
         "customers",
@@ -60,12 +62,14 @@ class ProblemConfig:
         "mutation_rate",
         "initial_fine_coefficient",
         "fine_coefficient_increase_rate",
+        "logger",
     )
-    __instance__: ClassVar[Optional[ProblemConfig]] = None
-    problem: ClassVar[Optional[str]] = None
+    __cache__: ClassVar[Dict[str, ProblemConfig]] = {}
+    context: ClassVar[str] = "None"
     if TYPE_CHECKING:
         __tsp_cache: Dict[FrozenSet[int], Tuple[float, Tuple[int, ...]]]
 
+        problem: Final[str]
         trucks_count: Final[int]
         drones_count: Final[int]
         customers: Final[Tuple[Customer, ...]]
@@ -78,28 +82,18 @@ class ProblemConfig:
         time_limit: Final[float]
 
         # Algorithm config
-        mutation_rate: float
-        initial_fine_coefficient: float
-        fine_coefficient_increase_rate: float
+        mutation_rate: Optional[float]
+        initial_fine_coefficient: Optional[float]
+        fine_coefficient_increase_rate: Optional[float]
+        logger: Optional[io.TextIOWrapper]
 
-    def __new__(cls, problem: Optional[str] = None, /) -> ProblemConfig:
-        if cls.__instance__ is None:
-            cls.__instance__ = super().__new__(cls)
-
-        return cls.__instance__
-
-    def __init__(self, problem: Optional[str] = None, /) -> None:
-        if self.problem is not None:
-            if problem is not None and problem != self.problem:
-                raise ConfigImportTwice(self.problem, problem)
-
-            return
-
-        if problem is None:
-            raise ConfigDataNotFound
-
-        ProblemConfig.problem = problem = problem.removesuffix(".csv")
+    def __init__(self, problem: str, /) -> None:
+        self.problem = problem = problem.removesuffix(".csv")
         self.__tsp_cache = {}
+        self.mutation_rate = None
+        self.initial_fine_coefficient = None
+        self.fine_coefficient_increase_rate = None
+        self.logger = None
         try:
             config_path = "problems/vrpdfd/params.csv"
             with open(config_path, "r", encoding="utf-8", newline="") as file:
@@ -164,10 +158,16 @@ class ProblemConfig:
         return len(self.customers) - 1
 
     @classmethod
-    def reset_singleton(cls, problem: str, /) -> ProblemConfig:
-        cls.__instance__ = None
-        cls.problem = None
-        return cls(problem)
+    def get_config(cls, problem: Optional[str] = None, /) -> ProblemConfig:
+        if problem is None:
+            return cls.__cache__[cls.context]
+
+        try:
+            return cls.__cache__[problem]
+
+        except KeyError:
+            cls.__cache__[problem] = config = cls(problem)
+            return config
 
     def path_order(self, path: FrozenSet[int]) -> Tuple[float, Tuple[int, ...]]:
         try:

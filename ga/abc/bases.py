@@ -92,6 +92,26 @@ class BaseIndividual(abc.ABC, Generic[_ST]):
 
     @classmethod
     @abc.abstractmethod
+    def selection(cls, *, population: Set[Self], size: int) -> Set[Self]:
+        """Perform natural selection
+
+        Subclasses must implement this.
+
+        Parameters
+        -----
+        population:
+            The population to select from
+        size:
+            The selection size
+
+        Returns
+        -----
+        The selected population
+        """
+        ...
+
+    @classmethod
+    @abc.abstractmethod
     def initial(cls, *, solution_cls: Type[_ST], size: int) -> Set[Self]:
         """Generate the initial population
 
