@@ -193,13 +193,15 @@ paths_from_flow(
                                 receive = !receive;
                                 pos = parents[pos];
                             }
+
+                            break;
                         }
                         else
                         {
                             // Transfer within the same path
                             for (auto &[next_customer, _] : *pos.second)
                             {
-                                if (next_customer != pos.first)
+                                if (next_customer != pos.first && next_customer != 0)
                                 {
                                     auto next_pos = std::make_pair(next_customer, pos.second);
                                     if (!parents.count(next_pos))

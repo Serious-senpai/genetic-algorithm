@@ -6,7 +6,7 @@
 
 const unsigned HELD_KARP_LIMIT = 17;
 const unsigned GA_POPULATION_SIZE = 100;
-const unsigned GA_GENERATIONS_COUNT = 100;
+const unsigned GA_GENERATIONS_COUNT = 150;
 
 const double GA_MUTATION_RATE = 0.4;
 

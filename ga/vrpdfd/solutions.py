@@ -91,6 +91,17 @@ class VRPDFDSolution(SingleObjectiveSolution[VRPDFDIndividual]):
         if exceed > 0.0:
             errors.append(f"Drone paths violate system working time by {exceed}")
 
+        for path in itertools.chain(self.truck_paths, *self.drone_paths):
+            for customer, weight in path:
+                if weight < 0.0:
+                    errors.append(f"Customer {customer} has negative weight {weight}")
+
+                if path[0] != (0, 0.0):
+                    errors.append(f"Path {path} does not start from the depot")
+
+                if path[-1] != (0, 0.0):
+                    errors.append(f"Path {path} does not end at the depot")
+
         for index, customer in enumerate(config.customers):
             total = 0.0
             for path in self.truck_paths:

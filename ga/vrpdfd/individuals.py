@@ -31,6 +31,7 @@ class VRPDFDIndividual(BaseIndividual):
 
     __slots__ = (
         "__cls",
+        "__hash",
         "__decoded",
         "__truck_distance",
         "__drone_distance",
@@ -42,6 +43,7 @@ class VRPDFDIndividual(BaseIndividual):
     genetic_algorithm_last_improved: ClassVar[int] = 0
     if TYPE_CHECKING:
         __cls: Final[Type[VRPDFDSolution]]
+        __hash: Final[int]
         __decoded: Optional[VRPDFDSolution]
         __truck_distance: Optional[float]
         __drone_distance: Optional[float]
@@ -54,16 +56,17 @@ class VRPDFDIndividual(BaseIndividual):
         self,
         *,
         cls: Type[VRPDFDSolution],
-        truck_paths: Iterable[FrozenSet[int]],
+        truck_paths: Tuple[FrozenSet[int], ...],
         drone_paths: Iterable[Iterable[FrozenSet[int]]],
     ) -> None:
         self.__cls = cls
+        self.__hash = hash((frozenset(truck_paths), frozenset(frozenset(paths) for paths in drone_paths)))
         self.__decoded = None
         self.__truck_distance = None
         self.__drone_distance = None
         self.__truck_distances = None
         self.__drone_distances = None
-        self.truck_paths = tuple(truck_paths)
+        self.truck_paths = truck_paths
         self.drone_paths = tuple(tuple(path for path in paths if len(path) > 1) for paths in drone_paths)
 
     @property
@@ -107,7 +110,7 @@ class VRPDFDIndividual(BaseIndividual):
 
         return VRPDFDIndividual(
             cls=self.cls,
-            truck_paths=truck_paths,
+            truck_paths=tuple(truck_paths),
             drone_paths=drone_paths,
         )
 
@@ -146,7 +149,9 @@ class VRPDFDIndividual(BaseIndividual):
                 _, ordered = config.path_order(path)
 
                 for customer in ordered:
-                    truck_paths[-1].append((customer, truck_paths_mapping[truck][customer]))
+                    weight = truck_paths_mapping[truck][customer]
+                    if customer == 0 or weight > 0.0:
+                        truck_paths[-1].append((customer, weight))
 
             drone_paths: List[List[List[Tuple[int, float]]]] = []
             for drone, paths in enumerate(self.drone_paths):
@@ -156,7 +161,9 @@ class VRPDFDIndividual(BaseIndividual):
                     _, ordered = config.path_order(path)
 
                     for customer in ordered:
-                        drone_paths[-1][-1].append((customer, drone_paths_mapping[drone][path_index][customer]))
+                        weight = drone_paths_mapping[drone][path_index][customer]
+                        if customer == 0 or weight > 0.0:
+                            drone_paths[-1][-1].append((customer, weight))
 
             self.__decoded = self.cls(
                 truck_paths=tuple(map(tuple, truck_paths)),
@@ -215,7 +222,12 @@ class VRPDFDIndividual(BaseIndividual):
 
             def append_path(paths: List[FrozenSet[int]]) -> VRPDFDIndividual:
                 result = self.reconstruct(paths)
-                return result.append_drone_path(random.randint(0, config.drones_count - 1), frozenset([0, random_customers[0]]))
+                customer = random_customers[0]
+                for customer in random_customers:
+                    if 2 * config.distances[0][customer] <= config.drone.speed * config.drone.time_limit:
+                        break
+
+                return result.append_drone_path(random.randint(0, config.drones_count - 1), frozenset([0, customer]))
 
             factories = (
                 remove_customer,
@@ -341,8 +353,8 @@ class VRPDFDIndividual(BaseIndividual):
                 results.add(
                     cls(
                         cls=solution_cls,
-                        truck_paths=map(frozenset, truck_paths),
-                        drone_paths=(map(frozenset, paths) for paths in drone_paths),
+                        truck_paths=tuple(map(frozenset, truck_paths)),
+                        drone_paths=[map(frozenset, paths) for paths in drone_paths],
                     )
                 )
 
@@ -360,4 +372,4 @@ class VRPDFDIndividual(BaseIndividual):
         return f"VRPDFDIndividual(truck_paths={self.truck_paths!r}, drone_paths={self.drone_paths!r})"
 
     def __hash__(self) -> int:
-        return hash((self.truck_paths, self.drone_paths))
+        return self.__hash

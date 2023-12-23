@@ -137,12 +137,12 @@ class SingleObjectiveIndividual(BaseIndividual[_ST], BaseCostComparison):
                         o = o.mutate().educate()
                         population.add(o)
 
-                next_population = sorted(population)[:population_size]
-                population = set(next_population)
-
-                filtered = tuple(filter(lambda i: i.feasible(), next_population))
+                filtered = tuple(filter(lambda i: i.feasible(), population))
                 if len(filtered) > 0:
                     result = min(result, *filtered)
+
+                next_population = sorted(population)[:population_size]
+                population = set(next_population)
 
                 if current_result != result:
                     last_improved = iteration
