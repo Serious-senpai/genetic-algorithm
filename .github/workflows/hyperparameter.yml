@@ -48,11 +48,11 @@ jobs:
             --extra "run #$i"
           done
 
-          - name: Upload solutions
-          uses: actions/upload-artifact@v3
-          with:
-            name: vrpdfd-summary
-            path: output-*.json
+      - name: Upload solutions
+        uses: actions/upload-artifact@v3
+        with:
+          name: vrpdfd-summary
+          path: output-*.json
 
   summary:
     name: Summarize solutions
