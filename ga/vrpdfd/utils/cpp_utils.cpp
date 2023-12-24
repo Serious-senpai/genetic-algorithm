@@ -259,16 +259,19 @@ paths_from_flow(
                                 }
                             }
 
-                            // Transfer to another path
-                            for (auto &next_path_iter : in_path[pos.first])
+                            if (pos.first != sender)
                             {
-                                if (next_path_iter != pos.second)
+                                // Transfer to another path
+                                for (auto &next_path_iter : in_path[pos.first])
                                 {
-                                    auto next_pos = std::make_pair(pos.first, next_path_iter);
-                                    if (!parents.count(next_pos))
+                                    if (next_path_iter != pos.second)
                                     {
-                                        parents.emplace(next_pos, pos);
-                                        queue.emplace_back(next_pos, std::min(transfer, next_path_iter->at(pos.first)));
+                                        auto next_pos = std::make_pair(pos.first, next_path_iter);
+                                        if (!parents.count(next_pos))
+                                        {
+                                            parents.emplace(next_pos, pos);
+                                            queue.emplace_back(next_pos, std::min(transfer, next_path_iter->at(pos.first)));
+                                        }
                                     }
                                 }
                             }
