@@ -26,10 +26,17 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Build binary files
+      - name: Set PYTHONPATH as working directory
+        run: export PYTHONPATH=$GITHUB_WORKSPACE
+
+      - name: Build binary files in debug mode
+        run: scripts/build.sh debug
+
+      - name: Run pytest
+        run: pytest tests
+
+      - name: Build binary files in release mode
         run: scripts/build.sh
 
       - name: Run pytest
-        run: |
-          export PYTHONPATH=$GITHUB_WORKSPACE
-          pytest tests
+        run: pytest tests

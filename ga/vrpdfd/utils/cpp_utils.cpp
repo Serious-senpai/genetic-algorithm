@@ -3,6 +3,9 @@
 #include <map>
 #include <set>
 #include <vector>
+#ifdef DEBUG
+#include <iostream>
+#endif
 
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
@@ -50,6 +53,18 @@ paths_from_flow(
     const std::vector<std::vector<double>> &flows,
     const std::vector<std::set<unsigned>> &neighbors)
 {
+#ifdef DEBUG
+    std::cout << "Building solution from flow:" << std::endl;
+    for (unsigned i = 0; i < flows.size(); i++)
+    {
+        for (unsigned j = 0; j < flows[i].size(); j++)
+        {
+            std::cout << flows[i][j] << " ";
+        }
+        std::cout << std::endl;
+    }
+#endif
+
     unsigned customers_count = customers.size() - 1,
              network_trucks_offset = 1,
              network_drones_offset = network_trucks_offset + truck_paths_count,
@@ -95,6 +110,10 @@ paths_from_flow(
     for (unsigned customer = 1; customer < customers.size(); customer++)
     {
         total_weights[customer] = flows[network_customers_offset + customer - 1][network_sink];
+
+#ifdef DEBUG
+        std::cout << "Customer " << customer << " received total weight " << total_weights[customer] << " (low = " << customers[customer].low << ", high = " << customers[customer].high << ")" << std::endl;
+#endif
     }
 
     std::vector<unsigned> senders, receivers;
@@ -109,6 +128,22 @@ paths_from_flow(
             receivers.push_back(customer);
         }
     }
+
+#ifdef DEBUG
+    std::cout << "senders: ";
+    for (auto sender : senders)
+    {
+        std::cout << sender << " ";
+    }
+    std::cout << std::endl;
+
+    std::cout << "receivers: ";
+    for (auto receiver : receivers)
+    {
+        std::cout << receiver << " ";
+    }
+    std::cout << std::endl;
+#endif
 
     std::sort(
         senders.begin(), senders.end(),
@@ -170,17 +205,29 @@ paths_from_flow(
 
                         if (pos.first == receiver)
                         {
+#ifdef DEBUG
+                            std::cout << "Transfer " << transfer << " units from " << sender << " to " << receiver << " to achieve " << customers[receiver].low << " (currently " << total_weights[receiver] << ")" << std::endl;
+#endif
+
                             bool receive = true;
                             while (true)
                             {
                                 auto original = pos.second->at(pos.first);
                                 if (receive)
                                 {
+#ifdef DEBUG
+                                    std::cout << pos.first << " (" << original << ")+" << transfer << std::endl;
+#endif
+
                                     pos.second->insert_or_assign(pos.first, original + transfer);
                                     total_weights[pos.first] += transfer;
                                 }
                                 else
                                 {
+#ifdef DEBUG
+                                    std::cout << pos.first << " (" << original << ")-" << transfer << std::endl;
+#endif
+
                                     pos.second->insert_or_assign(pos.first, original - transfer);
                                     total_weights[pos.first] -= transfer;
                                 }
