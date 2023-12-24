@@ -1,0 +1,94 @@
+name: Hyperparameter tuning
+
+on: [ push, pull_request ]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  tune:
+    name: Tune hyperparameters
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        problem: ["6.10.1", "10.10.1", "12.10.1", "20.10.1", "50.10.1", "100.10.1"]
+        mutation-rate: [0.1, 0.5, 0.9]
+        initial-fine-coefficient: [1000, 1000000, 1000000000]
+        fine-coefficient-increase-rate: [10, 30, 50]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          submodules: recursive
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Build binary files
+        run: scripts/build.sh
+
+      - name: Run optimizer
+        run: |
+          for i in $(seq 0 4)
+          do
+            python vrpdfd.py ${{ matrix.problem }} \
+            --mutation-rate ${{ matrix.mutation-rate }} \
+            --initial-fine-coefficient ${{ matrix.initial-fine-coefficient }} \
+            --fine-coefficient-increase-rate ${{ matrix.fine-coefficient-increase-rate }} \
+            --dump "output-${{ matrix.problem }}-$i.json" \
+            --extra "run #$i"
+          done
+
+          - name: Upload solutions
+          uses: actions/upload-artifact@v3
+          with:
+            name: vrpdfd-summary
+            path: output-*.json
+
+  summary:
+    name: Summarize solutions
+    runs-on: ubuntu-latest
+    if: ${{ !cancelled() }}
+    needs: tune
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          submodules: recursive
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Build binary files
+        run: scripts/build.sh
+
+      - name: Download solutions
+        uses: actions/download-artifact@v3
+        with:
+          name: vrpdfd-summary
+          path: vrpdfd-summary/
+
+      - name: Summarize solutions
+        run: |
+          export PYTHONPATH=$GITHUB_WORKSPACE
+          python scripts/vrpdfd-summary.py
+
+      - name: Upload summary as artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: summary
+          path: |
+            vrpdfd-summary/*.csv
