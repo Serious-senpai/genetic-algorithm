@@ -44,7 +44,7 @@ jobs:
             --mutation-rate ${{ matrix.mutation-rate }} \
             --initial-fine-coefficient ${{ matrix.initial-fine-coefficient }} \
             --fine-coefficient-increase-rate ${{ matrix.fine-coefficient-increase-rate }} \
-            --dump "output-${{ matrix.problem }}-$i.json" \
+            --dump "output-${{ matrix.problem }}-${{ matrix.mutation-rate }}-${{ matrix.initial-fine-coefficient }}-${{ matrix.fine-coefficient-increase-rate }}-$i.json" \
             --extra "run #$i"
           done
 
