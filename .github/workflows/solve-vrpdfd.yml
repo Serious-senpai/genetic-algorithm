@@ -49,6 +49,7 @@ jobs:
           do
             python vrpdfd.py ${{ matrix.problem }} \
             --dump "output-${{ matrix.problem }}-$i.json" \
+            --log "log-${{ matrix.problem }}-$i.csv" \
             --extra "run #$i"
           done
 
@@ -60,6 +61,12 @@ jobs:
         with:
           name: vrpdfd-summary
           path: output-*.json
+
+      - name: Upload log
+        uses: actions/upload-artifact@v3
+        with:
+          name: log-${{ matrix.problem }}
+          path: log-*.csv
 
   summary:
     name: Summarize solutions
