@@ -119,3 +119,8 @@ def test_flows_with_answers_as_demands() -> None:
     print(flows)
     assert sum(flows[0]) == 10
     check_valid_flow(flows)
+
+
+def test_weird_round() -> None:
+    assert utils.weird_round(1.234, 2) == 1.23
+    assert utils.weird_round(2.3301, 2) == 2.34
