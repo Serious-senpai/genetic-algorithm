@@ -86,3 +86,9 @@ double round(const double value, const unsigned precision)
     double factor = std::pow(10, precision);
     return std::round(value * factor) / factor;
 }
+
+double weird_round(const double value, const unsigned precision)
+{
+    double factor = std::pow(10, precision);
+    return std::ceil(value * factor) / factor;
+}

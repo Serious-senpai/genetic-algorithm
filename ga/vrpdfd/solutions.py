@@ -85,13 +85,16 @@ class VRPDFDSolution(SingleObjectiveSolution[VRPDFDIndividual]):
         if exceed > 0.0:
             errors.append(f"Truck paths violate system working time by {exceed}")
 
-        exceed = positive_max(itertools.chain(*self.drone_distances)) / config.drone.speed - config.drone.time_limit
-        if exceed > 0.0:
-            errors.append(f"Drone paths violate flight time by {exceed}")
+        for drone, drone_distances in enumerate(self.drone_distances):
+            for index, drone_distance in enumerate(drone_distances):
+                exceed = drone_distance / config.drone.speed - config.drone.time_limit
+                if exceed > 0.0:
+                    errors.append(f"Path {index} of drone {drone} violates flight time by {exceed}")
 
-        exceed = max(sum(distances) / config.drone.speed - config.time_limit for distances in self.drone_distances)
-        if exceed > 0.0:
-            errors.append(f"Drone paths violate system working time by {exceed}")
+        for drone, drone_distances in enumerate(self.drone_distances):
+            exceed = sum(drone_distances) / config.drone.speed - config.time_limit
+            if exceed > 0.0:
+                errors.append(f"Drone {drone} violates system working time by {exceed}")
 
         for path in itertools.chain(self.truck_paths, *self.drone_paths):
             for customer_index, weight in path:
@@ -181,14 +184,20 @@ class VRPDFDSolution(SingleObjectiveSolution[VRPDFDIndividual]):
         return self.__revenue
 
     @property
+    def truck_cost(self) -> float:
+        config = ProblemConfig.get_config()
+        return config.truck.cost_coefficient * self.truck_distance
+
+    @property
+    def drone_cost(self) -> float:
+        config = ProblemConfig.get_config()
+        return config.drone.cost_coefficient * self.drone_distance
+
+    @property
     def cost(self) -> float:
         if self.__cost is None:
-            config = ProblemConfig.get_config()
-            self.__cost = (
-                config.drone.cost_coefficient * self.drone_distance
-                + config.truck.cost_coefficient * self.truck_distance
-                - self.revenue
-            )  # We want to maximize profit i.e. minimize cost = -profit
+            # We want to maximize profit i.e. minimize cost = -profit
+            self.__cost = self.truck_cost + self.drone_cost - self.revenue
 
         return self.__cost + self.__fine_coefficient * self.fine
 

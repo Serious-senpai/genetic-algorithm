@@ -11,7 +11,7 @@ from typing import ClassVar, Dict, Final, FrozenSet, Optional, Tuple, TYPE_CHECK
 
 from .errors import ConfigImportException
 from .utils import set_customers
-from ..utils import tsp_solver
+from ..utils import tsp_solver, weird_round
 
 
 __all__ = (
@@ -139,7 +139,7 @@ class ProblemConfig:
 
                 distances = [[0.0] * (customers_count) for _ in range(customers_count)]
                 for f, s in itertools.combinations(range(customers_count), 2):
-                    distances[f][s] = distances[s][f] = sqrt((customers[f].x - customers[s].x) ** 2 + (customers[f].y - customers[s].y) ** 2)
+                    distances[f][s] = distances[s][f] = weird_round(sqrt((customers[f].x - customers[s].x) ** 2 + (customers[f].y - customers[s].y) ** 2), 2)
 
                 self.distances = tuple(map(tuple, distances))
 
