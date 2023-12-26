@@ -112,12 +112,14 @@ class VRPDFDSolution(SingleObjectiveSolution[VRPDFDIndividual]):
             for path in self.truck_paths:
                 total += sum(weight for customer_index, weight in path if customer_index == index)
 
-            for paths in self.drone_paths:
-                for path in paths:
-                    total += sum(weight for customer_index, weight in path if customer_index == index)
+            for path in itertools.chain(*self.drone_paths):
+                total += sum(weight for customer_index, weight in path if customer_index == index)
 
             if total < customer.low or total > customer.high:
                 errors.append(f"Customer {index} has weight {total} outside [{customer.low}, {customer.high}]")
+
+        if self.fine > 0.0:
+            errors.append(f"Total fine = {self.fine_coefficient} * {self.fine}")
 
         if len(errors) > 0:
             raise InfeasibleSolution("Solution is infeasible\n" + "\n".join(errors))
@@ -174,10 +176,9 @@ class VRPDFDSolution(SingleObjectiveSolution[VRPDFDIndividual]):
                 for value in path:
                     revenue += config.customers[value[0]].w * value[1]
 
-            for paths in self.drone_paths:
-                for path in paths:
-                    for value in path:
-                        revenue += config.customers[value[0]].w * value[1]
+            for path in itertools.chain(*self.drone_paths):
+                for value in path:
+                    revenue += config.customers[value[0]].w * value[1]
 
             self.__revenue = revenue
 
@@ -214,16 +215,18 @@ class VRPDFDSolution(SingleObjectiveSolution[VRPDFDIndividual]):
                 + sum(positive_max(sum(distances) / config.drone.speed / config.time_limit - 1) for distances in self.drone_distances)
             )
 
-            for index, customer in enumerate(config.customers[1:], start=1):
-                total = 0.0
-                for path in self.truck_paths:
-                    total += sum(weight for customer_index, weight in path if customer_index == index)
+            total = [0.0] * len(config.customers)
+            for path in self.truck_paths:
+                for customer_index, weight in path:
+                    total[customer_index] += weight
 
-                for paths in self.drone_paths:
-                    for path in paths:
-                        total += sum(weight for customer_index, weight in path if customer_index == index)
+            for path in itertools.chain(*self.drone_paths):
+                for customer_index, weight in path:
+                    total[customer_index] += weight
 
-                result += (positive_max(customer.low - total) + positive_max(total - customer.high)) / customer.high
+            for index, customer in enumerate(config.customers):
+                if index > 0:
+                    result += (positive_max(customer.low - total[index]) + positive_max(total[index] - customer.high)) / customer.high
 
             self.__fine = result
 

@@ -27,7 +27,7 @@ from .config import ProblemConfig
 from .errors import PopulationInitializationException
 from .utils import paths_from_flow_chained
 from ..abc import SingleObjectiveIndividual
-from ..utils import flows_with_demands, weighted_random_choice
+from ..utils import flows_with_demands, weighted_random, weighted_random_choice
 if TYPE_CHECKING:
     from .solutions import VRPDFDSolution
 
@@ -252,7 +252,7 @@ class VRPDFDIndividual(BaseIndividual):
 
             def add_customer(paths: List[FrozenSet[int]]) -> VRPDFDIndividual:
                 distances = [self.calculate_distance(path) for path in paths]
-                path_index = weighted_random_choice([1 / d if d > 0.0 else 10 ** 9 for d in distances])
+                path_index = weighted_random_choice([1 / d if d > 0.0 else 10 ** 6 for d in distances])
                 for customer in random_customers:
                     if customer not in paths[path_index]:
                         paths[path_index] = paths[path_index].union([customer])
@@ -320,6 +320,12 @@ class VRPDFDIndividual(BaseIndividual):
                 "\n".join(f"{i.cost},{i.decode().fine_coefficient},{int(i.feasible())},\"{i}\"" for i in sorted(population, key=lambda x: x.cost))
             )
             config.logger.write("\n")
+
+    @classmethod
+    def parents_selection(cls, *, population: FrozenSet[Self]) -> Tuple[Self, Self]:
+        population_sorted = sorted(population, key=lambda i: i.cost)
+        first, second = weighted_random([1 + 1 / (index + 1) for index in range(len(population))], count=2)
+        return population_sorted[first], population_sorted[second]
 
     @classmethod
     def initial(cls, *, solution_cls: Type[VRPDFDSolution], size: int) -> Set[VRPDFDIndividual]:

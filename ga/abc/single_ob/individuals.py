@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import random
 from typing import FrozenSet, List, Set, Type, TypeVar, Union, TYPE_CHECKING, final
 
 from matplotlib import pyplot
@@ -69,7 +68,7 @@ class SingleObjectiveIndividual(BaseIndividual[_ST], BaseCostComparison):
         return
 
     @classmethod
-    def selection(cls, *, population: Set[Self], size: int) -> Set[Self]:
+    def selection(cls, *, population: FrozenSet[Self], size: int) -> Set[Self]:
         """Perform natural selection
 
         The default implementation selects the best individuals, but subclasses
@@ -147,7 +146,7 @@ class SingleObjectiveIndividual(BaseIndividual[_ST], BaseCostComparison):
 
                 # Expand the population, then perform natural selection
                 while len(population) < population_expansion_limit:
-                    first, second = random.sample(tuple(population), 2)
+                    first, second = cls.parents_selection(population=frozenset(population))
                     offspring = first.crossover(second)
 
                     for o in offspring:
@@ -162,7 +161,7 @@ class SingleObjectiveIndividual(BaseIndividual[_ST], BaseCostComparison):
                 if len(filtered) > 0:
                     result = min(result, *filtered)
 
-                population = cls.selection(population=population, size=population_size)
+                population = cls.selection(population=frozenset(population), size=population_size)
                 if len(population) > population_size:
                     message = f"Population size {len(population)} > {population_size}"
                     raise ValueError(message)
