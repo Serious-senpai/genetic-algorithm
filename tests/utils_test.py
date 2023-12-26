@@ -122,5 +122,5 @@ def test_flows_with_answers_as_demands() -> None:
 
 
 def test_weird_round() -> None:
-    assert utils.weird_round(1.234, 2) == 1.23
+    assert utils.weird_round(1.234, 2) == 1.24
     assert utils.weird_round(2.3301, 2) == 2.34
