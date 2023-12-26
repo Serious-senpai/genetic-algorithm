@@ -96,17 +96,20 @@ class VRPDFDIndividual(BaseIndividual):
         truck_paths: Tuple[FrozenSet[int], ...],
         drone_paths: Iterable[Iterable[FrozenSet[int]]],
     ) -> VRPDFDIndividual:
+        frozen_truck_paths = frozenset(truck_paths)
         tuplized_drone_paths = tuple(tuple(path for path in paths if len(path) > 1) for paths in drone_paths)
         hashed = hash((frozenset(truck_paths), frozenset(frozenset(paths) for paths in tuplized_drone_paths)))
         try:
-            return cls.__cache__[hashed, frozenset(truck_paths)]
+            return cls.__cache__[hashed, frozen_truck_paths]
 
         except KeyError:
-            return cls(
+            cls.__cache__[hashed, frozen_truck_paths] = result = cls(
                 cls=solution_cls,
                 truck_paths=truck_paths,
                 drone_paths=tuplized_drone_paths,
             )
+
+            return result
 
     @property
     def cls(self) -> Type[VRPDFDSolution]:
