@@ -228,7 +228,6 @@ std::pair<double, std::vector<unsigned>> tsp_solver(const std::vector<std::pair<
             }
         }
 
-        std::vector<double> history = {result_cost};
         for (unsigned generation = 0; generation < GA_GENERATIONS_COUNT; generation++)
         {
             while (population.size() < 2 * GA_POPULATION_SIZE)
@@ -272,8 +271,6 @@ std::pair<double, std::vector<unsigned>> tsp_solver(const std::vector<std::pair<
                 result_cost = cost;
                 result = population[0];
             }
-
-            history.push_back(result_cost);
         }
 
         rotate_to_first(result, first);
