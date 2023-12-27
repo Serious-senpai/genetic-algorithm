@@ -16,7 +16,7 @@ def check_solution(solution: Optional[vrpdfd.VRPDFDSolution], *, expected: Optio
 def test_decode_6_5_1() -> None:
     vrpdfd.ProblemConfig.get_config("6.5.1").initial_fine_coefficient = 10 ** 3
     vrpdfd.ProblemConfig.context = "6.5.1"
-    solution = vrpdfd.VRPDFDIndividual.from_cache(
+    solution = vrpdfd.VRPDFDIndividual(
         solution_cls=vrpdfd.VRPDFDSolution,
         truck_paths=(frozenset([0, 5, 1, 6]),),
         drone_paths=[
@@ -55,8 +55,8 @@ def test_decode_6_5_4() -> None:
                 frozenset([0, 6]),
                 frozenset([0, 6]),
                 frozenset([0, 6]),
-            ],
-        ],
+            ),
+        ),
     ).decode()
 
     print(solution.truck_distances)

@@ -1,3 +1,5 @@
+#include <optional>
+
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
@@ -14,7 +16,7 @@ PYBIND11_MODULE(cpp_utils, m)
 {
     m.def(
         "fake_tsp_solver", &fake_tsp_solver,
-        py::arg("cities"), py::kw_only(), py::arg("first") = 0,
+        py::arg("cities"), py::kw_only(), py::arg("first") = 0, py::arg("heuristic_hint") = std::optional<std::vector<unsigned>>(),
         py::call_guard<py::gil_scoped_release>());
     m.def(
         "flows_with_demands", &flows_with_demands,
@@ -30,7 +32,7 @@ PYBIND11_MODULE(cpp_utils, m)
         py::call_guard<py::gil_scoped_release>());
     m.def(
         "tsp_solver", &tsp_solver,
-        py::arg("cities"), py::kw_only(), py::arg("first") = 0,
+        py::arg("cities"), py::kw_only(), py::arg("first") = 0, py::arg("heuristic_hint") = std::optional<std::vector<unsigned>>(),
         py::call_guard<py::gil_scoped_release>());
     m.def(
         "weighted_random", &weighted_random,

@@ -157,7 +157,10 @@ double evaluate(const std::vector<unsigned> &individual, const std::vector<std::
     return result;
 }
 
-std::pair<double, std::vector<unsigned>> tsp_solver(const std::vector<std::pair<double, double>> &cities, const unsigned first = 0)
+std::pair<double, std::vector<unsigned>> tsp_solver(
+    const std::vector<std::pair<double, double>> &cities,
+    const unsigned first = 0,
+    const std::optional<std::vector<unsigned>> &heuristic_hint = std::optional<std::vector<unsigned>>())
 {
     unsigned n = cities.size();
     if (n == 0)
@@ -204,7 +207,16 @@ std::pair<double, std::vector<unsigned>> tsp_solver(const std::vector<std::pair<
     else
     {
         std::vector<std::vector<unsigned>> population;
-        for (unsigned i = 0; i < GA_POPULATION_SIZE; i++)
+        try
+        {
+            population.push_back(heuristic_hint.value());
+        }
+        catch (std::bad_optional_access &e)
+        {
+            // pass
+        }
+
+        while (population.size() < GA_POPULATION_SIZE)
         {
             std::vector<unsigned> individual;
             for (unsigned j = 0; j < n; j++)
@@ -228,7 +240,6 @@ std::pair<double, std::vector<unsigned>> tsp_solver(const std::vector<std::pair<
             }
         }
 
-        std::vector<double> history = {result_cost};
         for (unsigned generation = 0; generation < GA_GENERATIONS_COUNT; generation++)
         {
             while (population.size() < 2 * GA_POPULATION_SIZE)
@@ -272,8 +283,6 @@ std::pair<double, std::vector<unsigned>> tsp_solver(const std::vector<std::pair<
                 result_cost = cost;
                 result = population[0];
             }
-
-            history.push_back(result_cost);
         }
 
         rotate_to_first(result, first);
