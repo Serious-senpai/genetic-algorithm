@@ -4,10 +4,8 @@ import itertools
 import random
 from typing import (
     ClassVar,
-    Dict,
     Final,
     FrozenSet,
-    Iterable,
     List,
     Optional,
     Sequence,
@@ -57,7 +55,6 @@ class VRPDFDIndividual(BaseIndividual):
         "drone_paths",
     )
     genetic_algorithm_last_improved: ClassVar[int] = 0
-    __cache__: ClassVar[Dict[Tuple[int, FrozenSet[FrozenSet[int]]], VRPDFDIndividual]] = {}
     if TYPE_CHECKING:
         __cls: Final[Type[VRPDFDSolution]]
         __hash: Final[int]
@@ -72,11 +69,11 @@ class VRPDFDIndividual(BaseIndividual):
     def __init__(
         self,
         *,
-        cls: Type[VRPDFDSolution],
+        solution_cls: Type[VRPDFDSolution],
         truck_paths: Tuple[FrozenSet[int], ...],
         drone_paths: Tuple[Tuple[FrozenSet[int], ...], ...],
     ) -> None:
-        self.__cls = cls
+        self.__cls = solution_cls
         self.__hash = hash((frozenset(truck_paths), frozenset(frozenset(paths) for paths in drone_paths)))
         self.__decoded = None
         self.__truck_distance = None
@@ -85,31 +82,6 @@ class VRPDFDIndividual(BaseIndividual):
         self.__drone_distances = None
         self.truck_paths = truck_paths
         self.drone_paths = drone_paths
-
-        self.__cache__[self.__hash, frozenset(truck_paths)] = self
-
-    @classmethod
-    def from_cache(
-        cls,
-        *,
-        solution_cls: Type[VRPDFDSolution],
-        truck_paths: Tuple[FrozenSet[int], ...],
-        drone_paths: Iterable[Iterable[FrozenSet[int]]],
-    ) -> VRPDFDIndividual:
-        frozen_truck_paths = frozenset(truck_paths)
-        tuplized_drone_paths = tuple(tuple(path for path in paths if len(path) > 1) for paths in drone_paths)
-        hashed = hash((frozenset(truck_paths), frozenset(frozenset(paths) for paths in tuplized_drone_paths)))
-        try:
-            return cls.__cache__[hashed, frozen_truck_paths]
-
-        except KeyError:
-            cls.__cache__[hashed, frozen_truck_paths] = result = cls(
-                cls=solution_cls,
-                truck_paths=truck_paths,
-                drone_paths=tuplized_drone_paths,
-            )
-
-            return result
 
     @property
     def cls(self) -> Type[VRPDFDSolution]:
@@ -150,19 +122,19 @@ class VRPDFDIndividual(BaseIndividual):
             for _ in range(len(paths)):
                 drone_paths[-1].append(next(drone_paths_iter))
 
-        return VRPDFDIndividual.from_cache(
+        return VRPDFDIndividual(
             solution_cls=self.cls,
             truck_paths=tuple(truck_paths),
-            drone_paths=drone_paths,
+            drone_paths=tuple(map(tuple, drone_paths)),
         )
 
     def append_drone_path(self, drone: int, path: FrozenSet[int]) -> VRPDFDIndividual:
         drone_paths = list(map(list, self.drone_paths))
         drone_paths[drone].append(path)
-        return VRPDFDIndividual.from_cache(
+        return VRPDFDIndividual(
             solution_cls=self.cls,
             truck_paths=self.truck_paths,
-            drone_paths=drone_paths,
+            drone_paths=tuple(map(tuple, drone_paths)),
         )
 
     def feasible(self) -> bool:
@@ -402,10 +374,10 @@ class VRPDFDIndividual(BaseIndividual):
                             path.add(customer)
 
                 results.add(
-                    cls.from_cache(
+                    cls(
                         solution_cls=solution_cls,
                         truck_paths=tuple(map(frozenset, truck_paths)),
-                        drone_paths=[map(frozenset, paths) for paths in drone_paths],
+                        drone_paths=tuple(tuple(map(frozenset, paths)) for paths in drone_paths),
                     )
                 )
 

@@ -16,11 +16,11 @@ def check_solution(solution: Optional[vrpdfd.VRPDFDSolution], *, expected: Optio
 def test_decode_6_5_1() -> None:
     vrpdfd.ProblemConfig.get_config("6.5.1").initial_fine_coefficient = 10 ** 3
     vrpdfd.ProblemConfig.context = "6.5.1"
-    solution = vrpdfd.VRPDFDIndividual.from_cache(
+    solution = vrpdfd.VRPDFDIndividual(
         solution_cls=vrpdfd.VRPDFDSolution,
         truck_paths=(frozenset([0, 6, 3, 2, 5, 1]),),
-        drone_paths=[
-            [
+        drone_paths=(
+            (
                 frozenset([0, 4]),
                 frozenset([0, 1]),
                 frozenset([0, 1]),
@@ -33,8 +33,8 @@ def test_decode_6_5_1() -> None:
                 frozenset([0, 1]),
                 frozenset([0, 1]),
                 frozenset([0, 1]),
-            ],
-        ],
+            ),
+        ),
     ).decode()
 
     # MILP reported -31375.726216108575, seems like it doesn't know how to solve TSP lol
@@ -44,11 +44,11 @@ def test_decode_6_5_1() -> None:
 def test_decode_6_5_2() -> None:
     vrpdfd.ProblemConfig.get_config("6.5.2").initial_fine_coefficient = 10 ** 3
     vrpdfd.ProblemConfig.context = "6.5.2"
-    solution = vrpdfd.VRPDFDIndividual.from_cache(
+    solution = vrpdfd.VRPDFDIndividual(
         solution_cls=vrpdfd.VRPDFDSolution,
         truck_paths=(frozenset([0, 1, 2, 5, 4]),),
-        drone_paths=[
-            [
+        drone_paths=(
+            (
                 frozenset([0, 1]),
                 frozenset([0, 1]),
                 frozenset([0, 3]),
@@ -56,8 +56,8 @@ def test_decode_6_5_2() -> None:
                 frozenset([0, 6]),
                 frozenset([0, 6]),
                 frozenset([0, 6]),
-            ],
-        ],
+            ),
+        ),
     ).decode()
     check_solution(solution, expected=-17105.399401003662)
 
@@ -65,11 +65,11 @@ def test_decode_6_5_2() -> None:
 def test_decode_6_5_3() -> None:
     vrpdfd.ProblemConfig.get_config("6.5.3").initial_fine_coefficient = 10 ** 3
     vrpdfd.ProblemConfig.context = "6.5.3"
-    solution = vrpdfd.VRPDFDIndividual.from_cache(
+    solution = vrpdfd.VRPDFDIndividual(
         solution_cls=vrpdfd.VRPDFDSolution,
         truck_paths=(frozenset([0, 6, 5, 1, 4, 3]),),
-        drone_paths=[
-            [
+        drone_paths=(
+            (
                 frozenset([0, 2]),
                 frozenset([0, 2]),
                 frozenset([0, 6]),
@@ -78,8 +78,8 @@ def test_decode_6_5_3() -> None:
                 frozenset([0, 6]),
                 frozenset([0, 6]),
                 frozenset([0, 6]),
-            ],
-        ],
+            ),
+        ),
     ).decode()
     check_solution(solution, expected=-14901.444958783168)
 
@@ -87,11 +87,11 @@ def test_decode_6_5_3() -> None:
 def test_decode_10_5_3() -> None:
     vrpdfd.ProblemConfig.get_config("10.5.3").initial_fine_coefficient = 10 ** 3
     vrpdfd.ProblemConfig.context = "10.5.3"
-    solution = vrpdfd.VRPDFDIndividual.from_cache(
+    solution = vrpdfd.VRPDFDIndividual(
         solution_cls=vrpdfd.VRPDFDSolution,
         truck_paths=(frozenset([0, 2, 3, 6, 9, 10, 1, 7, 8, 5, 0]),),
-        drone_paths=[
-            [
+        drone_paths=(
+            (
                 frozenset([0, 5]),
                 frozenset([0, 5]),
                 frozenset([0, 5]),
@@ -102,8 +102,8 @@ def test_decode_10_5_3() -> None:
                 frozenset([0, 5]),
                 frozenset([0, 5]),
                 frozenset([0, 5]),
-            ],
-        ],
+            ),
+        ),
     ).decode()
     check_solution(solution, expected=-22063.12298397885)
 
@@ -129,7 +129,7 @@ def test_decode_100_20_1() -> None:
 def test_decode_100_40_1() -> None:
     vrpdfd.ProblemConfig.get_config("100.40.1").initial_fine_coefficient = 10 ** 3
     vrpdfd.ProblemConfig.context = "100.40.1"
-    solution = vrpdfd.VRPDFDIndividual.from_cache(
+    solution = vrpdfd.VRPDFDIndividual(
         solution_cls=vrpdfd.VRPDFDSolution,
         truck_paths=(
             frozenset({0, 1, 3, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 16, 17}),
