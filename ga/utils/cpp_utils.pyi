@@ -13,7 +13,12 @@ __all__ = (
 )
 
 
-def fake_tsp_solver(cities: Sequence[Tuple[float, float]], *, first: int = 0) -> Tuple[float, List[int]]: ...
+def fake_tsp_solver(
+    cities: Sequence[Tuple[float, float]],
+    *,
+    first: int = 0,
+    heuristic_hint: Optional[Sequence[int]] = None,
+) -> Tuple[float, List[int]]: ...
 
 
 def flows_with_demands(
@@ -48,5 +53,12 @@ def maximum_weighted_flow(
 ) -> Tuple[float, List[List[float]]]: ...
 
 
-def tsp_solver(cities: Sequence[Tuple[float, float]], *, first: int = 0) -> Tuple[float, List[int]]: ...
+def tsp_solver(
+    cities: Sequence[Tuple[float, float]],
+    *,
+    first: int = 0,
+    heuristic_hint: Optional[Sequence[int]] = None,
+) -> Tuple[float, List[int]]: ...
+
+
 def weighted_random(weights: Sequence[float], *, count: int = 1) -> List[int]: ...
