@@ -18,6 +18,7 @@ from typing import (
     overload,
 )
 
+from tqdm import tqdm
 if TYPE_CHECKING:
     from typing_extensions import Self
 
@@ -25,7 +26,7 @@ from .config import ProblemConfig
 from .errors import PopulationInitializationException
 from .utils import paths_from_flow_chained
 from ..abc import SingleObjectiveIndividual
-from ..utils import crowding_distance_sort, flows_with_demands, weighted_random, weighted_random_choice
+from ..utils import flows_with_demands, weighted_random, weighted_random_choice
 if TYPE_CHECKING:
     from .solutions import VRPDFDSolution
 
@@ -83,6 +84,9 @@ class VRPDFDIndividual(BaseIndividual):
         self.truck_paths = truck_paths
         self.drone_paths = tuple(tuple(filter(lambda path: len(path) > 1, paths)) for paths in drone_paths)
 
+    def get_unique(self) -> VRPDFDIndividual:
+        return self.decode().encode()
+
     @property
     def cls(self) -> Type[VRPDFDSolution]:
         return self.__cls
@@ -126,7 +130,7 @@ class VRPDFDIndividual(BaseIndividual):
             solution_cls=self.cls,
             truck_paths=tuple(truck_paths),
             drone_paths=drone_paths,
-        )
+        ).get_unique()
 
     def append_drone_path(self, drone: int, path: FrozenSet[int]) -> VRPDFDIndividual:
         drone_paths = list(map(list, self.drone_paths))
@@ -135,7 +139,18 @@ class VRPDFDIndividual(BaseIndividual):
             solution_cls=self.cls,
             truck_paths=self.truck_paths,
             drone_paths=drone_paths,
-        )
+        ).get_unique()
+
+    def append_drone_paths(self, *, drones: Sequence[int], paths: Sequence[FrozenSet[int]]) -> VRPDFDIndividual:
+        drone_paths = list(map(list, self.drone_paths))
+        for drone, path in zip(drones, paths, strict=True):
+            drone_paths[drone].append(path)
+
+        return VRPDFDIndividual(
+            solution_cls=self.cls,
+            truck_paths=self.truck_paths,
+            drone_paths=drone_paths,
+        ).get_unique()
 
     def feasible(self) -> bool:
         decoded = self.decode()
@@ -283,12 +298,74 @@ class VRPDFDIndividual(BaseIndividual):
         return self.__drone_distance
 
     @classmethod
-    def after_generation_hook(cls, generation: int, last_improved: int, result: VRPDFDIndividual, population: FrozenSet[VRPDFDIndividual]) -> None:
+    def after_generation_hook(
+        cls,
+        *,
+        generation: int,
+        last_improved: int,
+        result: VRPDFDIndividual,
+        population: Set[VRPDFDIndividual],
+        verbose: bool,
+    ) -> None:
         cls.genetic_algorithm_last_improved = last_improved
         for individual in population:
             individual.decode().bump_fine_coefficient()
 
         config = ProblemConfig.get_config()
+        if generation != last_improved and (generation - last_improved) % 25 == 0:
+            if config.logger is not None:
+                config.logger.write("Population stagnation detected, resetting population\n")
+
+            new_population: Set[VRPDFDIndividual] = set()
+
+            iterable: Union[tqdm[VRPDFDIndividual], Set[VRPDFDIndividual]] = population
+            if verbose:
+                iterable = tqdm(population, desc="Local search", ascii=" █", colour="red")
+
+            for individual in iterable:
+                paths = tuple(individual.flatten())
+                paths_count = len(paths)
+                result = individual
+
+                for sender in range(paths_count):
+                    if config.drones_count > 1:
+                        for customer in paths[sender]:
+                            if customer == 0:
+                                continue
+
+                            for drones in itertools.combinations(range(config.drones_count), 2):
+                                mutable_paths = list(paths)
+                                mutable_paths[sender] = paths[sender].difference([customer])
+
+                                result = min(
+                                    result,
+                                    individual.reconstruct(mutable_paths).append_drone_paths(
+                                        drones=drones,
+                                        paths=[frozenset([0, customer]) for _ in range(2)],
+                                    )
+                                )
+
+                for sender, *receivers in itertools.combinations(range(paths_count), 3):
+                    mutable_paths = individual.flatten()
+
+                    move = -1
+                    for customer in paths[sender]:
+                        if all(customer not in paths[r] for r in receivers):
+                            move = customer
+                            break
+
+                    if move != -1:
+                        mutable_paths[sender] = paths[sender].difference([move])
+                        for receiver in receivers:
+                            mutable_paths[receiver] = paths[receiver].union([move])
+
+                    result = min(result, individual.reconstruct(mutable_paths))
+
+                new_population.add(result)
+
+            population.clear()
+            population.update(new_population)
+
         if config.logger is not None:
             config.logger.write(f"After generation #{generation + 1}:\n#,Cost,Fine coefficient,Feasible,Individual\n")
             config.logger.write(
@@ -384,7 +461,7 @@ class VRPDFDIndividual(BaseIndividual):
                         solution_cls=solution_cls,
                         truck_paths=tuple(map(frozenset, truck_paths)),
                         drone_paths=tuple(tuple(map(frozenset, paths)) for paths in drone_paths),
-                    )
+                    ).get_unique()
                 )
 
                 while len(results) < size:
@@ -404,4 +481,4 @@ class VRPDFDIndividual(BaseIndividual):
         return f"VRPDFDIndividual(truck_paths={self.truck_paths!r}, drone_paths={self.drone_paths!r})"
 
     def __hash__(self) -> int:
-        return hash(self.decode())
+        return self.__hash

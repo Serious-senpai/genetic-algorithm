@@ -30,7 +30,15 @@ class SingleObjectiveIndividual(BaseIndividual[_ST], BaseCostComparison):
     __slots__ = ()
 
     @classmethod
-    def before_generation_hook(cls, generation: int, last_improved: int, result: Self, population: FrozenSet[Self], /) -> None:
+    def before_generation_hook(
+        cls,
+        *,
+        generation: int,
+        last_improved: int,
+        result: Self,
+        population: Set[Self],
+        verbose: bool,
+    ) -> None:
         """A classmethod to be called before each generation
 
         The default implementation does nothing.
@@ -45,11 +53,21 @@ class SingleObjectiveIndividual(BaseIndividual[_ST], BaseCostComparison):
             The current best individual
         population:
             The current population
+        verbose:
+            The verbose mode
         """
         return
 
     @classmethod
-    def after_generation_hook(cls, generation: int, last_improved: int, result: Self, population: FrozenSet[Self], /) -> None:
+    def after_generation_hook(
+        cls,
+        *,
+        generation: int,
+        last_improved: int,
+        result: Self,
+        population: Set[Self],
+        verbose: bool,
+    ) -> None:
         """A classmethod to be called after each generation
 
         The default implementation does nothing.
@@ -64,6 +82,8 @@ class SingleObjectiveIndividual(BaseIndividual[_ST], BaseCostComparison):
             The current best individual
         population:
             The current population
+        verbose:
+            The verbose mode
         """
         return
 
@@ -142,7 +162,13 @@ class SingleObjectiveIndividual(BaseIndividual[_ST], BaseCostComparison):
                     display = f"GA ({result.cost:.2f})"
                     iterations.set_description_str(display)
 
-                cls.before_generation_hook(iteration, last_improved, result, frozenset(population))
+                cls.before_generation_hook(
+                    generation=iteration,
+                    last_improved=last_improved,
+                    result=result,
+                    population=population,
+                    verbose=verbose,
+                )
 
                 # Expand the population, then perform natural selection
                 while len(population) < population_expansion_limit:
@@ -171,7 +197,13 @@ class SingleObjectiveIndividual(BaseIndividual[_ST], BaseCostComparison):
 
                 progress.append(result.cost)
 
-                cls.after_generation_hook(iteration, last_improved, result, frozenset(population))
+                cls.after_generation_hook(
+                    generation=iteration,
+                    last_improved=last_improved,
+                    result=result,
+                    population=population,
+                    verbose=verbose,
+                )
 
             if verbose:
                 pyplot.plot(progress)
