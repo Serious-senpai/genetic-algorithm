@@ -169,6 +169,9 @@ class SingleObjectiveIndividual(BaseIndividual[_ST], BaseCostComparison):
                     population=population,
                     verbose=verbose,
                 )
+                if len(population) > population_size:
+                    message = f"Population size {len(population)} > {population_size}"
+                    raise ValueError(message)
 
                 # Expand the population, then perform natural selection
                 while len(population) < population_expansion_limit:
@@ -204,6 +207,9 @@ class SingleObjectiveIndividual(BaseIndividual[_ST], BaseCostComparison):
                     population=population,
                     verbose=verbose,
                 )
+                if len(population) > population_size:
+                    message = f"Population size {len(population)} > {population_size}"
+                    raise ValueError(message)
 
             if verbose:
                 pyplot.plot(progress)

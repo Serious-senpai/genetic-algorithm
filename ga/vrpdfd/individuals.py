@@ -48,6 +48,7 @@ class VRPDFDIndividual(BaseIndividual):
         "__cls",
         "__hash",
         "__decoded",
+        "__local_searched",
         "__truck_distance",
         "__drone_distance",
         "__truck_distances",
@@ -60,6 +61,7 @@ class VRPDFDIndividual(BaseIndividual):
         __cls: Final[Type[VRPDFDSolution]]
         __hash: Final[int]
         __decoded: Optional[VRPDFDSolution]
+        __local_searched: Optional[VRPDFDIndividual]
         __truck_distance: Optional[float]
         __drone_distance: Optional[float]
         __truck_distances: Optional[Tuple[float, ...]]
@@ -77,6 +79,7 @@ class VRPDFDIndividual(BaseIndividual):
         self.__cls = solution_cls
         self.__hash = hash((frozenset(truck_paths), frozenset(frozenset(paths) for paths in drone_paths)))
         self.__decoded = None
+        self.__local_searched = None
         self.__truck_distance = None
         self.__drone_distance = None
         self.__truck_distances = None
@@ -297,6 +300,56 @@ class VRPDFDIndividual(BaseIndividual):
 
         return self.__drone_distance
 
+    def local_search(self) -> VRPDFDIndividual:
+        if self.__local_searched is None:
+            config = ProblemConfig.get_config()
+            paths = tuple(self.flatten())
+            paths_count = len(paths)
+            results: List[VRPDFDIndividual] = []
+
+            # Split a customer from an existing path to 2 new drone paths
+            for sender in range(paths_count):
+                for customer in paths[sender]:
+                    if customer == 0:
+                        continue
+
+                    for drones in itertools.combinations(range(config.drones_count), 2):
+                        mutable_paths = list(paths)
+                        mutable_paths[sender] = paths[sender].difference([customer])
+
+                        results.append(
+                            self.reconstruct(mutable_paths).append_drone_paths(
+                                drones=drones,
+                                paths=[frozenset([0, customer]) for _ in range(2)],
+                            ),
+                        )
+
+            # Split a customer from an existing path to 2 existing paths
+            for sender, *receivers in itertools.combinations(range(paths_count), 3):
+                for customer in paths[sender]:
+                    if all(customer not in paths[r] for r in receivers):
+                        mutable_paths = list(paths)
+                        mutable_paths[sender] = paths[sender].difference([customer])
+                        for receiver in receivers:
+                            mutable_paths[receiver] = paths[receiver].union([customer])
+
+                        results.append(self.reconstruct(mutable_paths))
+
+            # Swap 2 customers between 2 existing paths
+            for first, second in itertools.combinations(range(paths_count), 2):
+                first_unique = paths[first].difference(paths[second])
+                second_unique = paths[second].difference(paths[first])
+                for f, s in itertools.product(first_unique, second_unique):
+                    mutable_paths = list(paths)
+                    mutable_paths[first] = paths[first].difference([f]).union([s])
+                    mutable_paths[second] = paths[second].difference([s]).union([f])
+
+                    results.append(self.reconstruct(mutable_paths))
+
+            self.__local_searched = min(results)
+
+        return self.__local_searched
+
     @classmethod
     def after_generation_hook(
         cls,
@@ -312,7 +365,7 @@ class VRPDFDIndividual(BaseIndividual):
             individual.decode().bump_fine_coefficient()
 
         config = ProblemConfig.get_config()
-        if generation != last_improved and (generation - last_improved) % 25 == 0:
+        if generation != last_improved and (generation - last_improved) % 20 == 0:
             if config.logger is not None:
                 config.logger.write("Population stagnation detected, resetting population\n")
 
@@ -323,51 +376,13 @@ class VRPDFDIndividual(BaseIndividual):
                 iterable = tqdm(population, desc="Local search", ascii=" █", colour="red")
 
             for individual in iterable:
-                paths = tuple(individual.flatten())
-                paths_count = len(paths)
-                result = individual
-
-                for sender in range(paths_count):
-                    if config.drones_count > 1:
-                        for customer in paths[sender]:
-                            if customer == 0:
-                                continue
-
-                            for drones in itertools.combinations(range(config.drones_count), 2):
-                                mutable_paths = list(paths)
-                                mutable_paths[sender] = paths[sender].difference([customer])
-
-                                result = min(
-                                    result,
-                                    individual.reconstruct(mutable_paths).append_drone_paths(
-                                        drones=drones,
-                                        paths=[frozenset([0, customer]) for _ in range(2)],
-                                    )
-                                )
-
-                for sender, *receivers in itertools.combinations(range(paths_count), 3):
-                    mutable_paths = individual.flatten()
-
-                    move = -1
-                    for customer in paths[sender]:
-                        if all(customer not in paths[r] for r in receivers):
-                            move = customer
-                            break
-
-                    if move != -1:
-                        mutable_paths[sender] = paths[sender].difference([move])
-                        for receiver in receivers:
-                            mutable_paths[receiver] = paths[receiver].union([move])
-
-                    result = min(result, individual.reconstruct(mutable_paths))
-
-                new_population.add(result)
+                new_population.add(individual.local_search())
 
             population.clear()
             population.update(new_population)
 
         if config.logger is not None:
-            config.logger.write(f"After generation #{generation + 1}:\n#,Cost,Fine coefficient,Feasible,Individual\n")
+            config.logger.write(f"Generation #{generation + 1},Result,{result.cost}\n#,Cost,Fine coefficient,Feasible,Individual\n")
             config.logger.write(
                 "\n".join(f"{index + 1},{i.cost},{i.decode().fine_coefficient},{int(i.feasible())},\"{i}\"" for index, i in enumerate(sorted(population)))
             )
