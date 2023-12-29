@@ -303,17 +303,6 @@ class VRPDFDIndividual(BaseIndividual):
         return population_sorted[first], population_sorted[second]
 
     @classmethod
-    def selection(cls, *, population: FrozenSet[Self], size: int) -> Set[Self]:
-        result = set(sorted(population)[:size // 2])
-
-        require = size - len(result)
-        ordered = tuple(population.difference(result))
-        sorted_indices = crowding_distance_sort([i.flatten() for i in ordered])
-        result.update(map(ordered.__getitem__, sorted_indices[:require]))
-
-        return result
-
-    @classmethod
     def initial(cls, *, solution_cls: Type[VRPDFDSolution], size: int) -> Set[VRPDFDIndividual]:
         config = ProblemConfig.get_config()
 
