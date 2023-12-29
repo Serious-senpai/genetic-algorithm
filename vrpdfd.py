@@ -28,8 +28,8 @@ class Namespace(argparse.Namespace):
 
 parser = argparse.ArgumentParser(description="Genetic algorithm for VRPDFD problem")
 parser.add_argument("problem", type=str, help="the problem name (e.g. \"6.5.1\", \"200.10.1\", ...)")
-parser.add_argument("-i", "--iterations", default=200, type=int, help="the number of generations (default: 200)")
-parser.add_argument("-s", "--size", default=100, type=int, help="the population size (default: 100)")
+parser.add_argument("-i", "--iterations", default=100, type=int, help="the number of generations (default: 100)")
+parser.add_argument("-s", "--size", default=200, type=int, help="the population size (default: 200)")
 parser.add_argument("-m", "--mutation-rate", default=0.6, type=float, help="the mutation rate (default: 0.6)")
 parser.add_argument("-f", "--initial-fine-coefficient", default=1000.0, type=float, help="the initial fine coefficient (default: 1000.0)")
 parser.add_argument("-r", "--fine-coefficient-increase-rate", default=10.0, type=float, help="the fine coefficient increase rate (default: 10.0")

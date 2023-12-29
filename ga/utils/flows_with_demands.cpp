@@ -1,10 +1,9 @@
 #pragma once
 
+#include <optional>
 #include <vector>
 #include <set>
 #include <stdexcept>
-
-#include <pybind11/stl.h>
 
 #include "helpers.cpp"
 #include "maximum_flow.cpp"

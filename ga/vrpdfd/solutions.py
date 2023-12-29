@@ -17,6 +17,7 @@ __all__ = ("VRPDFDSolution",)
 class VRPDFDSolution(SingleObjectiveSolution[VRPDFDIndividual]):
 
     __slots__ = (
+        "__hash",
         "__truck_distance",
         "__drone_distance",
         "__truck_distances",
@@ -29,6 +30,7 @@ class VRPDFDSolution(SingleObjectiveSolution[VRPDFDIndividual]):
         "drone_paths",
     )
     if TYPE_CHECKING:
+        __hash: Optional[int]
         __truck_distance: Optional[float]
         __drone_distance: Optional[float]
         __truck_distances: Optional[Tuple[float, ...]]
@@ -54,6 +56,7 @@ class VRPDFDSolution(SingleObjectiveSolution[VRPDFDIndividual]):
         fine: Optional[float] = None,
     ) -> None:
         config = ProblemConfig.get_config()
+        self.__hash = None
 
         self.truck_paths = truck_paths
         self.drone_paths = drone_paths
@@ -250,7 +253,10 @@ class VRPDFDSolution(SingleObjectiveSolution[VRPDFDIndividual]):
         )
 
     def __hash__(self) -> int:
-        return hash((self.truck_paths, self.drone_paths))
+        if self.__hash is None:
+            self.__hash = hash((frozenset(self.truck_paths), frozenset(map(frozenset, self.drone_paths))))
+
+        return self.__hash
 
     def __repr__(self) -> str:
         return f"VRPDFDSolution(truck_paths={self.truck_paths!r}, drone_paths={self.drone_paths!r})"

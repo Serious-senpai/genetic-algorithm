@@ -85,7 +85,7 @@ class SingleObjectiveIndividual(BaseIndividual[_ST], BaseCostComparison):
         -----
         The selected population
         """
-        sorted_population = sorted(population, key=lambda x: x.cost)
+        sorted_population = sorted(population)
         return set(sorted_population[:size])
 
     @final

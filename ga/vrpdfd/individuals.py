@@ -25,7 +25,7 @@ from .config import ProblemConfig
 from .errors import PopulationInitializationException
 from .utils import paths_from_flow_chained
 from ..abc import SingleObjectiveIndividual
-from ..utils import flows_with_demands, weighted_random, weighted_random_choice
+from ..utils import crowding_distance_sort, flows_with_demands, weighted_random, weighted_random_choice
 if TYPE_CHECKING:
     from .solutions import VRPDFDSolution
 
@@ -71,7 +71,7 @@ class VRPDFDIndividual(BaseIndividual):
         *,
         solution_cls: Type[VRPDFDSolution],
         truck_paths: Tuple[FrozenSet[int], ...],
-        drone_paths: Tuple[Tuple[FrozenSet[int], ...], ...],
+        drone_paths: Sequence[Sequence[FrozenSet[int]]],
     ) -> None:
         self.__cls = solution_cls
         self.__hash = hash((frozenset(truck_paths), frozenset(frozenset(paths) for paths in drone_paths)))
@@ -81,7 +81,7 @@ class VRPDFDIndividual(BaseIndividual):
         self.__truck_distances = None
         self.__drone_distances = None
         self.truck_paths = truck_paths
-        self.drone_paths = drone_paths
+        self.drone_paths = tuple(tuple(filter(lambda path: len(path) > 1, paths)) for paths in drone_paths)
 
     @property
     def cls(self) -> Type[VRPDFDSolution]:
@@ -125,7 +125,7 @@ class VRPDFDIndividual(BaseIndividual):
         return VRPDFDIndividual(
             solution_cls=self.cls,
             truck_paths=tuple(truck_paths),
-            drone_paths=tuple(map(tuple, drone_paths)),
+            drone_paths=drone_paths,
         )
 
     def append_drone_path(self, drone: int, path: FrozenSet[int]) -> VRPDFDIndividual:
@@ -134,7 +134,7 @@ class VRPDFDIndividual(BaseIndividual):
         return VRPDFDIndividual(
             solution_cls=self.cls,
             truck_paths=self.truck_paths,
-            drone_paths=tuple(map(tuple, drone_paths)),
+            drone_paths=drone_paths,
         )
 
     def feasible(self) -> bool:
@@ -290,17 +290,28 @@ class VRPDFDIndividual(BaseIndividual):
 
         config = ProblemConfig.get_config()
         if config.logger is not None:
-            config.logger.write(f"After generation #{generation + 1}:\nCost,Fine coefficient,Feasible,Individual\n")
+            config.logger.write(f"After generation #{generation + 1}:\n#,Cost,Fine coefficient,Feasible,Individual\n")
             config.logger.write(
-                "\n".join(f"{i.cost},{i.decode().fine_coefficient},{int(i.feasible())},\"{i}\"" for i in sorted(population, key=lambda x: x.cost))
+                "\n".join(f"{index + 1},{i.cost},{i.decode().fine_coefficient},{int(i.feasible())},\"{i}\"" for index, i in enumerate(sorted(population)))
             )
             config.logger.write("\n")
 
     @classmethod
     def parents_selection(cls, *, population: FrozenSet[Self]) -> Tuple[Self, Self]:
-        population_sorted = sorted(population, key=lambda i: i.cost)
+        population_sorted = sorted(population)
         first, second = weighted_random([1 + 1 / (index + 1) for index in range(len(population))], count=2)
         return population_sorted[first], population_sorted[second]
+
+    @classmethod
+    def selection(cls, *, population: FrozenSet[Self], size: int) -> Set[Self]:
+        result = set(sorted(population)[:size // 2])
+
+        require = size - len(result)
+        ordered = tuple(population.difference(result))
+        sorted_indices = crowding_distance_sort([i.flatten() for i in ordered])
+        result.update(map(ordered.__getitem__, sorted_indices[:require]))
+
+        return result
 
     @classmethod
     def initial(cls, *, solution_cls: Type[VRPDFDSolution], size: int) -> Set[VRPDFDIndividual]:
@@ -362,7 +373,7 @@ class VRPDFDIndividual(BaseIndividual):
                 truck_paths = [{0} for _ in range(config.trucks_count)]
                 drone_paths = [[{0} for _ in range(paths_per_drone)] for _ in range(config.drones_count)]
                 for vehicle, network_route in zip(
-                    list(range(config.trucks_count)) + list(range(config.drones_count)) * paths_per_drone,
+                    list(range(config.drones_count)) * paths_per_drone + list(range(config.trucks_count)),
                     range(1, network_customers_offset),
                     strict=True,
                 ):
@@ -390,7 +401,10 @@ class VRPDFDIndividual(BaseIndividual):
                 while len(results) < size:
                     array = list(results)
                     base = random.choice(array)
-                    results.add(base.mutate())
+                    for _ in range(5):
+                        base = base.mutate()
+
+                    results.add(base)
 
                 return results
 
@@ -401,4 +415,4 @@ class VRPDFDIndividual(BaseIndividual):
         return f"VRPDFDIndividual(truck_paths={self.truck_paths!r}, drone_paths={self.drone_paths!r})"
 
     def __hash__(self) -> int:
-        return self.__hash
+        return hash(self.decode())

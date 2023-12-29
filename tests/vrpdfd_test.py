@@ -34,7 +34,6 @@ def test_decode_6_5_1() -> None:
         ),
     ).decode()
 
-    print(solution.truck_distances)
     assert utils.isclose(solution.revenue, 29825.0)
     assert utils.isclose(solution.truck_cost, 3233.8)
     assert utils.isclose(solution.drone_cost, 744.0)
@@ -59,7 +58,6 @@ def test_decode_6_5_4() -> None:
         ),
     ).decode()
 
-    print(solution.truck_distances)
     assert utils.isclose(solution.revenue, 23775.0)
     assert utils.isclose(solution.truck_cost, 4816.2)
     assert utils.isclose(solution.drone_cost, 606.0)
@@ -83,8 +81,30 @@ def test_decode_6_10_2() -> None:
         ),
     ).decode()
 
-    print(solution.truck_distances)
     assert utils.isclose(solution.revenue, 14825.0)
     assert utils.isclose(solution.truck_cost, 8556.0)
     assert utils.isclose(solution.drone_cost, 903.0)
     check_solution(solution, expected=-5366.0)
+
+
+def test_decode_10_5_3() -> None:
+    vrpdfd.ProblemConfig.get_config("10.5.3").initial_fine_coefficient = 10 ** 3
+    vrpdfd.ProblemConfig.context = "10.5.3"
+    solution = vrpdfd.VRPDFDIndividual(
+        solution_cls=vrpdfd.VRPDFDSolution,
+        truck_paths=(frozenset([0, 5, 3, 6, 2]),),
+        drone_paths=(
+            (
+                frozenset([0, 9]),
+                frozenset([0, 9]),
+                frozenset([0, 9, 1]),
+                frozenset([0, 9, 10]),
+                frozenset([0, 7, 8]),
+            ),
+        ),
+    ).decode()
+
+    assert utils.isclose(solution.revenue, 19775.0)
+    assert utils.isclose(solution.truck_cost, 3620.2000000000003)
+    assert utils.isclose(solution.drone_cost, 726.25)
+    check_solution(solution, expected=-15428.55)
