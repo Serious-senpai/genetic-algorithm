@@ -346,6 +346,9 @@ class VRPDFDIndividual(BaseIndividual):
 
                     results.append(self.reconstruct(mutable_paths))
 
+            if len(results) == 0:
+                results.append(self)
+
             self.__local_searched = min(results)
 
         return self.__local_searched
