@@ -378,8 +378,11 @@ class VRPDFDIndividual(BaseIndividual):
             if verbose:
                 iterable = tqdm(population, desc="Local search", ascii=" █", colour="red")
 
-            for individual in iterable:
-                new_population.add(individual.local_search())
+            for index, individual in enumerate(iterable):
+                if index % 3 == 0:
+                    new_population.add(individual.get_unique().local_search())
+                else:
+                    new_population.add(individual)
 
             population.clear()
             population.update(new_population)
