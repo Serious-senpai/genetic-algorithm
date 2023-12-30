@@ -9,7 +9,6 @@ __all__ = (
     "flows_with_demands",
     "jaccard_distance",
     "maximum_flow",
-    "maximum_weighted_flow",
     "tsp_solver",
     "weighted_random",
 )
@@ -45,17 +44,6 @@ def maximum_flow(
     size: int,
     capacities: Sequence[Sequence[float]],
     neighbors: Sequence[Set[int]],
-    source: int,
-    sink: int,
-) -> Tuple[float, List[List[float]]]: ...
-
-
-def maximum_weighted_flow(
-    *,
-    size: int,
-    capacities: Sequence[Sequence[float]],
-    neighbors: Sequence[Set[int]],
-    flow_weights: Sequence[Sequence[float]],
     source: int,
     sink: int,
 ) -> Tuple[float, List[List[float]]]: ...

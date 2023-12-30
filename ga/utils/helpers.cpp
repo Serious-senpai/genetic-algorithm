@@ -2,9 +2,30 @@
 
 #include <algorithm>
 #include <chrono>
+#include <map>
 #include <random>
 #include <stdexcept>
 #include <string>
+
+#include <lemon/maps.h>
+
+template <typename K, typename V>
+class LemonMap : lemon::MapBase<K, V>
+{
+private:
+    std::map<K, V> data;
+
+public:
+    void set(const K &key, const V &value)
+    {
+        data[key] = value;
+    }
+
+    const V &operator[](const K &key) const
+    {
+        return data.at(key);
+    }
+};
 
 template <typename... Args>
 std::string format(const std::string &format, Args... args)

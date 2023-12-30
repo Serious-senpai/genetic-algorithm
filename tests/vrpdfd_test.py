@@ -34,10 +34,10 @@ def test_decode_6_5_1() -> None:
         ),
     ).decode()
 
+    check_solution(solution, expected=-25847.199999999997)
     assert utils.isclose(solution.revenue, 29825.0)
     assert utils.isclose(solution.truck_cost, 3233.8)
     assert utils.isclose(solution.drone_cost, 744.0)
-    check_solution(solution, expected=-25847.199999999997)
 
 
 def test_decode_6_5_4() -> None:
@@ -58,10 +58,10 @@ def test_decode_6_5_4() -> None:
         ),
     ).decode()
 
+    check_solution(solution, expected=-18352.8)
     assert utils.isclose(solution.revenue, 23775.0)
     assert utils.isclose(solution.truck_cost, 4816.2)
     assert utils.isclose(solution.drone_cost, 606.0)
-    check_solution(solution, expected=-18352.8)
 
 
 def test_decode_6_10_2() -> None:
@@ -81,10 +81,10 @@ def test_decode_6_10_2() -> None:
         ),
     ).decode()
 
+    check_solution(solution, expected=-5366.0)
     assert utils.isclose(solution.revenue, 14825.0)
     assert utils.isclose(solution.truck_cost, 8556.0)
     assert utils.isclose(solution.drone_cost, 903.0)
-    check_solution(solution, expected=-5366.0)
 
 
 def test_decode_10_5_3() -> None:
@@ -104,7 +104,7 @@ def test_decode_10_5_3() -> None:
         ),
     ).decode()
 
+    check_solution(solution, expected=-15428.55)
     assert utils.isclose(solution.revenue, 19775.0)
     assert utils.isclose(solution.truck_cost, 3620.2000000000003)
     assert utils.isclose(solution.drone_cost, 726.25)
-    check_solution(solution, expected=-15428.55)
