@@ -307,23 +307,6 @@ class VRPDFDIndividual(BaseIndividual):
             paths_count = len(paths)
             results: List[VRPDFDIndividual] = []
 
-            # Split a customer from an existing path to 2 new drone paths
-            for sender in range(paths_count):
-                for customer in paths[sender]:
-                    if customer == 0:
-                        continue
-
-                    for drones in itertools.combinations(range(config.drones_count), 2):
-                        mutable_paths = list(paths)
-                        mutable_paths[sender] = paths[sender].difference([customer])
-
-                        results.append(
-                            self.reconstruct(mutable_paths).append_drone_paths(
-                                drones=drones,
-                                paths=[frozenset([0, customer]) for _ in range(2)],
-                            ),
-                        )
-
             # Split a customer from an existing path to 2 existing paths
             for sender, *receivers in itertools.combinations(range(paths_count), 3):
                 for customer in paths[sender]:
@@ -374,15 +357,12 @@ class VRPDFDIndividual(BaseIndividual):
 
             new_population: Set[VRPDFDIndividual] = set()
 
-            iterable: Union[tqdm[VRPDFDIndividual], Set[VRPDFDIndividual]] = population
+            iterable: Union[tqdm[VRPDFDIndividual], List[VRPDFDIndividual]] = sorted(population)
             if verbose:
-                iterable = tqdm(population, desc="Local search", ascii=" █", colour="red")
+                iterable = tqdm(population, desc=f"Local search (#{generation + 1})", ascii=" █", colour="red")
 
-            for index, individual in enumerate(iterable):
-                if index % 3 == 0:
-                    new_population.add(individual.get_unique().local_search())
-                else:
-                    new_population.add(individual)
+            for individual in iterable:
+                new_population.add(individual.local_search())
 
             population.clear()
             population.update(new_population)
