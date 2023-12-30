@@ -302,9 +302,9 @@ class VRPDFDIndividual(BaseIndividual):
 
     def local_search(self) -> VRPDFDIndividual:
         if self.__local_searched is None:
-            config = ProblemConfig.get_config()
             paths = tuple(self.flatten())
             paths_count = len(paths)
+            self = self.get_unique()
             results: List[VRPDFDIndividual] = []
 
             # Split a customer from an existing path to 2 existing paths
@@ -351,17 +351,21 @@ class VRPDFDIndividual(BaseIndividual):
             individual.decode().bump_fine_coefficient()
 
         config = ProblemConfig.get_config()
-        if generation != last_improved and (generation - last_improved) % 20 == 0:
+        if generation != last_improved and (generation - last_improved) % 10 == 0:
             if config.logger is not None:
-                config.logger.write("Population stagnation detected, resetting population\n")
+                config.logger.write("Applying local search\n")
 
             new_population: Set[VRPDFDIndividual] = set()
 
-            iterable: Union[tqdm[VRPDFDIndividual], List[VRPDFDIndividual]] = sorted(population)
-            if verbose:
-                iterable = tqdm(population, desc=f"Local search (#{generation + 1})", ascii=" █", colour="red")
+            iterable = list(population)
+            random.shuffle(iterable)
+            iterable = iterable[:config.local_search_batch]
 
-            for individual in iterable:
+            individuals: Union[tqdm[VRPDFDIndividual], List[VRPDFDIndividual]] = iterable
+            if verbose:
+                individuals = tqdm(iterable, desc=f"Local search (#{generation + 1})", ascii=" █", colour="red")
+
+            for individual in individuals:
                 new_population.add(individual.local_search())
 
             population.clear()

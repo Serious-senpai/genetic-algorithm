@@ -19,6 +19,7 @@ class Namespace(argparse.Namespace):
         mutation_rate: float
         initial_fine_coefficient: float
         fine_coefficient_increase_rate: float
+        local_search_batch: int
         verbose: bool
         fake_tsp_solver: bool
         dump: Optional[str]
@@ -33,6 +34,7 @@ parser.add_argument("-s", "--size", default=200, type=int, help="the population 
 parser.add_argument("-m", "--mutation-rate", default=0.6, type=float, help="the mutation rate (default: 0.6)")
 parser.add_argument("-f", "--initial-fine-coefficient", default=1000.0, type=float, help="the initial fine coefficient (default: 1000.0)")
 parser.add_argument("-r", "--fine-coefficient-increase-rate", default=10.0, type=float, help="the fine coefficient increase rate (default: 10.0")
+parser.add_argument("-b", "--local-search-batch", default=10, type=int, help="the batch size for local search (default: 10)")
 parser.add_argument("-v", "--verbose", action="store_true", help="turn on verbose mode")
 parser.add_argument("--fake-tsp-solver", action="store_true", help="use fake TSP solver")
 parser.add_argument("--dump", type=str, help="dump the solution to a file")
@@ -55,6 +57,7 @@ ProblemConfig.context = namespace.problem
 config.mutation_rate = namespace.mutation_rate
 config.initial_fine_coefficient = namespace.initial_fine_coefficient
 config.fine_coefficient_increase_rate = namespace.fine_coefficient_increase_rate
+config.local_search_batch = namespace.local_search_batch
 if namespace.log is not None:
     config.logger = open(namespace.log, "w", encoding="utf-8")
 
