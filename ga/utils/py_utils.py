@@ -1,11 +1,12 @@
 from __future__ import annotations
 
+import math
 from typing import Any, Iterable, Sequence, TypeVar, Union, overload
 
 from .cpp_utils import weighted_random
 
 
-__all__ = ("isclose", "positive_max", "value", "weighted_random_choice")
+__all__ = ("isclose", "positive_max", "value", "weighted_random_choice", "weird_round")
 _T = TypeVar("_T")
 
 
@@ -82,3 +83,8 @@ def value(__x: _T, /) -> _T:
 
 def weighted_random_choice(choices: Sequence[float], /) -> int:
     return weighted_random(choices, count=1)[0]
+
+
+def weird_round(number: float, precision: int, /) -> float:
+    factor = 10 ** precision
+    return math.ceil(number * factor) / factor

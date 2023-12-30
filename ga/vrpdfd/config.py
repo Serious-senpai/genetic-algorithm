@@ -12,7 +12,7 @@ from typing import ClassVar, Dict, DefaultDict, Final, FrozenSet, List, Optional
 
 from .errors import ConfigImportException
 from .utils import set_customers
-from ..utils import tsp_solver
+from ..utils import tsp_solver, weird_round
 
 
 __all__ = (
@@ -64,6 +64,7 @@ class ProblemConfig:
         "mutation_rate",
         "initial_fine_coefficient",
         "fine_coefficient_increase_rate",
+        "local_search_batch",
         "logger",
     )
     __cache__: ClassVar[Dict[str, ProblemConfig]] = {}
@@ -88,6 +89,7 @@ class ProblemConfig:
         mutation_rate: Optional[float]
         initial_fine_coefficient: Optional[float]
         fine_coefficient_increase_rate: Optional[float]
+        local_search_batch: Optional[int]
         logger: Optional[io.TextIOWrapper]
 
     def __init__(self, problem: str, /) -> None:
@@ -97,6 +99,7 @@ class ProblemConfig:
         self.mutation_rate = None
         self.initial_fine_coefficient = None
         self.fine_coefficient_increase_rate = None
+        self.local_search_batch = None
         self.logger = None
         try:
             config_path = "problems/vrpdfd/params.csv"
@@ -143,7 +146,7 @@ class ProblemConfig:
 
                 distances = [[0.0] * (customers_count) for _ in range(customers_count)]
                 for f, s in itertools.combinations(range(customers_count), 2):
-                    distances[f][s] = distances[s][f] = sqrt((customers[f].x - customers[s].x) ** 2 + (customers[f].y - customers[s].y) ** 2)
+                    distances[f][s] = distances[s][f] = weird_round(sqrt((customers[f].x - customers[s].x) ** 2 + (customers[f].y - customers[s].y) ** 2), 2)
 
                 self.distances = tuple(map(tuple, distances))
 

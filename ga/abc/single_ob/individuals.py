@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import random
 from typing import FrozenSet, List, Set, Type, TypeVar, Union, TYPE_CHECKING, final
 
 from matplotlib import pyplot
@@ -31,7 +30,15 @@ class SingleObjectiveIndividual(BaseIndividual[_ST], BaseCostComparison):
     __slots__ = ()
 
     @classmethod
-    def before_generation_hook(cls, generation: int, last_improved: int, result: Self, population: FrozenSet[Self], /) -> None:
+    def before_generation_hook(
+        cls,
+        *,
+        generation: int,
+        last_improved: int,
+        result: Self,
+        population: Set[Self],
+        verbose: bool,
+    ) -> None:
         """A classmethod to be called before each generation
 
         The default implementation does nothing.
@@ -46,11 +53,21 @@ class SingleObjectiveIndividual(BaseIndividual[_ST], BaseCostComparison):
             The current best individual
         population:
             The current population
+        verbose:
+            The verbose mode
         """
         return
 
     @classmethod
-    def after_generation_hook(cls, generation: int, last_improved: int, result: Self, population: FrozenSet[Self], /) -> None:
+    def after_generation_hook(
+        cls,
+        *,
+        generation: int,
+        last_improved: int,
+        result: Self,
+        population: Set[Self],
+        verbose: bool,
+    ) -> None:
         """A classmethod to be called after each generation
 
         The default implementation does nothing.
@@ -65,11 +82,13 @@ class SingleObjectiveIndividual(BaseIndividual[_ST], BaseCostComparison):
             The current best individual
         population:
             The current population
+        verbose:
+            The verbose mode
         """
         return
 
     @classmethod
-    def selection(cls, *, population: Set[Self], size: int) -> Set[Self]:
+    def selection(cls, *, population: FrozenSet[Self], size: int) -> Set[Self]:
         """Perform natural selection
 
         The default implementation selects the best individuals, but subclasses
@@ -86,7 +105,7 @@ class SingleObjectiveIndividual(BaseIndividual[_ST], BaseCostComparison):
         -----
         The selected population
         """
-        sorted_population = sorted(population, key=lambda x: x.cost)
+        sorted_population = sorted(population)
         return set(sorted_population[:size])
 
     @final
@@ -143,11 +162,20 @@ class SingleObjectiveIndividual(BaseIndividual[_ST], BaseCostComparison):
                     display = f"GA ({result.cost:.2f})"
                     iterations.set_description_str(display)
 
-                cls.before_generation_hook(iteration, last_improved, result, frozenset(population))
+                cls.before_generation_hook(
+                    generation=iteration,
+                    last_improved=last_improved,
+                    result=result,
+                    population=population,
+                    verbose=verbose,
+                )
+                if len(population) > population_size:
+                    message = f"Population size {len(population)} > {population_size}"
+                    raise ValueError(message)
 
                 # Expand the population, then perform natural selection
                 while len(population) < population_expansion_limit:
-                    first, second = random.sample(tuple(population), 2)
+                    first, second = cls.parents_selection(population=frozenset(population))
                     offspring = first.crossover(second)
 
                     for o in offspring:
@@ -162,7 +190,7 @@ class SingleObjectiveIndividual(BaseIndividual[_ST], BaseCostComparison):
                 if len(filtered) > 0:
                     result = min(result, *filtered)
 
-                population = cls.selection(population=population, size=population_size)
+                population = cls.selection(population=frozenset(population), size=population_size)
                 if len(population) > population_size:
                     message = f"Population size {len(population)} > {population_size}"
                     raise ValueError(message)
@@ -172,7 +200,16 @@ class SingleObjectiveIndividual(BaseIndividual[_ST], BaseCostComparison):
 
                 progress.append(result.cost)
 
-                cls.after_generation_hook(iteration, last_improved, result, frozenset(population))
+                cls.after_generation_hook(
+                    generation=iteration,
+                    last_improved=last_improved,
+                    result=result,
+                    population=population,
+                    verbose=verbose,
+                )
+                if len(population) > population_size:
+                    message = f"Population size {len(population)} > {population_size}"
+                    raise ValueError(message)
 
             if verbose:
                 pyplot.plot(progress)

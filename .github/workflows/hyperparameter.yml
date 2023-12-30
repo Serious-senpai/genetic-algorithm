@@ -42,6 +42,7 @@ jobs:
         run: scripts/build.sh
 
       - name: Run optimizer
+        timeout-minutes: 300
         run: |
           for i in $(seq 0 4)
           do
@@ -54,6 +55,7 @@ jobs:
           done
 
       - name: Upload solutions
+        if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v3
         with:
           name: vrpdfd-summary

@@ -18,6 +18,7 @@ from typing import (
     overload,
 )
 
+from tqdm import tqdm
 if TYPE_CHECKING:
     from typing_extensions import Self
 
@@ -25,7 +26,7 @@ from .config import ProblemConfig
 from .errors import PopulationInitializationException
 from .utils import paths_from_flow_chained
 from ..abc import SingleObjectiveIndividual
-from ..utils import flows_with_demands, weighted_random_choice
+from ..utils import flows_with_demands, weighted_random, weighted_random_choice
 if TYPE_CHECKING:
     from .solutions import VRPDFDSolution
 
@@ -47,6 +48,7 @@ class VRPDFDIndividual(BaseIndividual):
         "__cls",
         "__hash",
         "__decoded",
+        "__local_searched",
         "__truck_distance",
         "__drone_distance",
         "__truck_distances",
@@ -59,6 +61,7 @@ class VRPDFDIndividual(BaseIndividual):
         __cls: Final[Type[VRPDFDSolution]]
         __hash: Final[int]
         __decoded: Optional[VRPDFDSolution]
+        __local_searched: Optional[VRPDFDIndividual]
         __truck_distance: Optional[float]
         __drone_distance: Optional[float]
         __truck_distances: Optional[Tuple[float, ...]]
@@ -71,17 +74,21 @@ class VRPDFDIndividual(BaseIndividual):
         *,
         solution_cls: Type[VRPDFDSolution],
         truck_paths: Tuple[FrozenSet[int], ...],
-        drone_paths: Tuple[Tuple[FrozenSet[int], ...], ...],
+        drone_paths: Sequence[Sequence[FrozenSet[int]]],
     ) -> None:
         self.__cls = solution_cls
         self.__hash = hash((frozenset(truck_paths), frozenset(frozenset(paths) for paths in drone_paths)))
         self.__decoded = None
+        self.__local_searched = None
         self.__truck_distance = None
         self.__drone_distance = None
         self.__truck_distances = None
         self.__drone_distances = None
         self.truck_paths = truck_paths
-        self.drone_paths = drone_paths
+        self.drone_paths = tuple(tuple(filter(lambda path: len(path) > 1, paths)) for paths in drone_paths)
+
+    def get_unique(self) -> VRPDFDIndividual:
+        return self.decode().encode()
 
     @property
     def cls(self) -> Type[VRPDFDSolution]:
@@ -125,8 +132,8 @@ class VRPDFDIndividual(BaseIndividual):
         return VRPDFDIndividual(
             solution_cls=self.cls,
             truck_paths=tuple(truck_paths),
-            drone_paths=tuple(map(tuple, drone_paths)),
-        )
+            drone_paths=drone_paths,
+        ).get_unique()
 
     def append_drone_path(self, drone: int, path: FrozenSet[int]) -> VRPDFDIndividual:
         drone_paths = list(map(list, self.drone_paths))
@@ -134,8 +141,19 @@ class VRPDFDIndividual(BaseIndividual):
         return VRPDFDIndividual(
             solution_cls=self.cls,
             truck_paths=self.truck_paths,
-            drone_paths=tuple(map(tuple, drone_paths)),
-        )
+            drone_paths=drone_paths,
+        ).get_unique()
+
+    def append_drone_paths(self, *, drones: Sequence[int], paths: Sequence[FrozenSet[int]]) -> VRPDFDIndividual:
+        drone_paths = list(map(list, self.drone_paths))
+        for drone, path in zip(drones, paths, strict=True):
+            drone_paths[drone].append(path)
+
+        return VRPDFDIndividual(
+            solution_cls=self.cls,
+            truck_paths=self.truck_paths,
+            drone_paths=drone_paths,
+        ).get_unique()
 
     def feasible(self) -> bool:
         decoded = self.decode()
@@ -227,7 +245,7 @@ class VRPDFDIndividual(BaseIndividual):
 
             def add_customer(paths: List[FrozenSet[int]]) -> VRPDFDIndividual:
                 distances = [self.calculate_distance(path) for path in paths]
-                path_index = weighted_random_choice([1 / d if d > 0.0 else 10 ** 9 for d in distances])
+                path_index = weighted_random_choice([1 / d if d > 0.0 else 10 ** 6 for d in distances])
                 for customer in random_customers:
                     if customer not in paths[path_index]:
                         paths[path_index] = paths[path_index].union([customer])
@@ -282,19 +300,89 @@ class VRPDFDIndividual(BaseIndividual):
 
         return self.__drone_distance
 
+    def local_search(self) -> VRPDFDIndividual:
+        if self.__local_searched is None:
+            paths = tuple(self.flatten())
+            paths_count = len(paths)
+            self = self.get_unique()
+            results: List[VRPDFDIndividual] = []
+
+            # Split a customer from an existing path to 2 existing paths
+            for sender, *receivers in itertools.combinations(range(paths_count), 3):
+                for customer in paths[sender]:
+                    if all(customer not in paths[r] for r in receivers):
+                        mutable_paths = list(paths)
+                        mutable_paths[sender] = paths[sender].difference([customer])
+                        for receiver in receivers:
+                            mutable_paths[receiver] = paths[receiver].union([customer])
+
+                        results.append(self.reconstruct(mutable_paths))
+
+            # Swap 2 customers between 2 existing paths
+            for first, second in itertools.combinations(range(paths_count), 2):
+                first_unique = paths[first].difference(paths[second])
+                second_unique = paths[second].difference(paths[first])
+                for f, s in itertools.product(first_unique, second_unique):
+                    mutable_paths = list(paths)
+                    mutable_paths[first] = paths[first].difference([f]).union([s])
+                    mutable_paths[second] = paths[second].difference([s]).union([f])
+
+                    results.append(self.reconstruct(mutable_paths))
+
+            if len(results) == 0:
+                results.append(self)
+
+            self.__local_searched = min(results)
+
+        return self.__local_searched
+
     @classmethod
-    def after_generation_hook(cls, generation: int, last_improved: int, result: VRPDFDIndividual, population: FrozenSet[VRPDFDIndividual]) -> None:
+    def after_generation_hook(
+        cls,
+        *,
+        generation: int,
+        last_improved: int,
+        result: VRPDFDIndividual,
+        population: Set[VRPDFDIndividual],
+        verbose: bool,
+    ) -> None:
         cls.genetic_algorithm_last_improved = last_improved
         for individual in population:
             individual.decode().bump_fine_coefficient()
 
         config = ProblemConfig.get_config()
+        if generation != last_improved and (generation - last_improved) % 10 == 0:
+            if config.logger is not None:
+                config.logger.write("Applying local search\n")
+
+            new_population: Set[VRPDFDIndividual] = set()
+
+            iterable = list(population)
+            random.shuffle(iterable)
+            iterable = iterable[:config.local_search_batch]
+
+            individuals: Union[tqdm[VRPDFDIndividual], List[VRPDFDIndividual]] = iterable
+            if verbose:
+                individuals = tqdm(iterable, desc=f"Local search (#{generation + 1})", ascii=" █", colour="red")
+
+            for individual in individuals:
+                new_population.add(individual.local_search())
+
+            population.clear()
+            population.update(new_population)
+
         if config.logger is not None:
-            config.logger.write(f"After generation #{generation + 1}:\nCost,Fine coefficient,Feasible,Individual\n")
+            config.logger.write(f"Generation #{generation + 1},Result,{result.cost}\n#,Cost,Fine coefficient,Feasible,Individual\n")
             config.logger.write(
-                "\n".join(f"{i.cost},{i.decode().fine_coefficient},{int(i.feasible())},\"{i}\"" for i in sorted(population, key=lambda x: x.cost))
+                "\n".join(f"{index + 1},{i.cost},{i.decode().fine_coefficient},{int(i.feasible())},\"{i}\"" for index, i in enumerate(sorted(population)))
             )
             config.logger.write("\n")
+
+    @classmethod
+    def parents_selection(cls, *, population: FrozenSet[Self]) -> Tuple[Self, Self]:
+        population_sorted = sorted(population)
+        first, second = weighted_random([1 + 1 / (index + 1) for index in range(len(population))], count=2)
+        return population_sorted[first], population_sorted[second]
 
     @classmethod
     def initial(cls, *, solution_cls: Type[VRPDFDSolution], size: int) -> Set[VRPDFDIndividual]:
@@ -356,7 +444,7 @@ class VRPDFDIndividual(BaseIndividual):
                 truck_paths = [{0} for _ in range(config.trucks_count)]
                 drone_paths = [[{0} for _ in range(paths_per_drone)] for _ in range(config.drones_count)]
                 for vehicle, network_route in zip(
-                    list(range(config.trucks_count)) + list(range(config.drones_count)) * paths_per_drone,
+                    list(range(config.drones_count)) * paths_per_drone + list(range(config.trucks_count)),
                     range(1, network_customers_offset),
                     strict=True,
                 ):
@@ -378,13 +466,16 @@ class VRPDFDIndividual(BaseIndividual):
                         solution_cls=solution_cls,
                         truck_paths=tuple(map(frozenset, truck_paths)),
                         drone_paths=tuple(tuple(map(frozenset, paths)) for paths in drone_paths),
-                    )
+                    ).get_unique()
                 )
 
                 while len(results) < size:
                     array = list(results)
                     base = random.choice(array)
-                    results.add(base.mutate())
+                    for _ in range(5):
+                        base = base.mutate()
+
+                    results.add(base)
 
                 return results
 

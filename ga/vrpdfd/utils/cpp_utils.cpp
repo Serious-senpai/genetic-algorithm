@@ -7,29 +7,40 @@
 #include <iostream>
 #endif
 
+#include <lemon/network_simplex.h>
+#include <lemon/smart_graph.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
 #include "../../utils/helpers.cpp"
-#include "../../utils/maximum_weighted_flow.cpp"
 
 namespace py = pybind11;
 
 struct Customer
 {
     const double low, high, w;
+    static double total_low;
 
     Customer(double low, double high, double w) : low(low), high(high), w(w) {}
 };
 
 std::vector<Customer> customers;
+double Customer::total_low = 0.0;
 
 void set_customers(const std::vector<double> &low, const std::vector<double> &high, const std::vector<double> &w)
 {
+    unsigned size = low.size();
+    if (size != high.size() || size != w.size())
+    {
+        throw std::runtime_error("low, high and w must have the same size");
+    }
+
     customers.clear();
-    for (unsigned i = 0; i < low.size(); i++)
+    Customer::total_low = 0.0;
+    for (unsigned i = 0; i < size; i++)
     {
         customers.emplace_back(low[i], high[i], w[i]);
+        Customer::total_low += low[i];
     }
 }
 
@@ -65,11 +76,9 @@ paths_from_flow(
     }
 #endif
 
-    unsigned customers_count = customers.size() - 1,
-             network_trucks_offset = 1,
+    unsigned network_trucks_offset = 1,
              network_drones_offset = network_trucks_offset + truck_paths_count,
-             network_customers_offset = network_trucks_offset + truck_paths_count + sum(drone_paths_count),
-             network_sink = network_customers_offset + customers_count;
+             network_customers_offset = network_trucks_offset + truck_paths_count + sum(drone_paths_count);
 
     std::vector<std::map<unsigned, double>> truck_paths;
     for (unsigned network_truck = network_trucks_offset; network_truck < network_drones_offset; network_truck++)
@@ -106,182 +115,6 @@ paths_from_flow(
         }
     }
 
-    std::vector<double> total_weights(customers.size());
-    for (unsigned customer = 1; customer < customers.size(); customer++)
-    {
-        total_weights[customer] = flows[network_customers_offset + customer - 1][network_sink];
-
-#ifdef DEBUG
-        std::cout << "Customer " << customer << " received total weight " << total_weights[customer] << " (low = " << customers[customer].low << ", high = " << customers[customer].high << ")" << std::endl;
-#endif
-    }
-
-    std::vector<unsigned> senders, receivers;
-    for (unsigned customer = 1; customer < customers.size(); customer++)
-    {
-        if (total_weights[customer] > customers[customer].low)
-        {
-            senders.push_back(customer);
-        }
-        else if (total_weights[customer] < customers[customer].low)
-        {
-            receivers.push_back(customer);
-        }
-    }
-
-#ifdef DEBUG
-    std::cout << "senders: ";
-    for (auto sender : senders)
-    {
-        std::cout << sender << " ";
-    }
-    std::cout << std::endl;
-
-    std::cout << "receivers: ";
-    for (auto receiver : receivers)
-    {
-        std::cout << receiver << " ";
-    }
-    std::cout << std::endl;
-#endif
-
-    std::sort(
-        senders.begin(), senders.end(),
-        [](unsigned i, unsigned j)
-        { return customers[i].w < customers[j].w; });
-    std::sort(
-        receivers.begin(), receivers.end(),
-        [](unsigned i, unsigned j)
-        { return customers[i].w > customers[j].w; });
-
-    std::vector<std::set<std::vector<std::map<unsigned, double>>::iterator>> in_path(customers.size());
-    for (unsigned i = 0; i < truck_paths.size(); i++)
-    {
-        for (auto &[customer, _] : truck_paths[i])
-        {
-            in_path[customer].insert(truck_paths.begin() + i);
-        }
-    }
-    for (unsigned i = 0; i < drone_paths.size(); i++)
-    {
-        for (unsigned j = 0; j < drone_paths[i].size(); j++)
-        {
-            for (auto &[customer, _] : drone_paths[i][j])
-            {
-                in_path[customer].insert(drone_paths[i].begin() + j);
-            }
-        }
-    }
-
-    // Rearrange delivery volumes
-    for (auto receiver : receivers)
-    {
-        for (auto sender : senders)
-        {
-            if (total_weights[sender] > customers[sender].low)
-            {
-                for (auto &path_iter : in_path[sender])
-                {
-                    typedef std::pair<unsigned, std::vector<std::map<unsigned, double>>::iterator> customer_pos;
-
-                    customer_pos initial = {sender, path_iter};
-                    std::map<customer_pos, customer_pos> parents;
-                    parents[initial] = initial;
-                    std::deque<std::pair<customer_pos, double>> queue = {
-                        {initial,
-                         min(path_iter->at(sender),
-                             total_weights[sender] - customers[sender].low,
-                             customers[receiver].low - total_weights[receiver])}};
-
-                    while (queue.size() > 0)
-                    {
-                        auto &[pos, transfer] = queue.front();
-                        queue.pop_front();
-
-                        if (transfer == 0.0)
-                        {
-                            continue;
-                        }
-
-                        if (pos.first == receiver)
-                        {
-#ifdef DEBUG
-                            std::cout << "Transfer " << transfer << " units from " << sender << " to " << receiver << " to achieve " << customers[receiver].low << " (currently " << total_weights[receiver] << ")" << std::endl;
-#endif
-
-                            bool receive = true;
-                            while (true)
-                            {
-                                auto original = pos.second->at(pos.first);
-                                if (receive)
-                                {
-#ifdef DEBUG
-                                    std::cout << pos.first << " (" << original << ")+" << transfer << std::endl;
-#endif
-
-                                    pos.second->insert_or_assign(pos.first, original + transfer);
-                                    total_weights[pos.first] += transfer;
-                                }
-                                else
-                                {
-#ifdef DEBUG
-                                    std::cout << pos.first << " (" << original << ")-" << transfer << std::endl;
-#endif
-
-                                    pos.second->insert_or_assign(pos.first, original - transfer);
-                                    total_weights[pos.first] -= transfer;
-                                }
-
-                                if (pos == parents[pos])
-                                {
-                                    break;
-                                }
-
-                                receive = !receive;
-                                pos = parents[pos];
-                            }
-
-                            break;
-                        }
-                        else
-                        {
-                            // Transfer within the same path
-                            for (auto &[next_customer, _] : *pos.second)
-                            {
-                                if (next_customer != pos.first && next_customer != 0)
-                                {
-                                    auto next_pos = std::make_pair(next_customer, pos.second);
-                                    if (!parents.count(next_pos))
-                                    {
-                                        parents.emplace(next_pos, pos);
-                                        queue.emplace_back(next_pos, transfer);
-                                    }
-                                }
-                            }
-
-                            if (pos.first != sender)
-                            {
-                                // Transfer to another path
-                                for (auto &next_path_iter : in_path[pos.first])
-                                {
-                                    if (next_path_iter != pos.second)
-                                    {
-                                        auto next_pos = std::make_pair(pos.first, next_path_iter);
-                                        if (!parents.count(next_pos))
-                                        {
-                                            parents.emplace(next_pos, pos);
-                                            queue.emplace_back(next_pos, std::min(transfer, next_path_iter->at(pos.first)));
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
     return {truck_paths, drone_paths};
 }
 
@@ -309,7 +142,8 @@ paths_from_flow_chained(
              network_source = 0, network_sink = network_customers_offset + customers_count,
              network_size = network_sink + 1;
 
-    std::vector<std::vector<double>> network_capacities(network_size, std::vector<double>(network_size, 0.0)),
+    std::vector<std::vector<double>> network_demands(network_size, std::vector<double>(network_size, 0.0)),
+        network_capacities(network_size, std::vector<double>(network_size, 0.0)),
         network_flow_weights(network_size, std::vector<double>(network_size, 0.0));
     std::vector<std::set<unsigned>> network_neighbors(network_size);
 
@@ -358,15 +192,75 @@ paths_from_flow_chained(
     for (unsigned i = network_customers_offset; i < network_sink; i++)
     {
         unsigned customer = i - network_customers_offset + 1;
+        network_demands[i][network_sink] = customers[customer].low;
         network_capacities[i][network_sink] = customers[customer].high;
         network_neighbors[i].insert(network_sink);
         network_flow_weights[i][network_sink] = customers[customer].w;
     }
 
-    auto [_, flows] = maximum_weighted_flow(
-        network_size,
-        network_capacities, network_neighbors, network_flow_weights,
-        network_source, network_sink);
+    lemon::SmartDigraph graph;
+    std::vector<lemon::SmartDigraph::Node> nodes;
+    for (unsigned i = 0; i < network_size; i++)
+    {
+        nodes.push_back(graph.addNode());
+    }
+
+    std::vector<std::map<unsigned, lemon::SmartDigraph::Arc>> arcs_mapping(network_size);
+    LemonMap<lemon::SmartDigraph::Arc, double> demands_map, capacities_map, flow_weights_map;
+    for (unsigned i = 0; i < network_size; i++)
+    {
+        for (auto neighbor : network_neighbors[i])
+        {
+            auto arc = graph.addArc(nodes[i], nodes[neighbor]);
+
+            arcs_mapping[i][neighbor] = arc;
+            demands_map.set(arc, network_demands[i][neighbor]);
+            capacities_map.set(arc, network_capacities[i][neighbor]);
+            flow_weights_map.set(arc, -network_flow_weights[i][neighbor]); // we aim to maximize weighted flow
+        }
+    }
+
+    lemon::NetworkSimplex<lemon::SmartDigraph, double, double> solver(graph);
+    solver.lowerMap(demands_map);
+    solver.upperMap(capacities_map);
+    solver.costMap(flow_weights_map);
+
+    double capacity_sum = 0;
+    for (auto neighbor : network_neighbors[network_source])
+    {
+        capacity_sum += network_capacities[network_source][neighbor];
+    }
+    solver.stSupply(nodes[network_source], nodes[network_sink], capacity_sum);
+    if (solver.run() == lemon::NetworkSimplex<lemon::SmartDigraph, double, double>::INFEASIBLE)
+    {
+        double l = Customer::total_low, r = capacity_sum;
+        while (r - l > 1e-7)
+        {
+            double m = (l + r) / 2;
+
+            solver.stSupply(nodes[network_source], nodes[network_sink], m);
+            if (solver.run() == lemon::NetworkSimplex<lemon::SmartDigraph, double, double>::INFEASIBLE)
+            {
+                r = m;
+            }
+            else
+            {
+                l = m;
+            }
+        }
+    }
+
+    LemonMap<lemon::SmartDigraph::Arc, double> flows_mapping;
+    solver.flowMap(flows_mapping);
+
+    std::vector<std::vector<double>> flows(network_size, std::vector<double>(network_size, 0.0));
+    for (unsigned i = 0; i < network_size; i++)
+    {
+        for (auto neighbor : network_neighbors[i])
+        {
+            flows[i][neighbor] = flows_mapping[arcs_mapping[i][neighbor]];
+        }
+    }
 
     return paths_from_flow(trucks_count, drone_paths_count, flows, network_neighbors);
 }

@@ -1,6 +1,6 @@
 g++ --version
 
-params="-O3 -Wall -shared -std=c++17 -fPIC $(python3-config --includes) -I extern/pybind11/include"
+params="-O3 -Wall -shared -std=c++17 -fPIC $(python3-config --includes) -I extern/pybind11/include -I extern/lemon-1.3.1"
 extension=$(python3-config --extension-suffix)
 
 if [ "$1" == "debug" ]

@@ -46,43 +46,6 @@ def test_maximum_flow() -> None:
     check_valid_flow(flows)
 
 
-def test_maximum_weighted_flow() -> None:
-    result, flows = utils.maximum_weighted_flow(
-        size=6,
-        capacities=[
-            [0, 7, 0, 0, 4, 0],
-            [0, 0, 5, 3, 0, 0],
-            [0, 0, 0, 0, 0, 8],
-            [0, 0, 3, 0, 0, 5],
-            [0, 3, 0, 2, 0, 0],
-            [0, 0, 0, 0, 0, 0],
-        ],
-        neighbors=[
-            {1, 4},
-            {2, 3},
-            {5},
-            {2, 5},
-            {1, 3},
-            set(),
-        ],
-        flow_weights=[
-            [0, 2, 0, 0, 1, 0],
-            [0, 0, 1, 1, 0, 0],
-            [0, 0, 0, 0, 0, 1],
-            [0, 0, 1, 0, 0, 1],
-            [0, 1, 0, 1, 0, 0],
-            [0, 0, 0, 0, 0, 0],
-        ],
-        source=0,
-        sink=5,
-    )
-
-    print(flows)
-    assert result == 41
-    assert sum(flows[0]) == 10
-    check_valid_flow(flows)
-
-
 def test_flows_with_answers_as_demands() -> None:
     flows = utils.flows_with_demands(
         size=6,
@@ -119,3 +82,8 @@ def test_flows_with_answers_as_demands() -> None:
     print(flows)
     assert sum(flows[0]) == 10
     check_valid_flow(flows)
+
+
+def test_weird_round() -> None:
+    assert utils.weird_round(1.234, 2) == 1.24
+    assert utils.weird_round(2.3301, 2) == 2.34

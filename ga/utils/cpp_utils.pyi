@@ -1,16 +1,20 @@
 from __future__ import annotations
 
-from typing import List, Optional, Sequence, Set, Tuple
+from typing import AbstractSet, List, Optional, Sequence, Set, Tuple
 
 
 __all__ = (
+    "crowding_distance_sort",
     "fake_tsp_solver",
     "flows_with_demands",
+    "jaccard_distance",
     "maximum_flow",
-    "maximum_weighted_flow",
     "tsp_solver",
     "weighted_random",
 )
+
+
+def crowding_distance_sort(sets: Sequence[Sequence[AbstractSet[int]]], *, k: int = 2) -> List[int]: ...
 
 
 def fake_tsp_solver(
@@ -32,22 +36,14 @@ def flows_with_demands(
 ) -> Optional[List[List[float]]]: ...
 
 
+def jaccard_distance(first: AbstractSet[int], second: AbstractSet[int]) -> float: ...
+
+
 def maximum_flow(
     *,
     size: int,
     capacities: Sequence[Sequence[float]],
     neighbors: Sequence[Set[int]],
-    source: int,
-    sink: int,
-) -> Tuple[float, List[List[float]]]: ...
-
-
-def maximum_weighted_flow(
-    *,
-    size: int,
-    capacities: Sequence[Sequence[float]],
-    neighbors: Sequence[Set[int]],
-    flow_weights: Sequence[Sequence[float]],
     source: int,
     sink: int,
 ) -> Tuple[float, List[List[float]]]: ...

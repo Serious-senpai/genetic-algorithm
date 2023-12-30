@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import abc
-from typing import Generic, Iterable, Optional, Set, Type, TypeVar, TYPE_CHECKING, final
+import random
+from typing import FrozenSet, Generic, Iterable, Optional, Set, Tuple, Type, TypeVar, TYPE_CHECKING, final
 
 if TYPE_CHECKING:
     from typing_extensions import Self
@@ -91,8 +92,23 @@ class BaseIndividual(abc.ABC, Generic[_ST]):
         return self
 
     @classmethod
+    def parents_selection(cls, *, population: FrozenSet[Self]) -> Tuple[Self, Self]:
+        """Select 2 parents from the population to perform crossover
+
+        The default implementation select 2 individuals randomly, but subclasses
+        may override this behavior.
+
+        Parameters
+        -----
+        population:
+            The population to select from
+        """
+        first, second = random.sample(tuple(population), 2)
+        return first, second
+
+    @classmethod
     @abc.abstractmethod
-    def selection(cls, *, population: Set[Self], size: int) -> Set[Self]:
+    def selection(cls, *, population: FrozenSet[Self], size: int) -> Set[Self]:
         """Perform natural selection
 
         Subclasses must implement this.

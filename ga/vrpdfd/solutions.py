@@ -17,6 +17,7 @@ __all__ = ("VRPDFDSolution",)
 class VRPDFDSolution(SingleObjectiveSolution[VRPDFDIndividual]):
 
     __slots__ = (
+        "__hash",
         "__truck_distance",
         "__drone_distance",
         "__truck_distances",
@@ -29,6 +30,7 @@ class VRPDFDSolution(SingleObjectiveSolution[VRPDFDIndividual]):
         "drone_paths",
     )
     if TYPE_CHECKING:
+        __hash: Optional[int]
         __truck_distance: Optional[float]
         __drone_distance: Optional[float]
         __truck_distances: Optional[Tuple[float, ...]]
@@ -54,6 +56,7 @@ class VRPDFDSolution(SingleObjectiveSolution[VRPDFDIndividual]):
         fine: Optional[float] = None,
     ) -> None:
         config = ProblemConfig.get_config()
+        self.__hash = None
 
         self.truck_paths = truck_paths
         self.drone_paths = drone_paths
@@ -85,13 +88,16 @@ class VRPDFDSolution(SingleObjectiveSolution[VRPDFDIndividual]):
         if exceed > 0.0:
             errors.append(f"Truck paths violate system working time by {exceed}")
 
-        exceed = positive_max(itertools.chain(*self.drone_distances)) / config.drone.speed - config.drone.time_limit
-        if exceed > 0.0:
-            errors.append(f"Drone paths violate flight time by {exceed}")
+        for drone, drone_distances in enumerate(self.drone_distances):
+            for index, drone_distance in enumerate(drone_distances):
+                exceed = drone_distance / config.drone.speed - config.drone.time_limit
+                if exceed > 0.0:
+                    errors.append(f"Path {index} of drone {drone} violates flight time by {exceed}")
 
-        exceed = max(sum(distances) / config.drone.speed - config.time_limit for distances in self.drone_distances)
-        if exceed > 0.0:
-            errors.append(f"Drone paths violate system working time by {exceed}")
+        for drone, drone_distances in enumerate(self.drone_distances):
+            exceed = sum(drone_distances) / config.drone.speed - config.time_limit
+            if exceed > 0.0:
+                errors.append(f"Drone {drone} violates system working time by {exceed}")
 
         for path in itertools.chain(self.truck_paths, *self.drone_paths):
             for customer_index, weight in path:
@@ -109,12 +115,14 @@ class VRPDFDSolution(SingleObjectiveSolution[VRPDFDIndividual]):
             for path in self.truck_paths:
                 total += sum(weight for customer_index, weight in path if customer_index == index)
 
-            for paths in self.drone_paths:
-                for path in paths:
-                    total += sum(weight for customer_index, weight in path if customer_index == index)
+            for path in itertools.chain(*self.drone_paths):
+                total += sum(weight for customer_index, weight in path if customer_index == index)
 
             if total < customer.low or total > customer.high:
                 errors.append(f"Customer {index} has weight {total} outside [{customer.low}, {customer.high}]")
+
+        if self.fine > 0.0:
+            errors.append(f"Total fine = {self.fine_coefficient} * {self.fine}")
 
         if len(errors) > 0:
             raise InfeasibleSolution("Solution is infeasible\n" + "\n".join(errors))
@@ -171,24 +179,29 @@ class VRPDFDSolution(SingleObjectiveSolution[VRPDFDIndividual]):
                 for value in path:
                     revenue += config.customers[value[0]].w * value[1]
 
-            for paths in self.drone_paths:
-                for path in paths:
-                    for value in path:
-                        revenue += config.customers[value[0]].w * value[1]
+            for path in itertools.chain(*self.drone_paths):
+                for value in path:
+                    revenue += config.customers[value[0]].w * value[1]
 
             self.__revenue = revenue
 
         return self.__revenue
 
     @property
+    def truck_cost(self) -> float:
+        config = ProblemConfig.get_config()
+        return config.truck.cost_coefficient * self.truck_distance
+
+    @property
+    def drone_cost(self) -> float:
+        config = ProblemConfig.get_config()
+        return config.drone.cost_coefficient * self.drone_distance
+
+    @property
     def cost(self) -> float:
         if self.__cost is None:
-            config = ProblemConfig.get_config()
-            self.__cost = (
-                config.drone.cost_coefficient * self.drone_distance
-                + config.truck.cost_coefficient * self.truck_distance
-                - self.revenue
-            )  # We want to maximize profit i.e. minimize cost = -profit
+            # We want to maximize profit i.e. minimize cost = -profit
+            self.__cost = self.truck_cost + self.drone_cost - self.revenue
 
         return self.__cost + self.__fine_coefficient * self.fine
 
@@ -205,16 +218,18 @@ class VRPDFDSolution(SingleObjectiveSolution[VRPDFDIndividual]):
                 + sum(positive_max(sum(distances) / config.drone.speed / config.time_limit - 1) for distances in self.drone_distances)
             )
 
-            for index, customer in enumerate(config.customers[1:], start=1):
-                total = 0.0
-                for path in self.truck_paths:
-                    total += sum(weight for customer_index, weight in path if customer_index == index)
+            total = [0.0] * len(config.customers)
+            for path in self.truck_paths:
+                for customer_index, weight in path:
+                    total[customer_index] += weight
 
-                for paths in self.drone_paths:
-                    for path in paths:
-                        total += sum(weight for customer_index, weight in path if customer_index == index)
+            for path in itertools.chain(*self.drone_paths):
+                for customer_index, weight in path:
+                    total[customer_index] += weight
 
-                result += (positive_max(customer.low - total) + positive_max(total - customer.high)) / customer.high
+            for index, customer in enumerate(config.customers):
+                if index > 0:
+                    result += (positive_max(customer.low - total[index]) + positive_max(total[index] - customer.high)) / customer.high
 
             self.__fine = result
 
@@ -238,7 +253,10 @@ class VRPDFDSolution(SingleObjectiveSolution[VRPDFDIndividual]):
         )
 
     def __hash__(self) -> int:
-        return hash((self.truck_paths, self.drone_paths))
+        if self.__hash is None:
+            self.__hash = hash((frozenset(self.truck_paths), frozenset(map(frozenset, self.drone_paths))))
+
+        return self.__hash
 
     def __repr__(self) -> str:
         return f"VRPDFDSolution(truck_paths={self.truck_paths!r}, drone_paths={self.drone_paths!r})"

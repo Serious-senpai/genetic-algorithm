@@ -42,6 +42,7 @@ jobs:
         run: scripts/build.sh
 
       - name: Run optimizer
+        timeout-minutes: 300
         run: |
           for i in $(seq 0 9)
           do
@@ -55,12 +56,14 @@ jobs:
 # but it will affect the computation time
 
       - name: Upload solutions
+        if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v3
         with:
           name: vrpdfd-summary
           path: output-*.json
 
       - name: Upload log
+        if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v3
         with:
           name: log-${{ matrix.problem }}

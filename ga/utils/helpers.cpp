@@ -2,9 +2,30 @@
 
 #include <algorithm>
 #include <chrono>
+#include <map>
 #include <random>
 #include <stdexcept>
 #include <string>
+
+#include <lemon/maps.h>
+
+template <typename K, typename V>
+class LemonMap : lemon::MapBase<K, V>
+{
+private:
+    std::map<K, V> data;
+
+public:
+    void set(const K &key, const V &value)
+    {
+        data[key] = value;
+    }
+
+    const V &operator[](const K &key) const
+    {
+        return data.at(key);
+    }
+};
 
 template <typename... Args>
 std::string format(const std::string &format, Args... args)
@@ -85,4 +106,10 @@ double round(const double value, const unsigned precision)
 {
     double factor = std::pow(10, precision);
     return std::round(value * factor) / factor;
+}
+
+double weird_round(const double value, const unsigned precision)
+{
+    double factor = std::pow(10, precision);
+    return std::ceil(value * factor) / factor;
 }
