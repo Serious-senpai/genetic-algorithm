@@ -18,6 +18,7 @@ class VRPDFDSolution(SingleObjectiveSolution[VRPDFDIndividual]):
 
     __slots__ = (
         "__hash",
+        "__encoded",
         "__truck_distance",
         "__drone_distance",
         "__truck_distances",
@@ -31,6 +32,7 @@ class VRPDFDSolution(SingleObjectiveSolution[VRPDFDIndividual]):
     )
     if TYPE_CHECKING:
         __hash: Optional[int]
+        __encoded: Optional[VRPDFDIndividual]
         __truck_distance: Optional[float]
         __drone_distance: Optional[float]
         __truck_distances: Optional[Tuple[float, ...]]
@@ -57,6 +59,7 @@ class VRPDFDSolution(SingleObjectiveSolution[VRPDFDIndividual]):
     ) -> None:
         config = ProblemConfig.get_config()
         self.__hash = None
+        self.__encoded = None
 
         self.truck_paths = truck_paths
         self.drone_paths = drone_paths
@@ -219,16 +222,12 @@ class VRPDFDSolution(SingleObjectiveSolution[VRPDFDIndividual]):
             )
 
             total_weight = [0.0] * len(config.customers)
-            for path in self.truck_paths:
-                for customer_index, weight in path:
-                    total_weight[customer_index] += weight
-
-            for path in itertools.chain(*self.drone_paths):
+            for path in itertools.chain(self.truck_paths, *self.drone_paths):
                 for customer_index, weight in path:
                     total_weight[customer_index] += weight
 
             for index, customer in enumerate(config.customers):
-                if index > 0:
+                if index != 0:
                     result += (
                         positive_max(customer.low - total_weight[index])
                         + positive_max(total_weight[index] - customer.high)
@@ -249,11 +248,15 @@ class VRPDFDSolution(SingleObjectiveSolution[VRPDFDIndividual]):
         self.__fine_coefficient = min(self.__fine_coefficient, 10 ** 9)
 
     def encode(self) -> VRPDFDIndividual:
-        return VRPDFDIndividual(
-            solution_cls=self.__class__,
-            truck_paths=tuple(map(lambda path: frozenset(c[0] for c in path), self.truck_paths)),
-            drone_paths=tuple(tuple(map(lambda path: frozenset(c[0] for c in path), paths)) for paths in self.drone_paths),
-        )
+        if self.__encoded is None:
+            self.__encoded = VRPDFDIndividual(
+                solution_cls=self.__class__,
+                truck_paths=tuple(map(lambda path: frozenset(c[0] for c in path), self.truck_paths)),
+                drone_paths=tuple(tuple(map(lambda path: frozenset(c[0] for c in path), paths)) for paths in self.drone_paths),
+                decoded=self,
+            )
+
+        return self.__encoded
 
     def __hash__(self) -> int:
         if self.__hash is None:

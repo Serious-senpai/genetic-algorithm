@@ -49,10 +49,6 @@ class VRPDFDIndividual(BaseIndividual):
         "__hash",
         "__decoded",
         "__local_searched",
-        "__truck_distance",
-        "__drone_distance",
-        "__truck_distances",
-        "__drone_distances",
         "truck_paths",
         "drone_paths",
     )
@@ -62,10 +58,6 @@ class VRPDFDIndividual(BaseIndividual):
         __hash: Final[int]
         __decoded: Optional[VRPDFDSolution]
         __local_searched: Optional[VRPDFDIndividual]
-        __truck_distance: Optional[float]
-        __drone_distance: Optional[float]
-        __truck_distances: Optional[Tuple[float, ...]]
-        __drone_distances: Optional[Tuple[Tuple[float, ...], ...]]
         truck_paths: Final[Tuple[FrozenSet[int], ...]]
         drone_paths: Final[Tuple[Tuple[FrozenSet[int], ...], ...]]
 
@@ -75,15 +67,13 @@ class VRPDFDIndividual(BaseIndividual):
         solution_cls: Type[VRPDFDSolution],
         truck_paths: Tuple[FrozenSet[int], ...],
         drone_paths: Sequence[Sequence[FrozenSet[int]]],
+        decoded: Optional[VRPDFDSolution] = None,
+        local_searched: Optional[VRPDFDIndividual] = None,
     ) -> None:
         self.__cls = solution_cls
         self.__hash = hash((frozenset(truck_paths), frozenset(frozenset(paths) for paths in drone_paths)))
-        self.__decoded = None
-        self.__local_searched = None
-        self.__truck_distance = None
-        self.__drone_distance = None
-        self.__truck_distances = None
-        self.__drone_distances = None
+        self.__decoded = decoded
+        self.__local_searched = local_searched
         self.truck_paths = truck_paths
         self.drone_paths = tuple(tuple(filter(lambda path: len(path) > 1, paths)) for paths in drone_paths)
 
@@ -272,39 +262,11 @@ class VRPDFDIndividual(BaseIndividual):
 
         return self
 
-    @property
-    def truck_distances(self) -> Tuple[float, ...]:
-        if self.__truck_distances is None:
-            self.__truck_distances = tuple(map(self.calculate_distance, self.truck_paths))
-
-        return self.__truck_distances
-
-    @property
-    def truck_distance(self) -> float:
-        if self.__truck_distance is None:
-            self.__truck_distance = sum(self.truck_distances)
-
-        return self.__truck_distance
-
-    @property
-    def drone_distances(self) -> Tuple[Tuple[float, ...], ...]:
-        if self.__drone_distances is None:
-            self.__drone_distances = tuple(tuple(map(self.calculate_distance, paths)) for paths in self.drone_paths)
-
-        return self.__drone_distances
-
-    @property
-    def drone_distance(self) -> float:
-        if self.__drone_distance is None:
-            self.__drone_distance = sum(map(sum, self.drone_distances))
-
-        return self.__drone_distance
-
     def local_search(self) -> VRPDFDIndividual:
         if self.__local_searched is None:
             paths = tuple(self.flatten())
             paths_count = len(paths)
-            self = self.get_unique()
+            unique = self.get_unique()
             results: List[VRPDFDIndividual] = []
 
             # Split a customer from an existing path to 2 existing paths
@@ -316,7 +278,7 @@ class VRPDFDIndividual(BaseIndividual):
                         for receiver in receivers:
                             mutable_paths[receiver] = paths[receiver].union([customer])
 
-                        results.append(self.reconstruct(mutable_paths))
+                        results.append(unique.reconstruct(mutable_paths))
 
             # Swap 2 customers between 2 existing paths
             for first, second in itertools.combinations(range(paths_count), 2):
@@ -327,10 +289,10 @@ class VRPDFDIndividual(BaseIndividual):
                     mutable_paths[first] = paths[first].difference([f]).union([s])
                     mutable_paths[second] = paths[second].difference([s]).union([f])
 
-                    results.append(self.reconstruct(mutable_paths))
+                    results.append(unique.reconstruct(mutable_paths))
 
             if len(results) == 0:
-                results.append(self)
+                results.append(unique)
 
             self.__local_searched = min(results)
 
