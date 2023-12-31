@@ -24,6 +24,7 @@ class SolutionJSON(TypedDict):
     mutation_rate: float
     initial_fine_coefficient: float
     fine_coefficient_increase_rate: float
+    reset_after: int
     stuck_penalty_increase_rate: float
     solution: SolutionInfo
     time: str
@@ -156,6 +157,7 @@ field_names = (
     "Mutation rate",
     "Initial fine coefficient",
     "Fine coefficient increase rate",
+    "Reset after",
     "Stuck penalty increase rate",
     "Profit",
     "Feasible",
@@ -186,6 +188,7 @@ with open(summary_dir / "vrpdfd-summary.csv", "w") as csvfile:
                 data["mutation_rate"],
                 data["initial_fine_coefficient"],
                 data["fine_coefficient_increase_rate"],
+                data["reset_after"],
                 data["stuck_penalty_increase_rate"],
                 data["solution"]["profit"],
                 int(data["solution"]["feasible"]),

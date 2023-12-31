@@ -250,14 +250,18 @@ class VRPDFDSolution(SingleObjectiveSolution[VRPDFDIndividual]):
         self.__fine_coefficient *= config.fine_coefficient_increase_rate
         self.__fine_coefficient = min(self.__fine_coefficient, 10 ** 9)
 
-    def encode(self) -> VRPDFDIndividual:
+    def encode(self, *, create_new: bool = False) -> VRPDFDIndividual:
+        kwargs = {
+            "solution_cls": self.__class__,
+            "truck_paths": tuple(map(lambda path: frozenset(c[0] for c in path), self.truck_paths)),
+            "drone_paths": tuple(tuple(map(lambda path: frozenset(c[0] for c in path), paths)) for paths in self.drone_paths),
+            "decoded": self,
+        }
+        if create_new:
+            return VRPDFDIndividual(**kwargs)
+
         if self.__encoded is None:
-            self.__encoded = VRPDFDIndividual.from_cache(
-                solution_cls=self.__class__,
-                truck_paths=tuple(map(lambda path: frozenset(c[0] for c in path), self.truck_paths)),
-                drone_paths=tuple(tuple(map(lambda path: frozenset(c[0] for c in path), paths)) for paths in self.drone_paths),
-                decoded=self,
-            )
+            self.__encoded = VRPDFDIndividual.from_cache(**kwargs)
 
         return self.__encoded
 

@@ -104,12 +104,8 @@ class VRPDFDIndividual(BaseIndividual):
                 decoded=decoded,
                 local_searched=local_searched,
             )
-            cls.cache[hashed] = result
+            cls.cache[hashed] = result.decode().encode(create_new=True)
             return result
-
-    def get_unique(self) -> VRPDFDIndividual:
-        self.cache[self.__hash] = result = self.decode().encode()
-        return result
 
     @property
     def cls(self) -> Type[VRPDFDSolution]:
@@ -154,7 +150,7 @@ class VRPDFDIndividual(BaseIndividual):
             solution_cls=self.cls,
             truck_paths=tuple(truck_paths),
             drone_paths=drone_paths,
-        ).get_unique()
+        )
 
     def append_drone_path(self, drone: int, path: FrozenSet[int]) -> VRPDFDIndividual:
         drone_paths = list(map(list, self.drone_paths))
@@ -163,7 +159,7 @@ class VRPDFDIndividual(BaseIndividual):
             solution_cls=self.cls,
             truck_paths=self.truck_paths,
             drone_paths=drone_paths,
-        ).get_unique()
+        )
 
     def append_drone_paths(self, *, drones: Sequence[int], paths: Sequence[FrozenSet[int]]) -> VRPDFDIndividual:
         drone_paths = list(map(list, self.drone_paths))
@@ -174,7 +170,7 @@ class VRPDFDIndividual(BaseIndividual):
             solution_cls=self.cls,
             truck_paths=self.truck_paths,
             drone_paths=drone_paths,
-        ).get_unique()
+        )
 
     def feasible(self) -> bool:
         decoded = self.decode()
@@ -301,7 +297,6 @@ class VRPDFDIndividual(BaseIndividual):
         if self.__local_searched is None:
             paths = tuple(self.flatten())
             paths_count = len(paths)
-            unique = self.get_unique()
             results: List[VRPDFDIndividual] = []
 
             # Split a customer from an existing path to 2 existing paths
@@ -313,7 +308,7 @@ class VRPDFDIndividual(BaseIndividual):
                         for receiver in receivers:
                             mutable_paths[receiver] = paths[receiver].union([customer])
 
-                        results.append(unique.reconstruct(mutable_paths))
+                        results.append(self.reconstruct(mutable_paths))
 
             # Swap 2 customers between 2 existing paths
             for first, second in itertools.combinations(range(paths_count), 2):
@@ -324,10 +319,10 @@ class VRPDFDIndividual(BaseIndividual):
                     mutable_paths[first] = paths[first].difference([f]).union([s])
                     mutable_paths[second] = paths[second].difference([s]).union([f])
 
-                    results.append(unique.reconstruct(mutable_paths))
+                    results.append(self.reconstruct(mutable_paths))
 
             if len(results) == 0:
-                results.append(unique)
+                results.append(self)
 
             self.__local_searched = min(results)
 
@@ -348,7 +343,11 @@ class VRPDFDIndividual(BaseIndividual):
             individual.decode().bump_fine_coefficient()
 
         config = ProblemConfig.get_config()
-        if generation != last_improved and (generation - last_improved) % 10 == 0:
+        if (
+            config.reset_after is not None
+            and generation != last_improved
+            and (generation - last_improved) % config.reset_after == 0
+        ):
             if config.logger is not None:
                 config.logger.write("Increasing stuck penalty and applying local search\n")
 
@@ -471,7 +470,7 @@ class VRPDFDIndividual(BaseIndividual):
                         solution_cls=solution_cls,
                         truck_paths=tuple(map(frozenset, truck_paths)),
                         drone_paths=tuple(tuple(map(frozenset, paths)) for paths in drone_paths),
-                    ).get_unique()
+                    )
                 )
 
                 while len(results) < size:
