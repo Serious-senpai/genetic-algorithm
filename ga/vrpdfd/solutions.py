@@ -214,22 +214,25 @@ class VRPDFDSolution(SingleObjectiveSolution[VRPDFDIndividual]):
                 sum(positive_max(self.calculate_total_weight(path) / config.truck.capacity - 1) for path in self.truck_paths)
                 + sum(positive_max(self.calculate_total_weight(path) / config.drone.capacity - 1) for paths in self.drone_paths for path in paths)
                 + sum(positive_max(distance / config.truck.speed / config.time_limit - 1) for distance in self.truck_distances)
-                + sum(positive_max(distance / config.drone.speed / config.drone.time_limit - 1) for distances in self.drone_distances for distance in distances)
+                + sum(positive_max(distance / config.drone.speed / config.drone.time_limit - 1) for distance in itertools.chain(*self.drone_distances))
                 + sum(positive_max(sum(distances) / config.drone.speed / config.time_limit - 1) for distances in self.drone_distances)
             )
 
-            total = [0.0] * len(config.customers)
+            total_weight = [0.0] * len(config.customers)
             for path in self.truck_paths:
                 for customer_index, weight in path:
-                    total[customer_index] += weight
+                    total_weight[customer_index] += weight
 
             for path in itertools.chain(*self.drone_paths):
                 for customer_index, weight in path:
-                    total[customer_index] += weight
+                    total_weight[customer_index] += weight
 
             for index, customer in enumerate(config.customers):
                 if index > 0:
-                    result += (positive_max(customer.low - total[index]) + positive_max(total[index] - customer.high)) / customer.high
+                    result += (
+                        positive_max(customer.low - total_weight[index])
+                        + positive_max(total_weight[index] - customer.high)
+                    ) / customer.high
 
             self.__fine = result
 
