@@ -64,6 +64,7 @@ class ProblemConfig:
         "mutation_rate",
         "initial_fine_coefficient",
         "fine_coefficient_increase_rate",
+        "stuck_penalty_increase_rate",
         "local_search_batch",
         "logger",
     )
@@ -89,6 +90,7 @@ class ProblemConfig:
         mutation_rate: Optional[float]
         initial_fine_coefficient: Optional[float]
         fine_coefficient_increase_rate: Optional[float]
+        stuck_penalty_increase_rate: Optional[float]
         local_search_batch: Optional[int]
         logger: Optional[io.TextIOWrapper]
 
@@ -99,6 +101,7 @@ class ProblemConfig:
         self.mutation_rate = None
         self.initial_fine_coefficient = None
         self.fine_coefficient_increase_rate = None
+        self.stuck_penalty_increase_rate = None
         self.local_search_batch = None
         self.logger = None
         try:

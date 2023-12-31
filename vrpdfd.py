@@ -19,6 +19,7 @@ class Namespace(argparse.Namespace):
         mutation_rate: float
         initial_fine_coefficient: float
         fine_coefficient_increase_rate: float
+        stuck_penalty_increase_rate: float
         local_search_batch: int
         verbose: bool
         fake_tsp_solver: bool
@@ -34,6 +35,7 @@ parser.add_argument("-s", "--size", default=200, type=int, help="the population 
 parser.add_argument("-m", "--mutation-rate", default=0.6, type=float, help="the mutation rate (default: 0.6)")
 parser.add_argument("-f", "--initial-fine-coefficient", default=1000.0, type=float, help="the initial fine coefficient (default: 1000.0)")
 parser.add_argument("-r", "--fine-coefficient-increase-rate", default=10.0, type=float, help="the fine coefficient increase rate (default: 10.0")
+parser.add_argument("-p", "--stuck-penalty-increase-rate", default=10.0, type=float, help="the stuck penalty (default: 10.0)")
 parser.add_argument("-b", "--local-search-batch", default=10, type=int, help="the batch size for local search (default: 10)")
 parser.add_argument("-v", "--verbose", action="store_true", help="turn on verbose mode")
 parser.add_argument("--fake-tsp-solver", action="store_true", help="use fake TSP solver")
@@ -117,6 +119,7 @@ if namespace.dump is not None:
             "mutation_rate": namespace.mutation_rate,
             "initial_fine_coefficient": namespace.initial_fine_coefficient,
             "fine_coefficient_increase_rate": namespace.fine_coefficient_increase_rate,
+            "stuck_penalty_increase_rate": namespace.stuck_penalty_increase_rate,
             "solution": {
                 "profit": -solution.cost,
                 "feasible": feasible,

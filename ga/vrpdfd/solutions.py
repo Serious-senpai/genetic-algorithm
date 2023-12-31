@@ -7,7 +7,7 @@ from .config import ProblemConfig
 from .errors import InfeasibleSolution
 from .individuals import VRPDFDIndividual
 from ..abc import SingleObjectiveSolution
-from ..utils import positive_max
+from ..utils import isclose, positive_max
 
 
 __all__ = ("VRPDFDSolution",)
@@ -233,6 +233,9 @@ class VRPDFDSolution(SingleObjectiveSolution[VRPDFDIndividual]):
                         + positive_max(total_weight[index] - customer.high)
                     ) / customer.high
 
+            if isclose(result, 0.0):
+                result = 0.0
+
             self.__fine = result
 
         return self.__fine
@@ -249,7 +252,7 @@ class VRPDFDSolution(SingleObjectiveSolution[VRPDFDIndividual]):
 
     def encode(self) -> VRPDFDIndividual:
         if self.__encoded is None:
-            self.__encoded = VRPDFDIndividual(
+            self.__encoded = VRPDFDIndividual.from_cache(
                 solution_cls=self.__class__,
                 truck_paths=tuple(map(lambda path: frozenset(c[0] for c in path), self.truck_paths)),
                 drone_paths=tuple(tuple(map(lambda path: frozenset(c[0] for c in path), paths)) for paths in self.drone_paths),

@@ -4,6 +4,7 @@ import itertools
 import random
 from typing import (
     ClassVar,
+    Dict,
     Final,
     FrozenSet,
     List,
@@ -47,15 +48,18 @@ class VRPDFDIndividual(BaseIndividual):
     __slots__ = (
         "__cls",
         "__hash",
+        "__stuck_penalty",
         "__decoded",
         "__local_searched",
         "truck_paths",
         "drone_paths",
     )
     genetic_algorithm_last_improved: ClassVar[int] = 0
+    cache: ClassVar[Dict[Tuple[int, int], VRPDFDIndividual]] = {}
     if TYPE_CHECKING:
         __cls: Final[Type[VRPDFDSolution]]
-        __hash: Final[int]
+        __hash: Final[Tuple[int, int]]
+        __stuck_penalty: float
         __decoded: Optional[VRPDFDSolution]
         __local_searched: Optional[VRPDFDIndividual]
         truck_paths: Final[Tuple[FrozenSet[int], ...]]
@@ -71,14 +75,41 @@ class VRPDFDIndividual(BaseIndividual):
         local_searched: Optional[VRPDFDIndividual] = None,
     ) -> None:
         self.__cls = solution_cls
-        self.__hash = hash((frozenset(truck_paths), frozenset(frozenset(paths) for paths in drone_paths)))
+        self.__hash = hash(frozenset(truck_paths)), hash(frozenset(frozenset(paths) for paths in drone_paths))
+        self.__stuck_penalty = 1.0
         self.__decoded = decoded
         self.__local_searched = local_searched
         self.truck_paths = truck_paths
         self.drone_paths = tuple(tuple(filter(lambda path: len(path) > 1, paths)) for paths in drone_paths)
 
+    @classmethod
+    def from_cache(
+        cls,
+        *,
+        solution_cls: Type[VRPDFDSolution],
+        truck_paths: Tuple[FrozenSet[int], ...],
+        drone_paths: Sequence[Sequence[FrozenSet[int]]],
+        decoded: Optional[VRPDFDSolution] = None,
+        local_searched: Optional[VRPDFDIndividual] = None,
+    ) -> VRPDFDIndividual:
+        hashed = hash(frozenset(truck_paths)), hash(frozenset(frozenset(paths) for paths in drone_paths))
+        try:
+            return cls.cache[hashed]
+
+        except KeyError:
+            result = cls(
+                solution_cls=solution_cls,
+                truck_paths=truck_paths,
+                drone_paths=drone_paths,
+                decoded=decoded,
+                local_searched=local_searched,
+            )
+            cls.cache[hashed] = result
+            return result
+
     def get_unique(self) -> VRPDFDIndividual:
-        return self.decode().encode()
+        self.cache[self.__hash] = result = self.decode().encode()
+        return result
 
     @property
     def cls(self) -> Type[VRPDFDSolution]:
@@ -119,7 +150,7 @@ class VRPDFDIndividual(BaseIndividual):
             for _ in range(len(paths)):
                 drone_paths[-1].append(next(drone_paths_iter))
 
-        return VRPDFDIndividual(
+        return VRPDFDIndividual.from_cache(
             solution_cls=self.cls,
             truck_paths=tuple(truck_paths),
             drone_paths=drone_paths,
@@ -128,7 +159,7 @@ class VRPDFDIndividual(BaseIndividual):
     def append_drone_path(self, drone: int, path: FrozenSet[int]) -> VRPDFDIndividual:
         drone_paths = list(map(list, self.drone_paths))
         drone_paths[drone].append(path)
-        return VRPDFDIndividual(
+        return VRPDFDIndividual.from_cache(
             solution_cls=self.cls,
             truck_paths=self.truck_paths,
             drone_paths=drone_paths,
@@ -139,7 +170,7 @@ class VRPDFDIndividual(BaseIndividual):
         for drone, path in zip(drones, paths, strict=True):
             drone_paths[drone].append(path)
 
-        return VRPDFDIndividual(
+        return VRPDFDIndividual.from_cache(
             solution_cls=self.cls,
             truck_paths=self.truck_paths,
             drone_paths=drone_paths,
@@ -153,6 +184,10 @@ class VRPDFDIndividual(BaseIndividual):
     def cost(self) -> float:
         decoded = self.decode()
         return decoded.cost
+
+    @property
+    def stuck_penalty_cost(self) -> float:
+        return self.cost + self.__stuck_penalty
 
     def decode(self) -> VRPDFDSolution:
         if self.__decoded is None:
@@ -315,30 +350,38 @@ class VRPDFDIndividual(BaseIndividual):
         config = ProblemConfig.get_config()
         if generation != last_improved and (generation - last_improved) % 10 == 0:
             if config.logger is not None:
-                config.logger.write("Applying local search\n")
+                config.logger.write("Increasing stuck penalty and applying local search\n")
 
-            new_population: Set[VRPDFDIndividual] = set()
+            for individual in population:
+                individual.__stuck_penalty *= config.stuck_penalty_increase_rate or 1.0
 
             iterable = list(population)
             random.shuffle(iterable)
-            iterable = iterable[:config.local_search_batch]
-
-            individuals: Union[tqdm[VRPDFDIndividual], List[VRPDFDIndividual]] = iterable
-            if verbose:
-                individuals = tqdm(iterable, desc=f"Local search (#{generation + 1})", ascii=" █", colour="red")
-
-            for individual in individuals:
-                new_population.add(individual.local_search())
 
             population.clear()
-            population.update(new_population)
+            population.update(iterable[config.local_search_batch:])
+
+            individuals: Union[tqdm[VRPDFDIndividual], List[VRPDFDIndividual]] = iterable[:config.local_search_batch]
+            if verbose:
+                individuals = tqdm(individuals, desc=f"Local search (#{generation + 1})", ascii=" █", colour="red")
+
+            for individual in individuals:
+                population.add(individual.local_search())
 
         if config.logger is not None:
-            config.logger.write(f"Generation #{generation + 1},Result,{result.cost}\n#,Cost,Fine coefficient,Feasible,Individual\n")
+            config.logger.write(f"Generation #{generation + 1},Result,{result.cost}\n#,Cost,Fine coefficient,Stuck penalty,Feasible,Individual\n")
             config.logger.write(
-                "\n".join(f"{index + 1},{i.cost},{i.decode().fine_coefficient},{int(i.feasible())},\"{i}\"" for index, i in enumerate(sorted(population)))
+                "\n".join(
+                    f"{index + 1},{i.cost},{i.decode().fine_coefficient},{i.__stuck_penalty},{int(i.feasible())},\"{i}\""
+                    for index, i in enumerate(sorted(population, key=lambda i: i.stuck_penalty_cost))
+                )
             )
             config.logger.write("\n")
+
+    @classmethod
+    def selection(cls, *, population: FrozenSet[Self], size: int) -> Set[Self]:
+        sorted_population = sorted(population, key=lambda i: i.stuck_penalty_cost)
+        return set(sorted_population[:size])
 
     @classmethod
     def parents_selection(cls, *, population: FrozenSet[Self]) -> Tuple[Self, Self]:
@@ -448,4 +491,4 @@ class VRPDFDIndividual(BaseIndividual):
         return f"VRPDFDIndividual(truck_paths={self.truck_paths!r}, drone_paths={self.drone_paths!r})"
 
     def __hash__(self) -> int:
-        return self.__hash
+        return hash(self.__hash)
