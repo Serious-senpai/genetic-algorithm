@@ -208,7 +208,7 @@ class VRPDFDIndividual(BaseIndividual):
                 _, ordered = config.path_order(path)
 
                 for customer in ordered:
-                    weight = truck_paths_mapping[truck][customer]
+                    weight = round(truck_paths_mapping[truck][customer])
                     if customer == 0 or weight > 0.0:
                         truck_paths[-1].append((customer, weight))
 
@@ -401,12 +401,12 @@ class VRPDFDIndividual(BaseIndividual):
 
     @classmethod
     def selection(cls, *, population: FrozenSet[Self], size: int) -> Set[Self]:
-        sorted_population = sorted(population, key=lambda i: i.stuck_penalty_cost)
-        return set(sorted_population[:size])
+        population_sorted = sorted(population, key=lambda i: i.stuck_penalty_cost)
+        return set(population_sorted[:size])
 
     @classmethod
     def parents_selection(cls, *, population: FrozenSet[Self]) -> Tuple[Self, Self]:
-        population_sorted = sorted(population)
+        population_sorted = sorted(population, key=lambda i: i.stuck_penalty_cost)
         first, second = weighted_random([1 + 1 / (index + 1) for index in range(len(population))], count=2)
         return population_sorted[first], population_sorted[second]
 
