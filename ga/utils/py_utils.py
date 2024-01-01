@@ -1,13 +1,38 @@
 from __future__ import annotations
 
 import math
-from typing import Any, Iterable, Sequence, TypeVar, Union, overload
+from collections import OrderedDict
+from typing import Any, Iterable, Optional, Sequence, TypeVar, Union, TYPE_CHECKING, overload
 
 from .cpp_utils import weighted_random
 
 
-__all__ = ("isclose", "positive_max", "value", "weighted_random_choice", "weird_round")
+__all__ = ("LRUCache", "isclose", "positive_max", "value", "weighted_random_choice", "weird_round")
 _T = TypeVar("_T")
+_K = TypeVar("_K")
+_V = TypeVar("_V")
+
+
+class LRUCache(OrderedDict[_K, _V]):
+
+    __slots__ = ("max_size",)
+    if TYPE_CHECKING:
+        max_size: Optional[int]
+
+    def __init__(self, max_size: Optional[int] = None, /) -> None:
+        self.max_size = max_size
+
+    def __getitem__(self, __key: _K) -> _V:
+        value = super().__getitem__(__key)
+        self.move_to_end(__key)
+        return value
+
+    def __setitem__(self, __key: _K, __value: _V) -> None:
+        if self.max_size is not None:
+            while self.__len__() >= self.max_size:
+                self.popitem(last=False)
+
+        return super().__setitem__(__key, __value)
 
 
 @overload

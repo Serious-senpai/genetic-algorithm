@@ -4,7 +4,6 @@ import itertools
 import random
 from typing import (
     ClassVar,
-    Dict,
     Final,
     FrozenSet,
     List,
@@ -27,7 +26,7 @@ from .config import ProblemConfig
 from .errors import PopulationInitializationException
 from .utils import paths_from_flow_chained
 from ..abc import SingleObjectiveIndividual
-from ..utils import flows_with_demands, weighted_random, weighted_random_choice
+from ..utils import LRUCache, flows_with_demands, weighted_random, weighted_random_choice
 if TYPE_CHECKING:
     from .solutions import VRPDFDSolution
 
@@ -55,7 +54,7 @@ class VRPDFDIndividual(BaseIndividual):
         "drone_paths",
     )
     genetic_algorithm_last_improved: ClassVar[int] = 0
-    cache: ClassVar[Dict[Tuple[FrozenSet[FrozenSet[int]], FrozenSet[FrozenSet[FrozenSet[int]]]], VRPDFDIndividual]] = {}
+    cache: ClassVar[LRUCache[Tuple[FrozenSet[FrozenSet[int]], FrozenSet[FrozenSet[FrozenSet[int]]]], VRPDFDIndividual]] = LRUCache()
     if TYPE_CHECKING:
         __cls: Final[Type[VRPDFDSolution]]
         __hash: Final[Tuple[FrozenSet[FrozenSet[int]], FrozenSet[FrozenSet[FrozenSet[int]]]]]

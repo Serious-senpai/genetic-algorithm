@@ -12,7 +12,7 @@ from typing import ClassVar, Dict, DefaultDict, Final, FrozenSet, List, Optional
 
 from .errors import ConfigImportException
 from .utils import set_customers
-from ..utils import tsp_solver, weird_round
+from ..utils import LRUCache, tsp_solver, weird_round
 
 
 __all__ = (
@@ -61,6 +61,7 @@ class ProblemConfig:
         "time_limit",
 
         # Algorithm config
+        "__cache_limit",
         "mutation_rate",
         "initial_fine_coefficient",
         "fine_coefficient_increase_rate",
@@ -72,7 +73,7 @@ class ProblemConfig:
     __cache__: ClassVar[Dict[str, ProblemConfig]] = {}
     context: ClassVar[str] = "None"
     if TYPE_CHECKING:
-        __tsp_cache: Final[Dict[FrozenSet[int], Tuple[float, List[int]]]]
+        __tsp_cache: Final[LRUCache[FrozenSet[int], Tuple[float, List[int]]]]
         __tsp_improved: Final[DefaultDict[FrozenSet[int], bool]]
 
         problem: Final[str]
@@ -88,6 +89,7 @@ class ProblemConfig:
         time_limit: Final[float]
 
         # Algorithm config
+        __cache_limit: Optional[int]
         mutation_rate: Optional[float]
         initial_fine_coefficient: Optional[float]
         fine_coefficient_increase_rate: Optional[float]
@@ -98,8 +100,9 @@ class ProblemConfig:
 
     def __init__(self, problem: str, /) -> None:
         self.problem = problem = problem.removesuffix(".csv")
-        self.__tsp_cache = {}
+        self.__tsp_cache = LRUCache()
         self.__tsp_improved = defaultdict(lambda: True)
+        self.__cache_limit = None
         self.mutation_rate = None
         self.initial_fine_coefficient = None
         self.fine_coefficient_increase_rate = None
@@ -164,6 +167,15 @@ class ProblemConfig:
 
         except BaseException as error:
             raise ConfigImportException(error) from error
+
+    @property
+    def cache_limit(self) -> Optional[int]:
+        return self.__cache_limit
+
+    @cache_limit.setter
+    def cache_limit(self, value: Optional[int]) -> None:
+        self.__cache_limit = value
+        self.__tsp_cache.max_size = value
 
     @property
     def customers_count(self) -> int:

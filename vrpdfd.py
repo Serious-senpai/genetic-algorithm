@@ -23,6 +23,7 @@ class Namespace(argparse.Namespace):
         stuck_penalty_increase_rate: float
         local_search_batch: int
         verbose: bool
+        cache_limit: int
         fake_tsp_solver: bool
         dump: Optional[str]
         extra: Optional[str]
@@ -40,6 +41,7 @@ parser.add_argument("-a", "--reset-after", default=15, type=int, help="the numbe
 parser.add_argument("-p", "--stuck-penalty-increase-rate", default=10.0, type=float, help="the stuck penalty (default: 10.0)")
 parser.add_argument("-b", "--local-search-batch", default=20, type=int, help="the batch size for local search (default: 20)")
 parser.add_argument("-v", "--verbose", action="store_true", help="turn on verbose mode")
+parser.add_argument("--cache-limit", default=100000, type=int, help="set limit for individuals and TSP cache (default: 100000)")
 parser.add_argument("--fake-tsp-solver", action="store_true", help="use fake TSP solver")
 parser.add_argument("--dump", type=str, help="dump the solution to a file")
 parser.add_argument("--extra", type=str, help="extra data dump to file specified by --dump")
@@ -63,6 +65,7 @@ config.initial_fine_coefficient = namespace.initial_fine_coefficient
 config.fine_coefficient_increase_rate = namespace.fine_coefficient_increase_rate
 config.reset_after = namespace.reset_after
 config.local_search_batch = namespace.local_search_batch
+VRPDFDIndividual.cache.max_size = config.cache_limit = namespace.cache_limit
 if namespace.log is not None:
     config.logger = open(namespace.log, "w", encoding="utf-8")
 
