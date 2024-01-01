@@ -301,6 +301,7 @@ class VRPDFDIndividual(BaseIndividual):
 
     def local_search(self) -> VRPDFDIndividual:
         if self.__local_searched is None:
+            config = ProblemConfig.get_config()
             paths = tuple(self.flatten())
             paths_count = len(paths)
             results: List[VRPDFDIndividual] = []
@@ -315,6 +316,21 @@ class VRPDFDIndividual(BaseIndividual):
                             mutable_paths[receiver] = paths[receiver].union([customer])
 
                         results.append(self.reconstruct(mutable_paths))
+
+            # Combine 2 customers from 2 existing paths to a new path
+            for first, second in itertools.combinations(range(paths_count), 2):
+                union = paths[first].union(paths[second])
+                for customer in union:
+                    if customer == 0:
+                        continue
+
+                    mutable_paths = list(paths)
+                    mutable_paths[first] = paths[first].difference([customer])
+                    mutable_paths[second] = paths[second].difference([customer])
+
+                    pre_append = self.reconstruct(mutable_paths)
+                    for drone in range(config.drones_count):
+                        results.append(pre_append.append_drone_path(drone, frozenset([0, customer])))
 
             # Swap 2 customers between 2 existing paths
             for first, second in itertools.combinations(range(paths_count), 2):
