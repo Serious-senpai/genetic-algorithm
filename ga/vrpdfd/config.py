@@ -169,6 +169,10 @@ class ProblemConfig:
             raise ConfigImportException(error) from error
 
     @property
+    def tsp_cache(self) -> LRUCache[FrozenSet[int], Tuple[float, List[int]]]:
+        return self.__tsp_cache
+
+    @property
     def cache_limit(self) -> Optional[int]:
         return self.__cache_limit
 

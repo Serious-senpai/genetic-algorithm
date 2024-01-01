@@ -6,7 +6,7 @@ from pathlib import Path
 from traceback import print_exc
 from typing import Any, Dict, DefaultDict, List, Optional, Tuple, TypedDict
 
-from ga.utils import isclose
+from ga.utils import LRUCacheInfo, isclose
 from ga.vrpdfd import ProblemConfig, VRPDFDSolution
 
 
@@ -15,6 +15,12 @@ class SolutionInfo(TypedDict):
     feasible: bool
     truck_paths: List[List[Tuple[int, float]]]
     drone_paths: List[List[List[Tuple[int, float]]]]
+
+
+class CacheInfo(TypedDict):
+    limit: int
+    individual: LRUCacheInfo
+    tsp: LRUCacheInfo
 
 
 class SolutionJSON(TypedDict):
@@ -31,6 +37,7 @@ class SolutionJSON(TypedDict):
     fake_tsp_solver: bool
     last_improved: int
     extra: Optional[str]
+    cache_info: CacheInfo
 
 
 class MILPSolutionJSON(TypedDict):

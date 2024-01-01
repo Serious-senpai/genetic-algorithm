@@ -1,6 +1,5 @@
 import argparse
 import json
-import math
 import random
 import time
 import traceback
@@ -32,7 +31,7 @@ class Namespace(argparse.Namespace):
 
 parser = argparse.ArgumentParser(description="Genetic algorithm for VRPDFD problem")
 parser.add_argument("problem", type=str, help="the problem name (e.g. \"6.5.1\", \"200.10.1\", ...)")
-parser.add_argument("-i", "--iterations", default=150, type=int, help="the number of generations (default: 150)")
+parser.add_argument("-i", "--iterations", default=100, type=int, help="the number of generations (default: 100)")
 parser.add_argument("-s", "--size", default=200, type=int, help="the population size (default: 200)")
 parser.add_argument("-m", "--mutation-rate", default=0.6, type=float, help="the mutation rate (default: 0.6)")
 parser.add_argument("-f", "--initial-fine-coefficient", default=1000.0, type=float, help="the initial fine coefficient (default: 1000.0)")
@@ -90,19 +89,6 @@ if solution is None:
 
 
 print(f"Got solution with profit = {-solution.cost} after {total_time:.4f}s:\n{solution}")
-if math.isnan(solution.cost):
-    print(f"Oops! Got a solution with NaN cost {solution.cost}. The underlying attributes are as follows:")
-    print(f"truck_distance = {solution.truck_distance}")
-    print(f"drone_distance = {solution.drone_distance}")
-    print(f"fine_coefficient = {solution.fine_coefficient}")
-
-    print("Evaluating solution again:")
-    re_solution = VRPDFDSolution(
-        truck_paths=solution.truck_paths,
-        drone_paths=solution.drone_paths,
-    )
-
-    print(f"Got solution with profit = {-re_solution.cost}")
 
 
 try:
@@ -137,7 +123,12 @@ if namespace.dump is not None:
             "fake_tsp_solver": namespace.fake_tsp_solver,
             "last_improved": VRPDFDIndividual.genetic_algorithm_last_improved,
             "extra": namespace.extra,
+            "cache_info": {
+                "limit": namespace.cache_limit,
+                "individual": VRPDFDIndividual.cache.to_json(),
+                "tsp": config.tsp_cache.to_json(),
+            }
         }
         json.dump(data, file)
 
-    print(f"Saved solution to {namespace.dump}")
+    print(f"Saved solution to {namespace.dump!r}: {data!r}")
