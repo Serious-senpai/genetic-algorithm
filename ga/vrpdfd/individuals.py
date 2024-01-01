@@ -55,10 +55,10 @@ class VRPDFDIndividual(BaseIndividual):
         "drone_paths",
     )
     genetic_algorithm_last_improved: ClassVar[int] = 0
-    cache: ClassVar[Dict[Tuple[int, int], VRPDFDIndividual]] = {}
+    cache: ClassVar[Dict[Tuple[FrozenSet[FrozenSet[int]], FrozenSet[FrozenSet[FrozenSet[int]]]], VRPDFDIndividual]] = {}
     if TYPE_CHECKING:
         __cls: Final[Type[VRPDFDSolution]]
-        __hash: Final[Tuple[int, int]]
+        __hash: Final[Tuple[FrozenSet[FrozenSet[int]], FrozenSet[FrozenSet[FrozenSet[int]]]]]
         __stuck_penalty: float
         __decoded: Optional[VRPDFDSolution]
         __local_searched: Optional[VRPDFDIndividual]
@@ -75,7 +75,7 @@ class VRPDFDIndividual(BaseIndividual):
         local_searched: Optional[VRPDFDIndividual] = None,
     ) -> None:
         self.__cls = solution_cls
-        self.__hash = hash(frozenset(truck_paths)), hash(frozenset(frozenset(paths) for paths in drone_paths))
+        self.__hash = frozenset(truck_paths), frozenset(frozenset(paths) for paths in drone_paths)
         self.__stuck_penalty = 1.0
         self.__decoded = decoded
         self.__local_searched = local_searched
@@ -92,19 +92,25 @@ class VRPDFDIndividual(BaseIndividual):
         decoded: Optional[VRPDFDSolution] = None,
         local_searched: Optional[VRPDFDIndividual] = None,
     ) -> VRPDFDIndividual:
-        hashed = hash(frozenset(truck_paths)), hash(frozenset(frozenset(paths) for paths in drone_paths))
+        hashed = frozenset(truck_paths), frozenset(frozenset(paths) for paths in drone_paths)
         try:
             return cls.cache[hashed]
 
         except KeyError:
-            result = cls(
+            unique = cls(
                 solution_cls=solution_cls,
                 truck_paths=truck_paths,
                 drone_paths=drone_paths,
                 decoded=decoded,
                 local_searched=local_searched,
-            )
-            cls.cache[hashed] = result.decode().encode(create_new=True)
+            ).decode().encode(create_new=True)  # remove customers with 0 weight on each path
+
+            try:
+                result = cls.cache[unique.__hash]
+            except KeyError:
+                result = unique
+
+            cls.cache[hashed] = cls.cache[unique.__hash] = result
             return result
 
     @property
@@ -214,7 +220,7 @@ class VRPDFDIndividual(BaseIndividual):
                     _, ordered = config.path_order(path)
 
                     for customer in ordered:
-                        weight = drone_paths_mapping[drone][path_index][customer]
+                        weight = round(drone_paths_mapping[drone][path_index][customer])
                         if customer == 0 or weight > 0.0:
                             drone_paths[-1][-1].append((customer, weight))
 
