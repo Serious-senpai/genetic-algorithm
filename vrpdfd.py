@@ -63,6 +63,7 @@ config.mutation_rate = namespace.mutation_rate
 config.initial_fine_coefficient = namespace.initial_fine_coefficient
 config.fine_coefficient_increase_rate = namespace.fine_coefficient_increase_rate
 config.reset_after = namespace.reset_after
+config.stuck_penalty_increase_rate = namespace.stuck_penalty_increase_rate
 config.local_search_batch = namespace.local_search_batch
 VRPDFDIndividual.cache.max_size = config.cache_limit = namespace.cache_limit
 if namespace.log is not None:
