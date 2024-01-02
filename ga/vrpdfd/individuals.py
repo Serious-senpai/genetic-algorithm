@@ -3,6 +3,7 @@ from __future__ import annotations
 import itertools
 import random
 from typing import (
+    Any,
     ClassVar,
     Final,
     FrozenSet,
@@ -513,5 +514,8 @@ class VRPDFDIndividual(BaseIndividual):
     def __hash__(self) -> int:
         return hash(self.__hash)
 
-    def __eq__(self, other: Self) -> bool:
-        return self.__hash == other.__hash
+    def __eq__(self, other: Any) -> bool:
+        if isinstance(other, VRPDFDIndividual):
+            return self.__hash == other.__hash
+
+        return NotImplemented
