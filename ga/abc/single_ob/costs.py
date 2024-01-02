@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import abc
 from functools import total_ordering
-from typing import Any, final
+from typing import Any
 
 
 __all__ = ("BaseCostComparison",)
@@ -23,14 +23,12 @@ class BaseCostComparison(abc.ABC):
         """
         ...
 
-    @final
     def __eq__(self, other: Any) -> bool:
         if isinstance(other, self.__class__):
             return self.cost == other.cost
 
         return NotImplemented
 
-    @final
     def __lt__(self, other: Any) -> bool:
         if isinstance(other, self.__class__):
             return self.cost < other.cost
