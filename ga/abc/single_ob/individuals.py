@@ -145,7 +145,9 @@ class SingleObjectiveIndividual(BaseIndividual[_ST], BaseCostComparison):
         if len(filtered) > 0:
             result = min(filtered)
         else:
-            result = min(population)
+            # The entire population is infeasible, so we pick the highest cost so that
+            # in will be more likely to be replaced by a feasible individual later
+            result = max(population)
 
         if len(population) < population_size:
             message = f"Initial population size {len(population)} < {population_size}"
