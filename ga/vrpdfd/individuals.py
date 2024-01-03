@@ -47,7 +47,6 @@ class VRPDFDIndividual(BaseIndividual):
 
     __slots__ = (
         "__cls",
-        "__hash",
         "__stuck_penalty",
         "__decoded",
         "__educated",
@@ -56,10 +55,9 @@ class VRPDFDIndividual(BaseIndividual):
         "drone_paths",
     )
     genetic_algorithm_last_improved: ClassVar[int] = 0
-    cache: ClassVar[LRUCache[Tuple[FrozenSet[FrozenSet[int]], FrozenSet[FrozenSet[FrozenSet[int]]]], VRPDFDIndividual]] = LRUCache()
+    cache: ClassVar[LRUCache[Tuple[Tuple[FrozenSet[int], ...], Tuple[Tuple[FrozenSet[int], ...], ...]], VRPDFDIndividual]] = LRUCache()
     if TYPE_CHECKING:
         __cls: Final[Type[VRPDFDSolution]]
-        __hash: Final[Tuple[FrozenSet[FrozenSet[int]], FrozenSet[FrozenSet[FrozenSet[int]]]]]
         __stuck_penalty: float
         __decoded: Optional[VRPDFDSolution]
         __educated: Optional[VRPDFDIndividual]
@@ -72,18 +70,17 @@ class VRPDFDIndividual(BaseIndividual):
         *,
         solution_cls: Type[VRPDFDSolution],
         truck_paths: Tuple[FrozenSet[int], ...],
-        drone_paths: Sequence[Sequence[FrozenSet[int]]],
+        drone_paths: Tuple[Tuple[FrozenSet[int], ...], ...],
         decoded: Optional[VRPDFDSolution] = None,
         local_searched: Optional[VRPDFDIndividual] = None,
     ) -> None:
         self.__cls = solution_cls
-        self.__hash = frozenset(truck_paths), frozenset(frozenset(paths) for paths in drone_paths)
         self.__stuck_penalty = 1.0
         self.__decoded = decoded
         self.__educated = None
         self.__local_searched = local_searched
         self.truck_paths = truck_paths
-        self.drone_paths = tuple(tuple(filter(lambda path: len(path) > 1, paths)) for paths in drone_paths)
+        self.drone_paths = drone_paths
 
     @classmethod
     def from_cache(
@@ -95,7 +92,8 @@ class VRPDFDIndividual(BaseIndividual):
         decoded: Optional[VRPDFDSolution] = None,
         local_searched: Optional[VRPDFDIndividual] = None,
     ) -> VRPDFDIndividual:
-        hashed = frozenset(truck_paths), frozenset(frozenset(paths) for paths in drone_paths)
+        tuplized_drone_paths = tuple(tuple(filter(lambda path: len(path) > 1, paths)) for paths in drone_paths)
+        hashed = truck_paths, tuplized_drone_paths
         try:
             return cls.cache[hashed]
 
@@ -103,17 +101,17 @@ class VRPDFDIndividual(BaseIndividual):
             unique = cls(
                 solution_cls=solution_cls,
                 truck_paths=truck_paths,
-                drone_paths=drone_paths,
+                drone_paths=tuplized_drone_paths,
                 decoded=decoded,
                 local_searched=local_searched,
             ).decode().encode(create_new=True)  # remove customers with 0 weight on each path
 
             try:
-                result = cls.cache[unique.__hash]
+                result = cls.cache[unique.truck_paths, unique.drone_paths]
             except KeyError:
                 result = unique
 
-            cls.cache[hashed] = cls.cache[unique.__hash] = result
+            cls.cache[hashed] = cls.cache[unique.truck_paths, unique.drone_paths] = result
             return result
 
     @property
@@ -327,18 +325,20 @@ class VRPDFDIndividual(BaseIndividual):
         return self.__educated
 
     def local_search(self) -> VRPDFDIndividual:
+        """A heavier version of educate()"""
         if self.__local_searched is None:
             config = ProblemConfig.get_config()
-            paths = tuple(self.flatten())
-            results: List[VRPDFDIndividual] = []
+
+            current = self
+            results: List[VRPDFDIndividual] = [current]
 
             # Specific guidance for 10.20.1 (may work with other problems as well idk)
             in_truck_paths = {0}
-            for p in self.truck_paths:
+            for p in current.truck_paths:
                 in_truck_paths.update(p)
 
             in_drone_paths = {0}
-            for p in itertools.chain(*self.drone_paths):
+            for p in itertools.chain(*current.drone_paths):
                 in_drone_paths.update(p)
 
             in_truck_paths.remove(0)
@@ -346,20 +346,22 @@ class VRPDFDIndividual(BaseIndividual):
 
             for truck_customer in in_truck_paths.difference(in_drone_paths):
                 for drone_customers in itertools.combinations(in_drone_paths, 2):
-                    mutable_paths = list(paths)
+                    mutable_paths = current.flatten()
 
                     for index in range(config.trucks_count):
-                        mutable_paths[index] = paths[index].difference([truck_customer]).union(drone_customers)
+                        mutable_paths[index] = mutable_paths[index].difference([truck_customer]).union(drone_customers)
 
                     for index in range(config.trucks_count, len(mutable_paths)):
-                        mutable_paths[index] = paths[index].difference(drone_customers).union([truck_customer])
+                        mutable_paths[index] = mutable_paths[index].difference(drone_customers).union([truck_customer])
 
-                    results.append(self.reconstruct(mutable_paths))
+                    results.append(current.reconstruct(mutable_paths))
 
-            if len(results) == 0:
-                results.append(self)
+            if len(results) > 0:
+                current = min(results)
+                # results.clear()
+                # results.append(current)
 
-            self.__local_searched = min(results).educate()
+            self.__local_searched = current.educate()
 
         return self.__local_searched
 
@@ -456,10 +458,10 @@ class VRPDFDIndividual(BaseIndividual):
         return f"VRPDFDIndividual(truck_paths={self.truck_paths!r}, drone_paths={self.drone_paths!r})"
 
     def __hash__(self) -> int:
-        return hash(self.__hash)
+        return hash((self.truck_paths, self.drone_paths))
 
     def __eq__(self, other: Any) -> bool:
         if isinstance(other, VRPDFDIndividual):
-            return self.__hash == other.__hash
+            return self.truck_paths == other.truck_paths and self.drone_paths == other.drone_paths
 
         return NotImplemented

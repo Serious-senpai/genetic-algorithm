@@ -64,6 +64,31 @@ def test_decode_6_5_4() -> None:
     assert utils.isclose(solution.drone_cost, 606.0)
 
 
+def test_decode_6_10_1() -> None:
+    vrpdfd.ProblemConfig.get_config("6.10.1").initial_fine_coefficient = 10 ** 3
+    vrpdfd.ProblemConfig.context = "6.10.1"
+    solution = vrpdfd.VRPDFDIndividual(
+        solution_cls=vrpdfd.VRPDFDSolution,
+        truck_paths=(frozenset([0, 1, 2, 4, 5]),),
+        drone_paths=(
+            (
+                frozenset([0, 6]),
+                frozenset([0, 2]),
+                frozenset([0, 2]),
+                frozenset([0, 2]),
+                frozenset([0, 2]),
+                frozenset([0, 2]),
+                frozenset([0, 3]),
+            ),
+        ),
+    ).decode()
+
+    check_solution(solution, expected=-8418.2)
+    assert utils.isclose(solution.revenue, 16700.0)
+    assert utils.isclose(solution.truck_cost, 7304.799999999999)
+    assert utils.isclose(solution.drone_cost, 976.9999999999999)
+
+
 def test_decode_6_10_2() -> None:
     vrpdfd.ProblemConfig.get_config("6.10.2").initial_fine_coefficient = 10 ** 3
     vrpdfd.ProblemConfig.context = "6.10.2"
