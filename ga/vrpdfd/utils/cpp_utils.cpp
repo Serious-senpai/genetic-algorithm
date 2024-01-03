@@ -234,7 +234,7 @@ paths_from_flow_chained(
     if (solver.run() == lemon::NetworkSimplex<lemon::SmartDigraph, double, double>::INFEASIBLE)
     {
         double l = Customer::total_low, r = capacity_sum;
-        while (r - l > 1e-7)
+        while (r - l > 1e-5)
         {
             double m = (l + r) / 2;
 

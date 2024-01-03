@@ -38,7 +38,7 @@ parser.add_argument("-f", "--initial-fine-coefficient", default=1000.0, type=flo
 parser.add_argument("-r", "--fine-coefficient-increase-rate", default=10.0, type=float, help="the fine coefficient increase rate (default: 10.0")
 parser.add_argument("-a", "--reset-after", default=15, type=int, help="the number of non-improving generations before applying stuck penalty and local search (default: 15)")
 parser.add_argument("-p", "--stuck-penalty-increase-rate", default=1000.0, type=float, help="the stuck penalty (default: 1000.0)")
-parser.add_argument("-b", "--local-search-batch", default=20, type=int, help="the batch size for local search (default: 20)")
+parser.add_argument("-b", "--local-search-batch", default=25, type=int, help="the batch size for local search (default: 25)")
 parser.add_argument("-v", "--verbose", action="store_true", help="turn on verbose mode")
 parser.add_argument("--cache-limit", default=100000, type=int, help="set limit for individuals and TSP cache (default: 100000)")
 parser.add_argument("--fake-tsp-solver", action="store_true", help="use fake TSP solver")

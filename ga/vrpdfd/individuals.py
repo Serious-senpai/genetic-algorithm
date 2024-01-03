@@ -50,6 +50,7 @@ class VRPDFDIndividual(BaseIndividual):
         "__hash",
         "__stuck_penalty",
         "__decoded",
+        "__educated",
         "__local_searched",
         "truck_paths",
         "drone_paths",
@@ -61,6 +62,7 @@ class VRPDFDIndividual(BaseIndividual):
         __hash: Final[Tuple[FrozenSet[FrozenSet[int]], FrozenSet[FrozenSet[FrozenSet[int]]]]]
         __stuck_penalty: float
         __decoded: Optional[VRPDFDSolution]
+        __educated: Optional[VRPDFDIndividual]
         __local_searched: Optional[VRPDFDIndividual]
         truck_paths: Final[Tuple[FrozenSet[int], ...]]
         drone_paths: Final[Tuple[Tuple[FrozenSet[int], ...], ...]]
@@ -78,6 +80,7 @@ class VRPDFDIndividual(BaseIndividual):
         self.__hash = frozenset(truck_paths), frozenset(frozenset(paths) for paths in drone_paths)
         self.__stuck_penalty = 1.0
         self.__decoded = decoded
+        self.__educated = None
         self.__local_searched = local_searched
         self.truck_paths = truck_paths
         self.drone_paths = tuple(tuple(filter(lambda path: len(path) > 1, paths)) for paths in drone_paths)
@@ -228,6 +231,9 @@ class VRPDFDIndividual(BaseIndividual):
                         if customer == 0 or weight > 0.0:
                             drone_paths[-1][-1].append((customer, weight))
 
+                    if len(drone_paths[-1][-1]) == 2:
+                        drone_paths[-1].pop()
+
             self.__decoded = self.cls(
                 truck_paths=tuple(map(tuple, truck_paths)),
                 drone_paths=tuple(tuple(map(tuple, paths)) for paths in drone_paths),
@@ -303,54 +309,57 @@ class VRPDFDIndividual(BaseIndividual):
 
         return self
 
+    def educate(self) -> VRPDFDIndividual:
+        if self.__educated is None:
+            config = ProblemConfig.get_config()
+
+            decoded = self.decode()
+            paths = self.flatten()
+            for path_index, drone_path in enumerate(itertools.chain(*decoded.drone_paths)):
+                if len(drone_path) > 3:
+                    to_remove, _ = min(drone_path, key=lambda c: float("inf") if c[0] == 0 else c[1])
+                    index = config.trucks_count + path_index
+
+                    paths[index] = paths[index].difference([to_remove])
+
+            self.__educated = min(self, self.reconstruct(paths))
+
+        return self.__educated
+
     def local_search(self) -> VRPDFDIndividual:
         if self.__local_searched is None:
             config = ProblemConfig.get_config()
             paths = tuple(self.flatten())
-            paths_count = len(paths)
             results: List[VRPDFDIndividual] = []
 
-            # Split a customer from an existing path to 2 existing paths
-            for sender, *receivers in itertools.combinations(range(paths_count), 3):
-                for customer in paths[sender]:
-                    if all(customer not in paths[r] for r in receivers):
-                        mutable_paths = list(paths)
-                        mutable_paths[sender] = paths[sender].difference([customer])
-                        for receiver in receivers:
-                            mutable_paths[receiver] = paths[receiver].union([customer])
+            # Specific guidance for 10.20.1 (may work with other problems as well idk)
+            in_truck_paths = {0}
+            for p in self.truck_paths:
+                in_truck_paths.update(p)
 
-                        results.append(self.reconstruct(mutable_paths))
+            in_drone_paths = {0}
+            for p in itertools.chain(*self.drone_paths):
+                in_drone_paths.update(p)
 
-            # Combine 2 customers from 2 existing paths to a new path
-            for first, second in itertools.combinations(range(paths_count), 2):
-                union = paths[first].union(paths[second])
-                for customer in union:
-                    if customer == 0:
-                        continue
+            in_truck_paths.remove(0)
+            in_drone_paths.remove(0)
 
+            for truck_customer in in_truck_paths.difference(in_drone_paths):
+                for drone_customers in itertools.combinations(in_drone_paths, 2):
                     mutable_paths = list(paths)
-                    mutable_paths[first] = paths[first].difference([customer])
-                    mutable_paths[second] = paths[second].difference([customer])
 
-                    pre_append = self.reconstruct(mutable_paths)
-                    for drone in range(config.drones_count):
-                        results.append(pre_append.append_drone_path(drone, frozenset([0, customer])))
+                    for index in range(config.trucks_count):
+                        mutable_paths[index] = paths[index].difference([truck_customer]).union(drone_customers)
 
-            # Swap 2 customers between 2 existing paths
-            for first, second in itertools.combinations(range(paths_count), 2):
-                first_unique = paths[first].difference(paths[second])
-                second_unique = paths[second].difference(paths[first])
-                for f, s in itertools.product(first_unique, second_unique):
-                    mutable_paths = list(paths)
-                    mutable_paths[first] = paths[first].difference([f]).union([s])
-                    mutable_paths[second] = paths[second].difference([s]).union([f])
+                    for index in range(config.trucks_count, len(mutable_paths)):
+                        mutable_paths[index] = paths[index].difference(drone_customers).union([truck_customer])
 
                     results.append(self.reconstruct(mutable_paths))
 
             if len(results) == 0:
                 results.append(self)
 
-            self.__local_searched = min(results)
+            self.__local_searched = min(results).educate()
 
         return self.__local_searched
 
