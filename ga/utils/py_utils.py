@@ -43,7 +43,11 @@ class LRUCache(OrderedDict[_K, _V]):
             self.miss += 1
             raise
 
-        self.move_to_end(__key)
+        try:
+            self.move_to_end(__key)
+        except KeyError:
+            pass
+
         return value
 
     def __setitem__(self, __key: _K, __value: _V) -> None:

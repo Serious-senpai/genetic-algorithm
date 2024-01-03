@@ -27,7 +27,7 @@ from .config import ProblemConfig
 from .errors import PopulationInitializationException
 from .utils import paths_from_flow_chained
 from ..abc import SingleObjectiveIndividual
-from ..utils import LRUCache, flows_with_demands, weighted_random, weighted_random_choice
+from ..utils import LRUCache, weighted_random, weighted_random_choice
 if TYPE_CHECKING:
     from .solutions import VRPDFDSolution
 
@@ -188,8 +188,12 @@ class VRPDFDIndividual(BaseIndividual):
         return decoded.cost
 
     @property
-    def stuck_penalty_cost(self) -> float:
+    def penalized_cost(self) -> float:
         return self.cost + self.__stuck_penalty
+
+    def bump_stuck_penalty(self) -> None:
+        config = ProblemConfig.get_config()
+        self.__stuck_penalty *= config.stuck_penalty_increase_rate or 1.0
 
     def decode(self) -> VRPDFDSolution:
         if self.__decoded is None:
@@ -374,7 +378,7 @@ class VRPDFDIndividual(BaseIndividual):
                 config.logger.write("Increasing stuck penalty and applying local search\n")
 
             for individual in population:
-                individual.__stuck_penalty *= config.stuck_penalty_increase_rate or 1.0
+                individual.bump_stuck_penalty()
 
             iterable = list(population)
             random.shuffle(iterable)
@@ -390,23 +394,23 @@ class VRPDFDIndividual(BaseIndividual):
                 population.add(individual.local_search())
 
         if config.logger is not None:
-            config.logger.write(f"Generation #{generation + 1},Result,{result.cost}\n#,Cost,Fine coefficient,Stuck penalty,Feasible,Individual\n")
+            config.logger.write(f"Generation #{generation + 1},Result,{result.cost}\n#,Cost,Penalized cost,Fine coefficient,Feasible,Individual\n")
             config.logger.write(
                 "\n".join(
-                    f"{index + 1},{i.cost},{i.decode().fine_coefficient},{i.__stuck_penalty},{int(i.feasible())},\"{i}\""
-                    for index, i in enumerate(sorted(population, key=lambda i: i.stuck_penalty_cost))
+                    f"{index + 1},{i.cost},{i.penalized_cost},{i.decode().fine_coefficient},{int(i.feasible())},\"{i}\""
+                    for index, i in enumerate(sorted(population, key=lambda i: i.penalized_cost))
                 )
             )
             config.logger.write("\n")
 
     @classmethod
     def selection(cls, *, population: FrozenSet[Self], size: int) -> Set[Self]:
-        population_sorted = sorted(population, key=lambda i: i.stuck_penalty_cost)
+        population_sorted = sorted(population, key=lambda i: i.penalized_cost)
         return set(population_sorted[:size])
 
     @classmethod
     def parents_selection(cls, *, population: FrozenSet[Self]) -> Tuple[Self, Self]:
-        population_sorted = sorted(population, key=lambda i: i.stuck_penalty_cost)
+        population_sorted = sorted(population, key=lambda i: i.penalized_cost)
         first, second = weighted_random([1 + 1 / (index + 1) for index in range(len(population))], count=2)
         return population_sorted[first], population_sorted[second]
 
