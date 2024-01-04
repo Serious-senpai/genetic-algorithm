@@ -213,6 +213,14 @@ class SingleObjectiveIndividual(BaseIndividual[_ST], BaseCostComparison):
                     message = f"Population size {len(population)} > {population_size}"
                     raise ValueError(message)
 
+                # after_generation_hook may add new individuals
+                filtered = tuple(filter(lambda i: i.feasible(), population))
+                if len(filtered) > 0:
+                    result = min(result, *filtered)
+
+                if current_result != result:
+                    last_improved = iteration
+
             if verbose:
                 pyplot.plot(progress)
                 pyplot.xlabel("Generations")

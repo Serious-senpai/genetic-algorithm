@@ -114,6 +114,7 @@ if namespace.dump is not None:
             "fine_coefficient_increase_rate": namespace.fine_coefficient_increase_rate,
             "reset_after": namespace.reset_after,
             "stuck_penalty_increase_rate": namespace.stuck_penalty_increase_rate,
+            "local_search_batch": namespace.local_search_batch,
             "solution": {
                 "profit": -solution.cost,
                 "feasible": feasible,

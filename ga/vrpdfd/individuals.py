@@ -325,7 +325,7 @@ class VRPDFDIndividual(BaseIndividual):
         return self.__educated
 
     def local_search(self) -> VRPDFDIndividual:
-        """A heavier version of educate()"""
+        """Just like educate(), but more expensive"""
         if self.__local_searched is None:
             config = ProblemConfig.get_config()
 
@@ -344,17 +344,22 @@ class VRPDFDIndividual(BaseIndividual):
             in_truck_paths.remove(0)
             in_drone_paths.remove(0)
 
-            for truck_customer in in_truck_paths.difference(in_drone_paths):
-                for drone_customers in itertools.combinations(in_drone_paths, 2):
-                    mutable_paths = current.flatten()
+            in_truck_paths.difference_update(in_drone_paths)
+            in_drone_paths.difference_update(in_truck_paths)
 
-                    for index in range(config.trucks_count):
-                        mutable_paths[index] = mutable_paths[index].difference([truck_customer]).union(drone_customers)
+            for truck_exchange in range(3):
+                for drone_exchange in range(3):
+                    for truck_customers in itertools.combinations(in_truck_paths, truck_exchange):
+                        for drone_customers in itertools.combinations(in_drone_paths, drone_exchange):
+                            mutable_paths = current.flatten()
 
-                    for index in range(config.trucks_count, len(mutable_paths)):
-                        mutable_paths[index] = mutable_paths[index].difference(drone_customers).union([truck_customer])
+                            for index in range(config.trucks_count):
+                                mutable_paths[index] = mutable_paths[index].difference(truck_customers).union(drone_customers)
 
-                    results.append(current.reconstruct(mutable_paths))
+                            for index in range(config.trucks_count, len(mutable_paths)):
+                                mutable_paths[index] = mutable_paths[index].difference(drone_customers).union(truck_customers)
+
+                            results.append(current.reconstruct(mutable_paths))
 
             if len(results) > 0:
                 current = min(results)

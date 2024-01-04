@@ -32,6 +32,7 @@ class SolutionJSON(TypedDict):
     fine_coefficient_increase_rate: float
     reset_after: int
     stuck_penalty_increase_rate: float
+    local_search_batch: int
     solution: SolutionInfo
     time: str
     fake_tsp_solver: bool
@@ -166,6 +167,7 @@ field_names = (
     "Fine coefficient increase rate",
     "Reset after",
     "Stuck penalty increase rate",
+    "Local search batch",
     "Profit",
     "Feasible",
     "Truck paths",
@@ -197,6 +199,7 @@ with open(summary_dir / "vrpdfd-summary.csv", "w") as csvfile:
                 data["fine_coefficient_increase_rate"],
                 data["reset_after"],
                 data["stuck_penalty_increase_rate"],
+                data["local_search_batch"],
                 data["solution"]["profit"],
                 int(data["solution"]["feasible"]),
                 wrap_double_quotes(data["solution"]["truck_paths"]),
