@@ -4,11 +4,10 @@ import csv
 import io
 import itertools
 import json
-from collections import defaultdict
 from dataclasses import dataclass
 from math import sqrt
 from os import path
-from typing import ClassVar, Dict, DefaultDict, Final, FrozenSet, List, Optional, Tuple, TYPE_CHECKING, final
+from typing import ClassVar, Dict, Final, FrozenSet, List, Optional, Tuple, TYPE_CHECKING, final
 
 from .errors import ConfigImportException
 from .utils import set_customers
@@ -46,7 +45,6 @@ class ProblemConfig:
 
     __slots__ = (
         "__tsp_cache",
-        "__tsp_improved",
 
         "problem",
         "trucks_count",
@@ -74,7 +72,6 @@ class ProblemConfig:
     context: ClassVar[str] = "None"
     if TYPE_CHECKING:
         __tsp_cache: Final[LRUCache[FrozenSet[int], Tuple[float, List[int]]]]
-        __tsp_improved: Final[DefaultDict[FrozenSet[int], bool]]
 
         problem: Final[str]
         trucks_count: Final[int]
@@ -101,7 +98,6 @@ class ProblemConfig:
     def __init__(self, problem: str, /) -> None:
         self.problem = problem = problem.removesuffix(".csv")
         self.__tsp_cache = LRUCache()
-        self.__tsp_improved = defaultdict(lambda: True)
         self.__cache_limit = None
         self.mutation_rate = None
         self.initial_fine_coefficient = None
@@ -207,17 +203,6 @@ class ProblemConfig:
         except KeyError:
             distance, path_index = tsp_solver([self.customers[i].location for i in customers], first=depot_index)
             self.__tsp_cache[path] = distance, path_index
-
-        if len(path) > 20 and self.__tsp_improved[path]:
-            new_distance, new_path_index = tsp_solver([self.customers[i].location for i in customers], first=depot_index, heuristic_hint=path_index)
-            if new_distance == distance:
-                # TSP result does not improve
-                self.__tsp_improved[path] = False
-
-            else:
-                distance = new_distance
-                path_index = new_path_index
-                self.__tsp_cache[path] = distance, path_index
 
         ordered = list(map(customers.__getitem__, path_index))
         ordered.append(0)

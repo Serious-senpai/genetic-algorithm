@@ -16,6 +16,9 @@ private:
     std::map<K, V> data;
 
 public:
+    typedef K Key;
+    typedef V Value;
+
     void set(const K &key, const V &value)
     {
         data[key] = value;
@@ -24,6 +27,11 @@ public:
     const V &operator[](const K &key) const
     {
         return data.at(key);
+    }
+
+    bool empty() const
+    {
+        return data.empty();
     }
 };
 

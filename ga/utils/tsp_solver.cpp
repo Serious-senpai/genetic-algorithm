@@ -1,14 +1,16 @@
 #pragma once
 
+#include <optional>
 #include <vector>
+
+#include <lemon/full_graph.h>
+#include <lemon/insertion_tsp.h>
+#include <lemon/opt2_tsp.h>
+#include <lemon/path.h>
 
 #include "helpers.cpp"
 
 const unsigned HELD_KARP_LIMIT = 17;
-const unsigned GA_POPULATION_SIZE = 100;
-const unsigned GA_GENERATIONS_COUNT = 150;
-
-const double GA_MUTATION_RATE = 0.4;
 
 std::pair<double, unsigned> __held_karp_solve(
     const unsigned bitmask,
@@ -87,76 +89,6 @@ std::pair<double, std::vector<unsigned>> __held_karp(const std::vector<std::vect
     return {distance_end.first, path};
 }
 
-std::pair<std::vector<unsigned>, std::vector<unsigned>> crossover(const std::vector<unsigned> &first, const std::vector<unsigned> &second)
-{
-    unsigned n = first.size();
-    if (n != second.size())
-    {
-        throw std::invalid_argument(format("Crossover of paths with different lengths: %d and %d", n, second.size()));
-    }
-
-    std::vector<unsigned> first_child(n, -1), second_child(n, -1);
-    unsigned crossover_point = random_int(1, n - 1);
-
-    std::vector<bool> in_first_child(n);
-    for (unsigned i = 0; i < n; i++)
-    {
-        if (i < crossover_point)
-        {
-            first_child[i] = first[i];
-            in_first_child[first[i]] = true;
-        }
-        else
-        {
-            second_child[i] = first[i];
-        }
-    }
-
-    unsigned first_offset = crossover_point, second_offset = 0;
-    for (unsigned i = 0; i < n; i++)
-    {
-        if (!in_first_child[second[i]])
-        {
-            first_child[first_offset] = second[i];
-            first_offset++;
-        }
-        else
-        {
-            second_child[second_offset] = second[i];
-            second_offset++;
-        }
-    }
-
-    return {first_child, second_child};
-}
-
-void mutate(std::vector<unsigned> &individual)
-{
-    unsigned n = individual.size(),
-             first = random_int(0, n - 1),
-             second = random_int(0, n - 1);
-    while (first == second)
-    {
-        first = random_int(0, n - 1);
-        second = random_int(0, n - 1);
-    }
-
-    std::swap(individual[first], individual[second]);
-}
-
-double evaluate(const std::vector<unsigned> &individual, const std::vector<std::vector<double>> &distances)
-{
-    double result = 0.0;
-    unsigned n = individual.size();
-    for (unsigned i = 0; i < n; i++)
-    {
-        unsigned current = individual[i], next = individual[(i + 1) % n];
-        result += distances[current][next];
-    }
-
-    return result;
-}
-
 std::pair<double, std::vector<unsigned>> tsp_solver(
     const std::vector<std::pair<double, double>> &cities,
     const unsigned first = 0,
@@ -206,83 +138,55 @@ std::pair<double, std::vector<unsigned>> tsp_solver(
     }
     else
     {
-        std::vector<std::vector<unsigned>> population;
-        try
+        lemon::Path<lemon::FullGraph> initial;
+        lemon::FullGraph graph(n);
+        LemonMap<lemon::FullGraph::Edge, double> costs;
+        for (unsigned i = 0; i < n; i++)
         {
-            population.push_back(heuristic_hint.value());
-        }
-        catch (std::bad_optional_access &e)
-        {
-            // pass
-        }
-
-        while (population.size() < GA_POPULATION_SIZE)
-        {
-            std::vector<unsigned> individual;
             for (unsigned j = 0; j < n; j++)
             {
-                individual.push_back(j);
-            }
-
-            std::shuffle(individual.begin(), individual.end(), rng);
-            population.push_back(individual);
-        }
-
-        double result_cost = evaluate(population[0], distances);
-        std::vector<unsigned> result = population[0];
-        for (unsigned i = 1; i < GA_POPULATION_SIZE; i++)
-        {
-            auto cost = evaluate(population[i], distances);
-            if (cost < result_cost)
-            {
-                result_cost = cost;
-                result = population[i];
+                auto edge = graph.edge(graph(i), graph(j));
+                costs.set(edge, distances[i][j]);
             }
         }
 
-        for (unsigned generation = 0; generation < GA_GENERATIONS_COUNT; generation++)
+        if (heuristic_hint.has_value())
         {
-            while (population.size() < 2 * GA_POPULATION_SIZE)
+            if (heuristic_hint.value().size() != n)
             {
-                // Select 2 random parents
-                unsigned first = random_int(0, population.size() - 1),
-                         second = random_int(0, population.size() - 1);
-                while (first == second)
-                {
-                    first = random_int(0, population.size() - 1);
-                    second = random_int(0, population.size() - 1);
-                }
-
-                auto results = crossover(population[first], population[second]);
-                if (random_double(0.0, 1.0) < GA_MUTATION_RATE)
-                {
-                    mutate(results.first);
-                }
-                if (random_double(0.0, 1.0) < GA_MUTATION_RATE)
-                {
-                    mutate(results.second);
-                }
-
-                population.push_back(results.first);
-                population.push_back(results.second);
+                throw std::invalid_argument(format("Hint size %d does not match n = %d", heuristic_hint.value().size(), n));
             }
 
-            std::sort(
-                population.begin(), population.end(),
-                [&distances](std::vector<unsigned> &f, std::vector<unsigned> &s)
-                { return evaluate(f, distances) < evaluate(s, distances); });
-
-            while (population.size() > GA_POPULATION_SIZE)
+            for (unsigned i = 0; i < n; i++)
             {
-                population.pop_back();
+                auto arc = graph.arc(graph(heuristic_hint.value()[i]), graph(heuristic_hint.value()[(i + 1) % n]));
+                initial.addBack(arc);
             }
+        }
+        else
+        {
+            lemon::InsertionTsp<LemonMap<lemon::FullGraph::Edge, double>> tsp(graph, costs);
+            tsp.run();
 
-            auto cost = evaluate(population[0], distances);
-            if (cost < result_cost)
-            {
-                result_cost = cost;
-                result = population[0];
-            }
+            tsp.tour(initial);
+        }
+
+        lemon::Opt2Tsp<LemonMap<lemon::FullGraph::Edge, double>> tsp(graph, costs);
+        tsp.run(initial);
+
+        std::vector<lemon::FullGraph::Node> path(n);
+        tsp.tourNodes(path.begin());
+
+        std::vector<unsigned> result;
+        for (auto node : path)
+        {
+            result.push_back(graph.id(node));
+        }
+
+        double result_cost = 0.0;
+        for (unsigned i = 0; i < n; i++)
+        {
+            result_cost += distances[result[i]][result[(i + 1) % n]];
         }
 
         rotate_to_first(result, first);
