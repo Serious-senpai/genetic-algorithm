@@ -200,8 +200,6 @@ class SingleObjectiveIndividual(BaseIndividual[_ST], BaseCostComparison):
                 if current_result != result:
                     last_improved = iteration
 
-                progress.append(result.cost)
-
                 cls.after_generation_hook(
                     generation=iteration,
                     last_improved=last_improved,
@@ -220,6 +218,8 @@ class SingleObjectiveIndividual(BaseIndividual[_ST], BaseCostComparison):
 
                 if current_result != result:
                     last_improved = iteration
+
+                progress.append(result.cost)
 
             if verbose:
                 pyplot.plot(progress)

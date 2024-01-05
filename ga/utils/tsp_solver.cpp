@@ -3,10 +3,15 @@
 #include <optional>
 #include <vector>
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wregister"
+
 #include <lemon/full_graph.h>
 #include <lemon/insertion_tsp.h>
 #include <lemon/opt2_tsp.h>
 #include <lemon/path.h>
+
+#pragma GCC diagnostic pop
 
 #include "helpers.cpp"
 

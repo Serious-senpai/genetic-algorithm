@@ -176,6 +176,8 @@ field_names = (
     "Fake TSP solver",
     "Last improved",
     "Extra",
+    "I hit/miss/cached",
+    "T hit/miss/cached",
     "MILP profit",
     "MILP status",
     "MILP computation time",
@@ -208,6 +210,26 @@ with open(summary_dir / "vrpdfd-summary.csv", "w") as csvfile:
                 int(data["fake_tsp_solver"]),
                 data["last_improved"],
                 data["extra"],
+                "/".join(
+                    map(
+                        str,
+                        [
+                            data["cache_info"]["individual"]["hit"],
+                            data["cache_info"]["individual"]["miss"],
+                            data["cache_info"]["individual"]["cached"],
+                        ],
+                    ),
+                ),
+                "/".join(
+                    map(
+                        str,
+                        [
+                            data["cache_info"]["tsp"]["hit"],
+                            data["cache_info"]["tsp"]["miss"],
+                            data["cache_info"]["tsp"]["cached"],
+                        ],
+                    ),
+                ),
             ]
 
             problem_name = data["problem"]

@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <ctime>
 #include <map>
 #include <random>
 #include <stdexcept>
@@ -32,6 +33,26 @@ public:
     bool empty() const
     {
         return data.empty();
+    }
+};
+
+class Timer
+{
+private:
+    const double _limit;
+    const double _start;
+
+public:
+    Timer(const double seconds_limit) : _limit(seconds_limit), _start((double)std::clock() / (double)CLOCKS_PER_SEC) {}
+
+    bool timeup() const
+    {
+        return elapsed() >= _limit;
+    }
+
+    double elapsed() const
+    {
+        return (double)std::clock() / (double)CLOCKS_PER_SEC - _start;
     }
 };
 

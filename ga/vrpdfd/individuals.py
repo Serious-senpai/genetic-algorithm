@@ -338,7 +338,7 @@ class VRPDFDIndividual(BaseIndividual):
                     truck_paths=tuple(map(frozenset, truck_paths)),
                     drone_paths=tuple(tuple(map(frozenset, paths)) for paths in drone_paths),
                 )
-                result = min(result, individual)
+                result = min(result, individual.educate())
 
             self.__local_searched = result
 
@@ -370,16 +370,30 @@ class VRPDFDIndividual(BaseIndividual):
             for individual in population:
                 individual.bump_stuck_penalty()
 
+            if result not in population:
+                population.pop()
+                population.add(result)
+
             local_searched = set(filter(lambda i: i.local_searched, population))
             not_local_searched = list(population.difference(local_searched))
 
             population.clear()
             population.update(local_searched)
 
-            random.shuffle(not_local_searched)
-            population.update(not_local_searched[config.local_search_batch:])
+            not_local_searched.sort()
+            assert config.local_search_batch is not None
+            to_local_search = set(
+                map(
+                    not_local_searched.__getitem__,
+                    weighted_random(
+                        [1 + 1 / (index + 1) for index in range(len(not_local_searched))],
+                        count=min(config.local_search_batch, len(not_local_searched)),
+                    ),
+                ),
+            )
+            population.update(i for i in not_local_searched if i not in to_local_search)
 
-            individuals: Union[tqdm[VRPDFDIndividual], List[VRPDFDIndividual]] = not_local_searched[:config.local_search_batch]
+            individuals: Union[tqdm[VRPDFDIndividual], Set[VRPDFDIndividual]] = to_local_search
             if verbose:
                 individuals = tqdm(individuals, desc=f"Local search (#{generation + 1})", ascii=" █", colour="red")
 
