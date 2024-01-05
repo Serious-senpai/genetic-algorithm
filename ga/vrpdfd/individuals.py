@@ -25,7 +25,7 @@ if TYPE_CHECKING:
 
 from .config import ProblemConfig
 from .errors import PopulationInitializationException
-from .utils import paths_from_flow_chained
+from .utils import local_search, paths_from_flow_chained
 from ..abc import SingleObjectiveIndividual
 from ..utils import LRUCache, weighted_random, weighted_random_choice
 if TYPE_CHECKING:
@@ -324,49 +324,23 @@ class VRPDFDIndividual(BaseIndividual):
 
         return self.__educated
 
+    @property
+    def local_searched(self) -> bool:
+        return self.__local_searched is not None
+
     def local_search(self) -> VRPDFDIndividual:
         """Just like educate(), but more expensive"""
         if self.__local_searched is None:
-            config = ProblemConfig.get_config()
+            result = self
+            for truck_paths, drone_paths in local_search(self.truck_paths, self.drone_paths):
+                individual = VRPDFDIndividual.from_cache(
+                    solution_cls=self.cls,
+                    truck_paths=tuple(map(frozenset, truck_paths)),
+                    drone_paths=tuple(tuple(map(frozenset, paths)) for paths in drone_paths),
+                )
+                result = min(result, individual)
 
-            current = self
-            results: List[VRPDFDIndividual] = [current]
-
-            # Specific guidance for 10.20.1 (may work with other problems as well idk)
-            in_truck_paths = {0}
-            for p in current.truck_paths:
-                in_truck_paths.update(p)
-
-            in_drone_paths = {0}
-            for p in itertools.chain(*current.drone_paths):
-                in_drone_paths.update(p)
-
-            in_truck_paths.remove(0)
-            in_drone_paths.remove(0)
-
-            in_truck_paths.difference_update(in_drone_paths)
-            in_drone_paths.difference_update(in_truck_paths)
-
-            for truck_exchange in range(3):
-                for drone_exchange in range(3):
-                    for truck_customers in itertools.combinations(in_truck_paths, truck_exchange):
-                        for drone_customers in itertools.combinations(in_drone_paths, drone_exchange):
-                            mutable_paths = current.flatten()
-
-                            for index in range(config.trucks_count):
-                                mutable_paths[index] = mutable_paths[index].difference(truck_customers).union(drone_customers)
-
-                            for index in range(config.trucks_count, len(mutable_paths)):
-                                mutable_paths[index] = mutable_paths[index].difference(drone_customers).union(truck_customers)
-
-                            results.append(current.reconstruct(mutable_paths))
-
-            if len(results) > 0:
-                current = min(results)
-                # results.clear()
-                # results.append(current)
-
-            self.__local_searched = current.educate()
+            self.__local_searched = result
 
         return self.__local_searched
 
@@ -396,13 +370,16 @@ class VRPDFDIndividual(BaseIndividual):
             for individual in population:
                 individual.bump_stuck_penalty()
 
-            iterable = list(population)
-            random.shuffle(iterable)
+            local_searched = set(filter(lambda i: i.local_searched, population))
+            not_local_searched = list(population.difference(local_searched))
 
             population.clear()
-            population.update(iterable[config.local_search_batch:])
+            population.update(local_searched)
 
-            individuals: Union[tqdm[VRPDFDIndividual], List[VRPDFDIndividual]] = iterable[:config.local_search_batch]
+            random.shuffle(not_local_searched)
+            population.update(not_local_searched[config.local_search_batch:])
+
+            individuals: Union[tqdm[VRPDFDIndividual], List[VRPDFDIndividual]] = not_local_searched[:config.local_search_batch]
             if verbose:
                 individuals = tqdm(individuals, desc=f"Local search (#{generation + 1})", ascii=" █", colour="red")
 

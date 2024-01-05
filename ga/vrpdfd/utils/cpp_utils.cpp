@@ -55,10 +55,9 @@ unsigned sum(const std::vector<unsigned> &v)
     return s;
 }
 
-std::pair<
-    std::vector<std::map<unsigned, double>>,
-    std::vector<std::vector<std::map<unsigned, double>>>>
-paths_from_flow(
+typedef std::pair<std::vector<std::map<unsigned, double>>, std::vector<std::vector<std::map<unsigned, double>>>> solution;
+
+solution paths_from_flow(
     const unsigned truck_paths_count,
     const std::vector<unsigned> &drone_paths_count,
     const std::vector<std::vector<double>> &flows,
@@ -118,10 +117,7 @@ paths_from_flow(
     return {truck_paths, drone_paths};
 }
 
-std::pair<
-    std::vector<std::map<unsigned, double>>,
-    std::vector<std::vector<std::map<unsigned, double>>>>
-paths_from_flow_chained(
+solution paths_from_flow_chained(
     const std::vector<std::set<unsigned>> &truck_paths,
     const std::vector<std::vector<std::set<unsigned>>> &drone_paths,
     const double truck_capacity,
@@ -265,6 +261,101 @@ paths_from_flow_chained(
     return paths_from_flow(trucks_count, drone_paths_count, flows, network_neighbors);
 }
 
+typedef std::pair<std::vector<std::set<unsigned>>, std::vector<std::vector<std::set<unsigned>>>> individual;
+
+std::vector<individual> local_search(
+    const std::vector<std::set<unsigned>> &truck_paths,
+    const std::vector<std::vector<std::set<unsigned>>> &drone_paths)
+{
+    unsigned trucks_count = truck_paths.size(),
+             drones_count = drone_paths.size();
+
+    std::set<unsigned> in_truck_paths = {0}, in_drone_paths = {0};
+    for (unsigned i = 0; i < trucks_count; i++)
+    {
+        for (auto customer : truck_paths[i])
+        {
+            in_truck_paths.insert(customer);
+        }
+    }
+    for (unsigned i = 0; i < drones_count; i++)
+    {
+        for (unsigned j = 0; j < drone_paths[i].size(); j++)
+        {
+            for (auto customer : drone_paths[i][j])
+            {
+                in_drone_paths.insert(customer);
+            }
+        }
+    }
+
+    // Remove elements in both sets
+    std::set<unsigned> in_both;
+    for (auto customer : in_truck_paths)
+    {
+        if (in_drone_paths.count(customer))
+        {
+            in_both.insert(customer);
+        }
+    }
+
+    std::vector<unsigned> in_truck_paths_vector, in_drone_paths_vector;
+    for (auto customer : in_truck_paths)
+    {
+        if (!in_both.count(customer))
+        {
+            in_truck_paths_vector.push_back(customer);
+        }
+    }
+    for (auto customer : in_drone_paths)
+    {
+        if (!in_both.count(customer))
+        {
+            in_drone_paths_vector.push_back(customer);
+        }
+    }
+
+    std::vector<individual> results;
+    for (unsigned truck_i = 0; truck_i < in_truck_paths_vector.size(); truck_i++)
+    {
+        for (unsigned truck_j = truck_i; truck_j < in_truck_paths_vector.size(); truck_j++) // truck_i = truck_j -> Only swap 1 customer from truck paths
+        {
+            for (unsigned drone_i = 0; drone_i < in_drone_paths_vector.size(); drone_i++)
+            {
+                for (unsigned drone_j = drone_i; drone_j < in_drone_paths_vector.size(); drone_j++) // drone_i = drone_j -> Only swap 1 customer from drone paths
+                {
+                    // Generate copy of original solution
+                    std::vector<std::set<unsigned>> new_truck_paths = truck_paths;
+                    std::vector<std::vector<std::set<unsigned>>> new_drone_paths = drone_paths;
+
+                    for (auto &path : new_truck_paths)
+                    {
+                        path.erase(in_truck_paths_vector[truck_i]);
+                        path.erase(in_truck_paths_vector[truck_j]);
+                        path.insert(in_drone_paths_vector[drone_i]);
+                        path.insert(in_drone_paths_vector[drone_j]);
+                    }
+
+                    for (auto &paths : new_drone_paths)
+                    {
+                        for (auto &path : paths)
+                        {
+                            path.erase(in_drone_paths_vector[drone_i]);
+                            path.erase(in_drone_paths_vector[drone_j]);
+                            path.insert(in_truck_paths_vector[truck_i]);
+                            path.insert(in_truck_paths_vector[truck_j]);
+                        }
+                    }
+
+                    results.push_back(std::make_pair(new_truck_paths, new_drone_paths));
+                }
+            }
+        }
+    }
+
+    return results;
+}
+
 PYBIND11_MODULE(cpp_utils, m)
 {
     m.def(
@@ -278,5 +369,9 @@ PYBIND11_MODULE(cpp_utils, m)
     m.def(
         "paths_from_flow_chained", &paths_from_flow_chained,
         py::arg("truck_paths"), py::arg("drone_paths"), py::arg("truck_capacity"), py::arg("drone_capacity"),
+        py::call_guard<py::gil_scoped_release>());
+    m.def(
+        "local_search", &local_search,
+        py::arg("truck_paths"), py::arg("drone_paths"),
         py::call_guard<py::gil_scoped_release>());
 }
