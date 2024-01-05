@@ -250,7 +250,7 @@ solution paths_from_flow_chained(
 }
 
 typedef std::pair<std::vector<std::set<unsigned>>, std::vector<std::vector<std::set<unsigned>>>> individual;
-const double TIME_LIMIT = 60.0;
+const double TIME_LIMIT = 45.0;
 
 std::vector<individual> local_search(
     const std::vector<std::set<unsigned>> &truck_paths,
