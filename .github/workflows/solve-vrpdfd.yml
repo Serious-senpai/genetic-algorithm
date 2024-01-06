@@ -42,10 +42,11 @@ jobs:
         run: scripts/build.sh
 
       - name: Run optimizer
-        timeout-minutes: 300
         run: |
           for i in $(seq 0 9)
           do
+            echo "---------- RUN #$i ----------"
+            timeout --signal=INT 1980 \
             python vrpdfd.py ${{ matrix.problem }} \
             --dump "output-${{ matrix.problem }}-$i.json" \
             --log "log-${{ matrix.problem }}-$i.csv" \
