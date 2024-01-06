@@ -331,16 +331,7 @@ class VRPDFDIndividual(BaseIndividual):
     def local_search(self) -> VRPDFDIndividual:
         """Just like educate(), but more expensive"""
         if self.__local_searched is None:
-            result = self
-            for truck_paths, drone_paths in local_search(self.truck_paths, self.drone_paths):
-                individual = VRPDFDIndividual.from_cache(
-                    solution_cls=self.cls,
-                    truck_paths=tuple(map(frozenset, truck_paths)),
-                    drone_paths=tuple(tuple(map(frozenset, paths)) for paths in drone_paths),
-                )
-                result = min(result, individual.educate())
-
-            self.__local_searched = result
+            self.__local_searched = local_search(self.truck_paths, self.drone_paths)
 
         return self.__local_searched
 

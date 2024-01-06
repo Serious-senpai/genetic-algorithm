@@ -250,15 +250,52 @@ solution paths_from_flow_chained(
 }
 
 typedef std::pair<std::vector<std::set<unsigned>>, std::vector<std::vector<std::set<unsigned>>>> individual;
-const unsigned LOCAL_SEARCH_LIMIT = 10000;
 
-std::vector<individual> local_search(
+py::tuple truck_paths_cast(const std::vector<std::set<unsigned>> &truck_paths)
+{
+    py::tuple py_truck_paths(truck_paths.size());
+    for (unsigned i = 0; i < truck_paths.size(); i++)
+    {
+        py_truck_paths[i] = py_frozenset(truck_paths[i]);
+    }
+
+    return py_truck_paths;
+}
+
+py::tuple drone_paths_cast(const std::vector<std::vector<std::set<unsigned>>> &drone_paths)
+{
+    py::tuple py_drone_paths(drone_paths.size());
+    for (unsigned i = 0; i < drone_paths.size(); i++)
+    {
+        py::tuple py_drone_paths_i(drone_paths[i].size());
+        for (unsigned j = 0; j < drone_paths[i].size(); j++)
+        {
+            py_drone_paths_i[j] = py_frozenset(drone_paths[i][j]);
+        }
+
+        py_drone_paths[i] = py_drone_paths_i;
+    }
+
+    return py_drone_paths;
+}
+
+py::object local_search(
     const std::vector<std::set<unsigned>> &truck_paths,
     const std::vector<std::vector<std::set<unsigned>>> &drone_paths)
 {
-    std::vector<individual> results;
+    py::object py_VRPDFDSolution = py::module::import("ga.vrpdfd.solutions").attr("VRPDFDSolution"),
+               py_from_cache = py::module::import("ga.vrpdfd.individuals").attr("VRPDFDIndividual").attr("from_cache"),
+               py_min = py::module::import("builtins").attr("min");
+
+    py::object py_result = {
+        py_from_cache(
+            py::arg("solution_cls") = py_VRPDFDSolution,
+            py::arg("truck_paths") = truck_paths_cast(truck_paths),
+            py::arg("drone_paths") = drone_paths_cast(drone_paths))};
+
     unsigned trucks_count = truck_paths.size(),
-             drones_count = drone_paths.size();
+             drones_count = drone_paths.size(),
+             customers_count = customers.size();
 
 #ifdef DEBUG
     std::cout << "Local search for " << trucks_count << " truck(s) and " << drones_count << " drone(s)" << std::endl;
@@ -305,7 +342,12 @@ std::vector<individual> local_search(
                 }
             }
 
-            results.push_back(std::make_pair(new_truck_paths, new_drone_paths));
+            py_result = py_min(
+                py_result,
+                py_from_cache(
+                    py::arg("solution_cls") = py_VRPDFDSolution,
+                    py::arg("truck_paths") = truck_paths_cast(new_truck_paths),
+                    py::arg("drone_paths") = drone_paths_cast(new_drone_paths)));
         }
     }
 
@@ -335,6 +377,9 @@ std::vector<individual> local_search(
         }
     }
 
+    std::vector<unsigned> truck_improved_countdown(in_truck_paths_vector.size(), 4 * customers_count),
+        drone_improved_countdown(in_drone_paths_vector.size(), 4 * customers_count);
+
     for (unsigned truck_i = 0; truck_i < in_truck_paths_vector.size(); truck_i++)
     {
         for (unsigned truck_j = truck_i; truck_j < in_truck_paths_vector.size(); truck_j++) // truck_i = truck_j -> Only swap 1 customer from truck paths
@@ -343,9 +388,9 @@ std::vector<individual> local_search(
             {
                 for (unsigned drone_j = drone_i; drone_j < in_drone_paths_vector.size(); drone_j++) // drone_i = drone_j -> Only swap 1 customer from drone paths
                 {
-                    if (results.size() >= LOCAL_SEARCH_LIMIT)
+                    if (truck_improved_countdown[truck_i] * truck_improved_countdown[truck_j] * drone_improved_countdown[drone_i] * drone_improved_countdown[drone_j] == 0)
                     {
-                        goto local_search_end;
+                        continue;
                     }
 
                     // Generate copy of original solution
@@ -371,19 +416,32 @@ std::vector<individual> local_search(
                         }
                     }
 
-                    results.push_back(std::make_pair(new_truck_paths, new_drone_paths));
+                    py::object result = py_from_cache(
+                        py::arg("solution_cls") = py_VRPDFDSolution,
+                        py::arg("truck_paths") = truck_paths_cast(new_truck_paths),
+                        py::arg("drone_paths") = drone_paths_cast(new_drone_paths));
+
+                    if (result < py_result)
+                    {
+                        py_result = result;
+                    }
+                    else
+                    {
+                        truck_improved_countdown[truck_i]--;
+                        truck_improved_countdown[truck_j]--;
+                        drone_improved_countdown[drone_i]--;
+                        drone_improved_countdown[drone_j]--;
+                    }
                 }
             }
         }
     }
 
-local_search_end:
-
 #ifdef DEBUG
     std::cout << "Got " << results.size() << " results" << std::endl;
 #endif
 
-    return results;
+    return py_result;
 }
 
 PYBIND11_MODULE(cpp_utils, m)
@@ -402,6 +460,5 @@ PYBIND11_MODULE(cpp_utils, m)
         py::call_guard<py::gil_scoped_release>());
     m.def(
         "local_search", &local_search,
-        py::arg("truck_paths"), py::arg("drone_paths"),
-        py::call_guard<py::gil_scoped_release>());
+        py::arg("truck_paths"), py::arg("drone_paths")); // Do not release the GIL
 }
