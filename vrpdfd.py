@@ -1,6 +1,5 @@
 import argparse
 import json
-import math
 import random
 import time
 import traceback
@@ -19,8 +18,11 @@ class Namespace(argparse.Namespace):
         mutation_rate: float
         initial_fine_coefficient: float
         fine_coefficient_increase_rate: float
+        reset_after: int
+        stuck_penalty_increase_rate: float
         local_search_batch: int
         verbose: bool
+        cache_limit: int
         fake_tsp_solver: bool
         dump: Optional[str]
         extra: Optional[str]
@@ -29,13 +31,16 @@ class Namespace(argparse.Namespace):
 
 parser = argparse.ArgumentParser(description="Genetic algorithm for VRPDFD problem")
 parser.add_argument("problem", type=str, help="the problem name (e.g. \"6.5.1\", \"200.10.1\", ...)")
-parser.add_argument("-i", "--iterations", default=100, type=int, help="the number of generations (default: 100)")
+parser.add_argument("-i", "--iterations", default=200, type=int, help="the number of generations (default: 200)")
 parser.add_argument("-s", "--size", default=200, type=int, help="the population size (default: 200)")
-parser.add_argument("-m", "--mutation-rate", default=0.6, type=float, help="the mutation rate (default: 0.6)")
+parser.add_argument("-m", "--mutation-rate", default=0.2, type=float, help="the mutation rate (default: 0.2)")
 parser.add_argument("-f", "--initial-fine-coefficient", default=1000.0, type=float, help="the initial fine coefficient (default: 1000.0)")
 parser.add_argument("-r", "--fine-coefficient-increase-rate", default=10.0, type=float, help="the fine coefficient increase rate (default: 10.0")
-parser.add_argument("-b", "--local-search-batch", default=10, type=int, help="the batch size for local search (default: 10)")
+parser.add_argument("-a", "--reset-after", default=15, type=int, help="the number of non-improving generations before applying stuck penalty and local search (default: 15)")
+parser.add_argument("-p", "--stuck-penalty-increase-rate", default=10.0, type=float, help="the stuck penalty (default: 10.0)")
+parser.add_argument("-b", "--local-search-batch", default=25, type=int, help="the batch size for local search (default: 25)")
 parser.add_argument("-v", "--verbose", action="store_true", help="turn on verbose mode")
+parser.add_argument("--cache-limit", default=50000, type=int, help="set limit for individuals and TSP cache (default: 50000)")
 parser.add_argument("--fake-tsp-solver", action="store_true", help="use fake TSP solver")
 parser.add_argument("--dump", type=str, help="dump the solution to a file")
 parser.add_argument("--extra", type=str, help="extra data dump to file specified by --dump")
@@ -57,7 +62,10 @@ ProblemConfig.context = namespace.problem
 config.mutation_rate = namespace.mutation_rate
 config.initial_fine_coefficient = namespace.initial_fine_coefficient
 config.fine_coefficient_increase_rate = namespace.fine_coefficient_increase_rate
+config.reset_after = namespace.reset_after
+config.stuck_penalty_increase_rate = namespace.stuck_penalty_increase_rate
 config.local_search_batch = namespace.local_search_batch
+VRPDFDIndividual.cache.max_size = config.cache_limit = namespace.cache_limit
 if namespace.log is not None:
     config.logger = open(namespace.log, "w", encoding="utf-8")
 
@@ -82,19 +90,6 @@ if solution is None:
 
 
 print(f"Got solution with profit = {-solution.cost} after {total_time:.4f}s:\n{solution}")
-if math.isnan(solution.cost):
-    print(f"Oops! Got a solution with NaN cost {solution.cost}. The underlying attributes are as follows:")
-    print(f"truck_distance = {solution.truck_distance}")
-    print(f"drone_distance = {solution.drone_distance}")
-    print(f"fine_coefficient = {solution.fine_coefficient}")
-
-    print("Evaluating solution again:")
-    re_solution = VRPDFDSolution(
-        truck_paths=solution.truck_paths,
-        drone_paths=solution.drone_paths,
-    )
-
-    print(f"Got solution with profit = {-re_solution.cost}")
 
 
 try:
@@ -117,6 +112,9 @@ if namespace.dump is not None:
             "mutation_rate": namespace.mutation_rate,
             "initial_fine_coefficient": namespace.initial_fine_coefficient,
             "fine_coefficient_increase_rate": namespace.fine_coefficient_increase_rate,
+            "reset_after": namespace.reset_after,
+            "stuck_penalty_increase_rate": namespace.stuck_penalty_increase_rate,
+            "local_search_batch": namespace.local_search_batch,
             "solution": {
                 "profit": -solution.cost,
                 "feasible": feasible,
@@ -127,7 +125,12 @@ if namespace.dump is not None:
             "fake_tsp_solver": namespace.fake_tsp_solver,
             "last_improved": VRPDFDIndividual.genetic_algorithm_last_improved,
             "extra": namespace.extra,
+            "cache_info": {
+                "limit": namespace.cache_limit,
+                "individual": VRPDFDIndividual.cache.to_json(),
+                "tsp": config.tsp_cache.to_json(),
+            }
         }
         json.dump(data, file)
 
-    print(f"Saved solution to {namespace.dump}")
+    print(f"Saved solution to {namespace.dump!r}")
