@@ -298,6 +298,7 @@ py::object local_search(
              customers_count = customers.size();
 
 #ifdef DEBUG
+    unsigned counter = 1;
     std::cout << "Local search for " << trucks_count << " truck(s) and " << drones_count << " drone(s)" << std::endl;
 #endif
 
@@ -348,6 +349,10 @@ py::object local_search(
                     py::arg("solution_cls") = py_VRPDFDSolution,
                     py::arg("truck_paths") = truck_paths_cast(new_truck_paths),
                     py::arg("drone_paths") = drone_paths_cast(new_drone_paths)));
+
+#ifdef DEBUG
+            counter++;
+#endif
         }
     }
 
@@ -432,13 +437,17 @@ py::object local_search(
                         drone_improved_countdown[drone_i]--;
                         drone_improved_countdown[drone_j]--;
                     }
+
+#ifdef DEBUG
+                    counter++;
+#endif
                 }
             }
         }
     }
 
 #ifdef DEBUG
-    std::cout << "Got " << results.size() << " results" << std::endl;
+    std::cout << "Got " << counter << " results" << std::endl;
 #endif
 
     return py_result;
