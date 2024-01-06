@@ -250,7 +250,7 @@ solution paths_from_flow_chained(
 }
 
 typedef std::pair<std::vector<std::set<unsigned>>, std::vector<std::vector<std::set<unsigned>>>> individual;
-const double TIME_LIMIT = 45.0;
+const unsigned LOCAL_SEARCH_LIMIT = 10000;
 
 std::vector<individual> local_search(
     const std::vector<std::set<unsigned>> &truck_paths,
@@ -335,7 +335,6 @@ std::vector<individual> local_search(
         }
     }
 
-    auto timer = Timer(TIME_LIMIT);
     for (unsigned truck_i = 0; truck_i < in_truck_paths_vector.size(); truck_i++)
     {
         for (unsigned truck_j = truck_i; truck_j < in_truck_paths_vector.size(); truck_j++) // truck_i = truck_j -> Only swap 1 customer from truck paths
@@ -344,9 +343,9 @@ std::vector<individual> local_search(
             {
                 for (unsigned drone_j = drone_i; drone_j < in_drone_paths_vector.size(); drone_j++) // drone_i = drone_j -> Only swap 1 customer from drone paths
                 {
-                    if (timer.timeup())
+                    if (results.size() >= LOCAL_SEARCH_LIMIT)
                     {
-                        break;
+                        goto local_search_end;
                     }
 
                     // Generate copy of original solution
@@ -377,6 +376,8 @@ std::vector<individual> local_search(
             }
         }
     }
+
+local_search_end:
 
 #ifdef DEBUG
     std::cout << "Got " << results.size() << " results" << std::endl;
