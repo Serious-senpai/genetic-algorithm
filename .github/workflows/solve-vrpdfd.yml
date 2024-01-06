@@ -50,7 +50,7 @@ jobs:
             python vrpdfd.py ${{ matrix.problem }} \
             --dump "output-${{ matrix.problem }}-$i.json" \
             --log "log-${{ matrix.problem }}-$i.csv" \
-            --extra "run #$i"
+            --extra "run #$i" || true
           done
 
 # It is also possible to run the algorithm 10 times in parallel (by delegating to 10 child processes and add `wait` at the end),
