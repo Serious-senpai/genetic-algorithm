@@ -4,6 +4,7 @@
 #include <set>
 #include <vector>
 #ifdef DEBUG
+#include <iomanip>
 #include <iostream>
 #endif
 
@@ -19,13 +20,13 @@ namespace py = pybind11;
 struct Customer
 {
     const double low, high, w;
-    static double total_low;
+    static double total_low, total_high;
 
     Customer(double low, double high, double w) : low(low), high(high), w(w) {}
 };
 
 std::vector<Customer> customers;
-double Customer::total_low = 0.0;
+double Customer::total_low = 0.0, Customer::total_high = 0.0;
 
 void set_customers(const std::vector<double> &low, const std::vector<double> &high, const std::vector<double> &w)
 {
@@ -36,11 +37,12 @@ void set_customers(const std::vector<double> &low, const std::vector<double> &hi
     }
 
     customers.clear();
-    Customer::total_low = 0.0;
+    Customer::total_low = Customer::total_high = 0.0;
     for (unsigned i = 0; i < size; i++)
     {
         customers.emplace_back(low[i], high[i], w[i]);
         Customer::total_low += low[i];
+        Customer::total_high += high[i];
     }
 }
 
@@ -63,6 +65,18 @@ solution paths_from_flow(
     const std::vector<std::vector<double>> &flows,
     const std::vector<std::set<unsigned>> &neighbors)
 {
+#ifdef DEBUG
+    std::cout << "Building paths from flow" << std::endl;
+    for (unsigned i = 0; i < flows.size(); i++)
+    {
+        for (unsigned j = 0; j < flows[i].size(); j++)
+        {
+            std::cout << flows[i][j] << " ";
+        }
+        std::cout << std::endl;
+    }
+#endif
+
     unsigned network_trucks_offset = 1,
              network_drones_offset = network_trucks_offset + truck_paths_count,
              network_customers_offset = network_trucks_offset + truck_paths_count + sum(drone_paths_count);
@@ -143,7 +157,7 @@ solution paths_from_flow_chained(
                 if (customer != 0)
                 {
                     unsigned network_customer = network_customers_offset + customer - 1;
-                    network_capacities[i][network_customer] = 1.0e+9;
+                    network_capacities[i][network_customer] = Customer::total_high;
                     network_neighbors[i].insert(network_customer);
                 }
             }
@@ -164,7 +178,7 @@ solution paths_from_flow_chained(
                 if (customer != 0)
                 {
                     unsigned network_customer = network_customers_offset + customer - 1;
-                    network_capacities[i][network_customer] = 1.0e+9;
+                    network_capacities[i][network_customer] = Customer::total_high;
                     network_neighbors[i].insert(network_customer);
                 }
             }
@@ -181,6 +195,50 @@ solution paths_from_flow_chained(
         network_neighbors[i].insert(network_sink);
         network_flow_weights[i][network_sink] = customers[customer].w;
     }
+
+#ifdef DEBUG
+    std::cout << std::setprecision(7);
+    std::cout << "network_demands:" << std::endl;
+    for (unsigned i = 0; i < network_size; i++)
+    {
+        for (unsigned j = 0; j < network_size; j++)
+        {
+            std::cout << network_demands[i][j] << " ";
+        }
+        std::cout << std::endl;
+    }
+
+    std::cout << "network_capacities:" << std::endl;
+    for (unsigned i = 0; i < network_size; i++)
+    {
+        for (unsigned j = 0; j < network_size; j++)
+        {
+            std::cout << network_capacities[i][j] << " ";
+        }
+        std::cout << std::endl;
+    }
+
+    std::cout << "network_flow_weights:" << std::endl;
+    for (unsigned i = 0; i < network_size; i++)
+    {
+        for (unsigned j = 0; j < network_size; j++)
+        {
+            std::cout << network_flow_weights[i][j] << " ";
+        }
+        std::cout << std::endl;
+    }
+
+    std::cout << "network_neighbors:" << std::endl;
+    for (unsigned i = 0; i < network_size; i++)
+    {
+        std::cout << i << ": ";
+        for (auto neighbor : network_neighbors[i])
+        {
+            std::cout << neighbor << " ";
+        }
+        std::cout << std::endl;
+    }
+#endif
 
     lemon::SmartDigraph graph;
     std::vector<lemon::SmartDigraph::Node> nodes;
@@ -214,9 +272,14 @@ solution paths_from_flow_chained(
     {
         capacity_sum += network_capacities[network_source][neighbor];
     }
+
     solver.stSupply(nodes[network_source], nodes[network_sink], capacity_sum);
     if (solver.run() == lemon::NetworkSimplex<lemon::SmartDigraph, double, double>::INFEASIBLE)
     {
+#ifdef DEBUG
+        std::cout << "Unable to find a feasible flow with " << capacity_sum << std::endl;
+#endif
+
         double l = Customer::total_low, r = capacity_sum;
         while (r - l > 1e-5)
         {
@@ -225,10 +288,16 @@ solution paths_from_flow_chained(
             solver.stSupply(nodes[network_source], nodes[network_sink], m);
             if (solver.run() == lemon::NetworkSimplex<lemon::SmartDigraph, double, double>::INFEASIBLE)
             {
+#ifdef DEBUG
+                std::cout << "Total flow " << m << " INFEASIBLE" << std::endl;
+#endif
                 r = m;
             }
             else
             {
+#ifdef DEBUG
+                std::cout << "Total flow " << m << " OK" << std::endl;
+#endif
                 l = m;
             }
         }
@@ -236,6 +305,10 @@ solution paths_from_flow_chained(
 
     LemonMap<lemon::SmartDigraph::Arc, double> flows_mapping;
     solver.flowMap(flows_mapping);
+
+#ifdef DEBUG
+    std::cout << "Found flow with cost = " << solver.totalCost() << std::endl;
+#endif
 
     std::vector<std::vector<double>> flows(network_size, std::vector<double>(network_size, 0.0));
     for (unsigned i = 0; i < network_size; i++)

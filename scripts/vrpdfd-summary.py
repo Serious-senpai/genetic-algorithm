@@ -146,6 +146,7 @@ def read_milp_solution(data: MILPSolutionJSON) -> VRPDFDSolution:
             drone_paths=tuple(tuple(map(tuple, paths)) for paths in drone_paths),
         )
 
+        solution.assert_feasible()
         try:
             if not isclose(milp_data["obj_value"], -solution.cost):
                 message = f"MILP solution for {problem_name} reported profit {milp_data['obj_value']}, actual value {-solution.cost}:\n{solution}"
