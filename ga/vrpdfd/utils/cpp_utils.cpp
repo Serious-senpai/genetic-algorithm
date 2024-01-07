@@ -4,7 +4,6 @@
 #include <set>
 #include <vector>
 #ifdef DEBUG
-#include <iomanip>
 #include <iostream>
 #endif
 
@@ -16,6 +15,7 @@
 #include "../../utils/helpers.cpp"
 
 namespace py = pybind11;
+const double TOLERANCE = 1e-5;
 
 struct Customer
 {
@@ -119,6 +119,163 @@ solution paths_from_flow(
     return {truck_paths, drone_paths};
 }
 
+std::vector<std::vector<double>> __solve_flow(
+    const std::vector<std::vector<double>> &network_demands,
+    const std::vector<std::vector<double>> &network_capacities,
+    const std::vector<std::vector<double>> &network_flow_weights,
+    const std::vector<std::set<unsigned>> &network_neighbors,
+    const unsigned network_source,
+    const unsigned network_sink)
+{
+    unsigned network_size = network_neighbors.size();
+
+#ifdef DEBUG
+    std::cout << "Solving flow with network size " << network_size << std::endl;
+    std::cout << "network_demands:" << std::endl;
+    for (unsigned i = 0; i < network_size; i++)
+    {
+        for (unsigned j = 0; j < network_size; j++)
+        {
+            std::cout << network_demands[i][j] << " ";
+        }
+        std::cout << std::endl;
+    }
+
+    std::cout << "network_capacities:" << std::endl;
+    for (unsigned i = 0; i < network_size; i++)
+    {
+        for (unsigned j = 0; j < network_size; j++)
+        {
+            std::cout << network_capacities[i][j] << " ";
+        }
+        std::cout << std::endl;
+    }
+
+    std::cout << "network_flow_weights:" << std::endl;
+    for (unsigned i = 0; i < network_size; i++)
+    {
+        for (unsigned j = 0; j < network_size; j++)
+        {
+            std::cout << network_flow_weights[i][j] << " ";
+        }
+        std::cout << std::endl;
+    }
+
+    std::cout << "network_neighbors:" << std::endl;
+    for (unsigned i = 0; i < network_size; i++)
+    {
+        std::cout << i << ": ";
+        for (auto neighbor : network_neighbors[i])
+        {
+            std::cout << neighbor << " ";
+        }
+        std::cout << std::endl;
+    }
+#endif
+
+    lemon::SmartDigraph graph;
+    std::vector<lemon::SmartDigraph::Node> nodes;
+    for (unsigned i = 0; i < network_size; i++)
+    {
+        nodes.push_back(graph.addNode());
+    }
+
+    std::vector<std::map<unsigned, lemon::SmartDigraph::Arc>> arcs_mapping(network_size);
+    LemonMap<lemon::SmartDigraph::Arc, double> demands_map, capacities_map, flow_weights_map;
+    for (unsigned i = 0; i < network_size; i++)
+    {
+        for (auto neighbor : network_neighbors[i])
+        {
+            auto arc = graph.addArc(nodes[i], nodes[neighbor]);
+
+            arcs_mapping[i][neighbor] = arc;
+            demands_map.set(arc, network_demands[i][neighbor]);
+            capacities_map.set(arc, network_capacities[i][neighbor]);
+            flow_weights_map.set(arc, -network_flow_weights[i][neighbor]); // we aim to maximize weighted flow
+        }
+    }
+
+    lemon::NetworkSimplex<lemon::SmartDigraph, double, double> solver(graph);
+    solver.lowerMap(demands_map);
+    solver.upperMap(capacities_map);
+    solver.costMap(flow_weights_map);
+
+    double total_out = 0;
+    for (auto neighbor : network_neighbors[network_source])
+    {
+        total_out += network_capacities[network_source][neighbor];
+    }
+
+    solver.stSupply(nodes[network_source], nodes[network_sink], total_out);
+    if (solver.run() == lemon::NetworkSimplex<lemon::SmartDigraph, double, double>::INFEASIBLE)
+    {
+#ifdef DEBUG
+        std::cout << "Unable to find a feasible flow with " << total_out << std::endl;
+#endif
+
+        double total_demands = 0;
+        for (unsigned i = 0; i < network_size; i++)
+        {
+            for (auto neighbor : network_neighbors[i])
+            {
+                total_demands += network_demands[i][neighbor];
+            }
+        }
+
+        double l = total_demands, r = total_out;
+        while (r - l > TOLERANCE)
+        {
+            double m = (l + r) / 2;
+
+            solver.stSupply(nodes[network_source], nodes[network_sink], m);
+            if (solver.run() == lemon::NetworkSimplex<lemon::SmartDigraph, double, double>::INFEASIBLE)
+            {
+#ifdef DEBUG
+                std::cout << "Total flow " << m << " INFEASIBLE" << std::endl;
+#endif
+                r = m;
+            }
+            else
+            {
+#ifdef DEBUG
+                std::cout << "Total flow " << m << " OK" << std::endl;
+#endif
+                l = m;
+            }
+        }
+
+        solver.stSupply(nodes[network_source], nodes[network_sink], l);
+        solver.run();
+    }
+
+    LemonMap<lemon::SmartDigraph::Arc, double> flows_mapping;
+    solver.flowMap(flows_mapping);
+
+    std::vector<std::vector<double>> flows(network_size, std::vector<double>(network_size, 0.0));
+    for (unsigned i = 0; i < network_size; i++)
+    {
+        for (auto neighbor : network_neighbors[i])
+        {
+            flows[i][neighbor] = flows_mapping[arcs_mapping[i][neighbor]];
+        }
+    }
+
+#ifdef DEBUG
+    std::cout << "Found flow with cost = " << solver.totalCost() << std::endl;
+    std::cout << "Resulting flow:" << std::endl;
+    for (unsigned i = 0; i < network_size; i++)
+    {
+        for (unsigned j = 0; j < network_size; j++)
+        {
+            std::cout << flows[i][j] << " ";
+        }
+        std::cout << std::endl;
+    }
+#endif
+
+    return flows;
+}
+
 solution paths_from_flow_chained(
     const std::vector<std::set<unsigned>> &truck_paths,
     const std::vector<std::vector<std::set<unsigned>>> &drone_paths,
@@ -196,126 +353,57 @@ solution paths_from_flow_chained(
         network_flow_weights[i][network_sink] = customers[customer].w;
     }
 
-#ifdef DEBUG
-    std::cout << std::setprecision(7);
-    std::cout << "network_demands:" << std::endl;
-    for (unsigned i = 0; i < network_size; i++)
+    auto flows = __solve_flow(
+             network_demands,
+             network_capacities,
+             network_flow_weights,
+             network_neighbors,
+             network_source,
+             network_sink),
+         last_flow = flows;
+
+    while (true)
     {
-        for (unsigned j = 0; j < network_size; j++)
+        for (unsigned i = 0; i < network_size; i++)
         {
-            std::cout << network_demands[i][j] << " ";
-        }
-        std::cout << std::endl;
-    }
-
-    std::cout << "network_capacities:" << std::endl;
-    for (unsigned i = 0; i < network_size; i++)
-    {
-        for (unsigned j = 0; j < network_size; j++)
-        {
-            std::cout << network_capacities[i][j] << " ";
-        }
-        std::cout << std::endl;
-    }
-
-    std::cout << "network_flow_weights:" << std::endl;
-    for (unsigned i = 0; i < network_size; i++)
-    {
-        for (unsigned j = 0; j < network_size; j++)
-        {
-            std::cout << network_flow_weights[i][j] << " ";
-        }
-        std::cout << std::endl;
-    }
-
-    std::cout << "network_neighbors:" << std::endl;
-    for (unsigned i = 0; i < network_size; i++)
-    {
-        std::cout << i << ": ";
-        for (auto neighbor : network_neighbors[i])
-        {
-            std::cout << neighbor << " ";
-        }
-        std::cout << std::endl;
-    }
-#endif
-
-    lemon::SmartDigraph graph;
-    std::vector<lemon::SmartDigraph::Node> nodes;
-    for (unsigned i = 0; i < network_size; i++)
-    {
-        nodes.push_back(graph.addNode());
-    }
-
-    std::vector<std::map<unsigned, lemon::SmartDigraph::Arc>> arcs_mapping(network_size);
-    LemonMap<lemon::SmartDigraph::Arc, double> demands_map, capacities_map, flow_weights_map;
-    for (unsigned i = 0; i < network_size; i++)
-    {
-        for (auto neighbor : network_neighbors[i])
-        {
-            auto arc = graph.addArc(nodes[i], nodes[neighbor]);
-
-            arcs_mapping[i][neighbor] = arc;
-            demands_map.set(arc, network_demands[i][neighbor]);
-            capacities_map.set(arc, network_capacities[i][neighbor]);
-            flow_weights_map.set(arc, -network_flow_weights[i][neighbor]); // we aim to maximize weighted flow
-        }
-    }
-
-    lemon::NetworkSimplex<lemon::SmartDigraph, double, double> solver(graph);
-    solver.lowerMap(demands_map);
-    solver.upperMap(capacities_map);
-    solver.costMap(flow_weights_map);
-
-    double capacity_sum = 0;
-    for (auto neighbor : network_neighbors[network_source])
-    {
-        capacity_sum += network_capacities[network_source][neighbor];
-    }
-
-    solver.stSupply(nodes[network_source], nodes[network_sink], capacity_sum);
-    if (solver.run() == lemon::NetworkSimplex<lemon::SmartDigraph, double, double>::INFEASIBLE)
-    {
-#ifdef DEBUG
-        std::cout << "Unable to find a feasible flow with " << capacity_sum << std::endl;
-#endif
-
-        double l = Customer::total_low, r = capacity_sum;
-        while (r - l > 1e-5)
-        {
-            double m = (l + r) / 2;
-
-            solver.stSupply(nodes[network_source], nodes[network_sink], m);
-            if (solver.run() == lemon::NetworkSimplex<lemon::SmartDigraph, double, double>::INFEASIBLE)
+            for (unsigned j = 0; j < network_size; j++)
             {
-#ifdef DEBUG
-                std::cout << "Total flow " << m << " INFEASIBLE" << std::endl;
-#endif
-                r = m;
-            }
-            else
-            {
-#ifdef DEBUG
-                std::cout << "Total flow " << m << " OK" << std::endl;
-#endif
-                l = m;
+                network_demands[i][j] -= last_flow[i][j];
+                network_capacities[i][j] -= last_flow[i][j];
+
+                network_demands[i][j] = std::max(0.0, network_demands[i][j]);
+                network_capacities[i][j] = std::max(0.0, network_capacities[i][j]);
             }
         }
-    }
-
-    LemonMap<lemon::SmartDigraph::Arc, double> flows_mapping;
-    solver.flowMap(flows_mapping);
 
 #ifdef DEBUG
-    std::cout << "Found flow with cost = " << solver.totalCost() << std::endl;
+        std::cout << "Extending flow" << std::endl;
 #endif
 
-    std::vector<std::vector<double>> flows(network_size, std::vector<double>(network_size, 0.0));
-    for (unsigned i = 0; i < network_size; i++)
-    {
-        for (auto neighbor : network_neighbors[i])
+        double extend_flow = 0.0;
+        last_flow = __solve_flow(
+            network_demands,
+            network_capacities,
+            network_flow_weights,
+            network_neighbors,
+            network_source,
+            network_sink);
+        for (unsigned i = 0; i < network_size; i++)
         {
-            flows[i][neighbor] = flows_mapping[arcs_mapping[i][neighbor]];
+            for (unsigned j = 0; j < network_size; j++)
+            {
+                extend_flow += last_flow[i][j];
+                flows[i][j] += last_flow[i][j];
+            }
+        }
+
+#ifdef DEBUG
+        std::cout << "Flow extended by " << extend_flow << std::endl;
+#endif
+
+        if (extend_flow < TOLERANCE)
+        {
+            break;
         }
     }
 
