@@ -213,7 +213,7 @@ class VRPDFDIndividual(BaseIndividual):
                 _, ordered = config.path_order(path)
 
                 for customer in ordered:
-                    weight = round(truck_paths_mapping[truck][customer])
+                    weight = round(truck_paths_mapping[truck][customer], 4)
                     if customer == 0 or weight > 0.0:
                         truck_paths[-1].append((customer, weight))
 
@@ -225,7 +225,7 @@ class VRPDFDIndividual(BaseIndividual):
                     _, ordered = config.path_order(path)
 
                     for customer in ordered:
-                        weight = round(drone_paths_mapping[drone][path_index][customer])
+                        weight = round(drone_paths_mapping[drone][path_index][customer], 4)
                         if customer == 0 or weight > 0.0:
                             drone_paths[-1][-1].append((customer, weight))
 

@@ -76,7 +76,7 @@ def read_milp_solution(data: MILPSolutionJSON) -> VRPDFDSolution:
             while len(truck_volumes) <= truck:
                 truck_volumes.append(defaultdict(lambda: 0.0))
 
-            truck_volumes[truck][customer] = value
+            truck_volumes[truck][customer] = round(value, 4)
 
         drone_volumes: List[List[DefaultDict[int, float]]] = []
         for key, value in data["cusWeightByDrone"].items():
@@ -90,7 +90,7 @@ def read_milp_solution(data: MILPSolutionJSON) -> VRPDFDSolution:
             while len(drone_volumes[drone]) <= path_id:
                 drone_volumes[drone].append(defaultdict(lambda: 0.0))
 
-            drone_volumes[drone][path_id][customer] = value
+            drone_volumes[drone][path_id][customer] = round(value, 4)
 
         truck_after: List[Dict[int, int]] = []
         for key, value in data["truck"].items():
