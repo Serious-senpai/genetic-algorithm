@@ -8,6 +8,7 @@
 #include "flows_with_demands.cpp"
 #include "jaccard_distance.cpp"
 #include "maximum_flow.cpp"
+#include "smallest_circle.cpp"
 #include "tsp_solver.cpp"
 #include "weighted_random.cpp"
 
@@ -34,6 +35,10 @@ PYBIND11_MODULE(cpp_utils, m)
     m.def(
         "maximum_flow", &maximum_flow,
         py::kw_only(), py::arg("size"), py::arg("capacities"), py::arg("neighbors"), py::arg("source"), py::arg("sink"),
+        py::call_guard<py::gil_scoped_release>());
+    m.def(
+        "smallest_circle", &smallest_circle,
+        py::arg("points"),
         py::call_guard<py::gil_scoped_release>());
     m.def(
         "tsp_solver", &tsp_solver,

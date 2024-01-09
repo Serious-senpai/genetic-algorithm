@@ -119,7 +119,7 @@ std::pair<double, std::vector<unsigned>> tsp_solver(
         {
             double dx = cities[i].first - cities[j].first,
                    dy = cities[i].second - cities[j].second;
-            distances[i][j] = distances[j][i] = weird_round(sqrt_impl(dx * dx + dy * dy), 2);
+            distances[i][j] = distances[j][i] = distance(dx, dy);
         }
     }
 

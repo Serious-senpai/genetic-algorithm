@@ -88,6 +88,16 @@ unsigned random_int(const unsigned l, const unsigned r)
     return unif(rng);
 }
 
+unsigned sum(const std::vector<unsigned> &v)
+{
+    unsigned __sum = 0;
+    for (auto __i : v)
+    {
+        __sum += __i;
+    }
+    return __sum;
+}
+
 void rotate_to_first(std::vector<unsigned> &path, const unsigned first)
 {
     auto first_iter = std::find(path.begin(), path.end(), first);
@@ -146,25 +156,41 @@ double weird_round(const double value, const unsigned precision)
     return std::ceil(value * factor) / factor;
 }
 
-template <typename T>
-py::tuple py_tuple(const std::vector<T> &__v)
+double distance(const double dx, const double dy)
 {
-    py::tuple __t(__v.size());
-    for (unsigned __i = 0; __i < __v.size(); __i++)
+    return weird_round(sqrt_impl(dx * dx + dy * dy), 2);
+}
+
+double distance(
+    const std::pair<double, double> &first,
+    const std::pair<double, double> &second)
+{
+    return distance(first.first - second.first, first.second - second.second);
+}
+
+template <typename _ForwardIterator>
+py::tuple py_tuple(const _ForwardIterator &first, const _ForwardIterator &last)
+{
+    unsigned __size = std::distance(first, last);
+    py::tuple __t(__size);
+
+    auto iter = first;
+    for (unsigned __i = 0; __i < __size; __i++)
     {
-        __t[__i] = __v[__i];
+        __t[__i] = *iter;
+        iter++;
     }
 
     return __t;
 }
 
-template <typename T>
-py::frozenset py_frozenset(const std::set<T> &__s)
+template <typename _ForwardIterator>
+py::frozenset py_frozenset(const _ForwardIterator &first, const _ForwardIterator &last)
 {
     py::set __ps;
-    for (const auto &__e : __s)
+    for (auto __i = first; __i != last; __i++)
     {
-        __ps.add(__e);
+        __ps.add(*__i);
     }
     return py::frozenset(__ps);
 }

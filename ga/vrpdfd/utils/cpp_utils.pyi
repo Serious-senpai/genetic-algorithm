@@ -11,7 +11,13 @@ __all__ = (
 )
 
 
-def set_customers(low: Sequence[float], high: Sequence[float], w: Sequence[float]) -> None: ...
+def set_customers(
+    low: Sequence[float],
+    high: Sequence[float],
+    w: Sequence[float],
+    x: Sequence[float],
+    y: Sequence[float],
+) -> None: ...
 
 
 def paths_from_flow(
@@ -37,6 +43,6 @@ def paths_from_flow_chained(
 
 
 def local_search(
-    truck_paths: Sequence[AbstractSet[int]],
-    drone_paths: Sequence[Sequence[AbstractSet[int]]],
+    truck_paths: Sequence[Sequence[int]],
+    drone_paths: Sequence[Sequence[Sequence[int]]],
 ) -> VRPDFDIndividual: ...

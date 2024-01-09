@@ -13,51 +13,106 @@
 #include <pybind11/stl.h>
 
 #include "../../utils/helpers.cpp"
+#include "../../utils/smallest_circle.cpp"
 
 namespace py = pybind11;
 const double TOLERANCE = 1e-5;
+typedef std::pair<std::vector<std::set<unsigned>>, std::vector<std::vector<std::set<unsigned>>>> individual;
+typedef std::pair<std::vector<std::map<unsigned, double>>, std::vector<std::vector<std::map<unsigned, double>>>> solution;
 
 struct Customer
 {
-    const double low, high, w;
+    const double low, high, w, x, y;
     static double total_low, total_high;
+    static std::vector<Customer> customers;
+    static std::vector<std::vector<double>> distances;
+    static std::vector<std::vector<unsigned>> nearests;
+    static std::map<std::set<unsigned>, std::pair<double, std::pair<double, double>>> smallest_circle_cache;
 
-    Customer(double low, double high, double w) : low(low), high(high), w(w) {}
+    Customer(double low, double high, double w, double x, double y) : low(low), high(high), w(w), x(x), y(y) {}
+
+    std::pair<double, double> location() const
+    {
+        return {x, y};
+    }
 };
 
-std::vector<Customer> customers;
+std::vector<Customer> Customer::customers;
+std::vector<std::vector<double>> Customer::distances;
+std::vector<std::vector<unsigned>> Customer::nearests;
+std::map<std::set<unsigned>, std::pair<double, std::pair<double, double>>> Customer::smallest_circle_cache;
+
 double Customer::total_low = 0.0, Customer::total_high = 0.0;
 
-void set_customers(const std::vector<double> &low, const std::vector<double> &high, const std::vector<double> &w)
+void set_customers(
+    const std::vector<double> &low,
+    const std::vector<double> &high,
+    const std::vector<double> &w,
+    const std::vector<double> &x,
+    const std::vector<double> &y)
 {
     unsigned size = low.size();
-    if (size != high.size() || size != w.size())
+    if (size != high.size() || size != w.size() || size != x.size() || size != y.size())
     {
-        throw std::runtime_error("low, high and w must have the same size");
+        throw std::runtime_error("low, high, w, x and y must have the same size");
     }
 
-    customers.clear();
+    Customer::customers.clear();
     Customer::total_low = Customer::total_high = 0.0;
     for (unsigned i = 0; i < size; i++)
     {
-        customers.emplace_back(low[i], high[i], w[i]);
+        Customer::customers.emplace_back(low[i], high[i], w[i], x[i], y[i]);
         Customer::total_low += low[i];
         Customer::total_high += high[i];
     }
-}
 
-unsigned sum(const std::vector<unsigned> &v)
-{
-    unsigned s = 0;
-    for (auto i : v)
+    Customer::distances.clear();
+    Customer::distances.resize(size, std::vector<double>(size, 0.0));
+    for (unsigned i = 0; i < size; i++)
     {
-        s += i;
+        for (unsigned j = i; j < size; j++)
+        {
+            Customer::distances[i][j] = Customer::distances[j][i] = distance(
+                Customer::customers[i].x - Customer::customers[j].x,
+                Customer::customers[i].y - Customer::customers[j].y);
+        }
     }
 
-    return s;
+    Customer::nearests.clear();
+    for (unsigned i = 0; i < size; i++)
+    {
+        std::vector<unsigned> all(size);
+        std::iota(all.begin(), all.end(), 0);
+        std::sort(
+            all.begin(), all.end(),
+            [i](unsigned a, unsigned b)
+            {
+                return Customer::distances[i][a] < Customer::distances[i][b];
+            });
+
+        Customer::nearests.push_back(all);
+    }
+
+    Customer::smallest_circle_cache.clear();
 }
 
-typedef std::pair<std::vector<std::map<unsigned, double>>, std::vector<std::vector<std::map<unsigned, double>>>> solution;
+const std::pair<double, std::pair<double, double>> smallest_circle_cached(const std::set<unsigned> &path)
+{
+    try
+    {
+        return Customer::smallest_circle_cache.at(path);
+    }
+    catch (const std::out_of_range &e)
+    {
+        std::vector<std::pair<double, double>> points;
+        for (auto customer : path)
+        {
+            points.push_back(Customer::customers[customer].location());
+        }
+
+        return Customer::smallest_circle_cache[path] = smallest_circle(points);
+    }
+}
 
 solution paths_from_flow(
     const unsigned truck_paths_count,
@@ -284,7 +339,7 @@ solution paths_from_flow_chained(
 {
     unsigned trucks_count = truck_paths.size(),
              drones_count = drone_paths.size(),
-             customers_count = customers.size() - 1;
+             customers_count = Customer::customers.size() - 1;
     std::vector<unsigned> drone_paths_count(drones_count);
     for (unsigned i = 0; i < drones_count; i++)
     {
@@ -347,10 +402,10 @@ solution paths_from_flow_chained(
     for (unsigned i = network_customers_offset; i < network_sink; i++)
     {
         unsigned customer = i - network_customers_offset + 1;
-        network_demands[i][network_sink] = customers[customer].low;
-        network_capacities[i][network_sink] = customers[customer].high;
+        network_demands[i][network_sink] = Customer::customers[customer].low;
+        network_capacities[i][network_sink] = Customer::customers[customer].high;
         network_neighbors[i].insert(network_sink);
-        network_flow_weights[i][network_sink] = customers[customer].w;
+        network_flow_weights[i][network_sink] = Customer::customers[customer].w;
     }
 
     auto flows = __solve_flow(
@@ -410,20 +465,20 @@ solution paths_from_flow_chained(
     return paths_from_flow(trucks_count, drone_paths_count, flows, network_neighbors);
 }
 
-typedef std::pair<std::vector<std::set<unsigned>>, std::vector<std::vector<std::set<unsigned>>>> individual;
-
-py::tuple truck_paths_cast(const std::vector<std::set<unsigned>> &truck_paths)
+template <typename _PathContainer>
+py::tuple truck_paths_cast(const std::vector<_PathContainer> &truck_paths)
 {
     py::tuple py_truck_paths(truck_paths.size());
     for (unsigned i = 0; i < truck_paths.size(); i++)
     {
-        py_truck_paths[i] = py_frozenset(truck_paths[i]);
+        py_truck_paths[i] = py_frozenset(truck_paths[i].begin(), truck_paths[i].end());
     }
 
     return py_truck_paths;
 }
 
-py::tuple drone_paths_cast(const std::vector<std::vector<std::set<unsigned>>> &drone_paths)
+template <typename _PathContainer>
+py::tuple drone_paths_cast(const std::vector<std::vector<_PathContainer>> &drone_paths)
 {
     py::tuple py_drone_paths(drone_paths.size());
     for (unsigned i = 0; i < drone_paths.size(); i++)
@@ -431,7 +486,7 @@ py::tuple drone_paths_cast(const std::vector<std::vector<std::set<unsigned>>> &d
         py::tuple py_drone_paths_i(drone_paths[i].size());
         for (unsigned j = 0; j < drone_paths[i].size(); j++)
         {
-            py_drone_paths_i[j] = py_frozenset(drone_paths[i][j]);
+            py_drone_paths_i[j] = py_frozenset(drone_paths[i][j].begin(), drone_paths[i][j].end());
         }
 
         py_drone_paths[i] = py_drone_paths_i;
@@ -440,28 +495,66 @@ py::tuple drone_paths_cast(const std::vector<std::vector<std::set<unsigned>>> &d
     return py_drone_paths;
 }
 
+bool feasible(const py::object &individual)
+{
+    return py::cast<bool>(individual.attr("feasible")());
+}
+
 py::object local_search(
-    const std::vector<std::set<unsigned>> &truck_paths,
-    const std::vector<std::vector<std::set<unsigned>>> &drone_paths)
+    const std::vector<std::vector<unsigned>> &truck_paths,
+    const std::vector<std::vector<std::vector<unsigned>>> &drone_paths)
 {
     py::object py_VRPDFDSolution = py::module::import("ga.vrpdfd.solutions").attr("VRPDFDSolution"),
                py_from_cache = py::module::import("ga.vrpdfd.individuals").attr("VRPDFDIndividual").attr("from_cache"),
-               py_min = py::module::import("builtins").attr("min");
-
-    py::object py_result = {
-        py_from_cache(
-            py::arg("solution_cls") = py_VRPDFDSolution,
-            py::arg("truck_paths") = truck_paths_cast(truck_paths),
-            py::arg("drone_paths") = drone_paths_cast(drone_paths))};
+               py_self = py_from_cache(
+                   py::arg("solution_cls") = py_VRPDFDSolution,
+                   py::arg("truck_paths") = truck_paths_cast(truck_paths),
+                   py::arg("drone_paths") = drone_paths_cast(drone_paths)),
+               py_result = py_self;
 
     unsigned trucks_count = truck_paths.size(),
              drones_count = drone_paths.size(),
-             customers_count = customers.size();
+             counter = 0;
 
 #ifdef DEBUG
-    unsigned counter = 1;
     std::cout << "Local search for " << trucks_count << " truck(s) and " << drones_count << " drone(s)" << std::endl;
 #endif
+
+    auto update = [&py_result, &counter](const py::object &other)
+    {
+        counter++;
+
+        auto educated = other.attr("educate")();
+        if (feasible(educated))
+        {
+            return std::min(py_result, educated);
+        }
+
+        return py_result;
+    };
+
+    auto copy = [&truck_paths, drone_paths]()
+    {
+        std::vector<std::set<unsigned>> new_truck_paths;
+        for (auto &path : truck_paths)
+        {
+            new_truck_paths.push_back(std::set<unsigned>(path.begin(), path.end()));
+        }
+
+        std::vector<std::vector<std::set<unsigned>>> new_drone_paths;
+        for (auto &paths : drone_paths)
+        {
+            std::vector<std::set<unsigned>> new_paths;
+            for (auto &path : paths)
+            {
+                new_paths.push_back(std::set<unsigned>(path.begin(), path.end()));
+            }
+
+            new_drone_paths.push_back(new_paths);
+        }
+
+        return std::make_pair(new_truck_paths, new_drone_paths);
+    };
 
     std::set<unsigned> in_truck_paths = {0}, in_drone_paths = {0};
     for (unsigned i = 0; i < trucks_count; i++)
@@ -483,13 +576,11 @@ py::object local_search(
     }
 
     // Attempt to add absent customers
-    for (unsigned customer = 1; customer < customers.size(); customer++)
+    for (unsigned customer = 1; customer < Customer::customers.size(); customer++)
     {
         if (!in_truck_paths.count(customer) && !in_drone_paths.count(customer))
         {
-            // Generate copy of original solution
-            std::vector<std::set<unsigned>> new_truck_paths = truck_paths;
-            std::vector<std::vector<std::set<unsigned>>> new_drone_paths = drone_paths;
+            auto [new_truck_paths, new_drone_paths] = copy();
 
             for (auto &path : new_truck_paths)
             {
@@ -504,16 +595,18 @@ py::object local_search(
                 }
             }
 
-            py_result = py_min(
-                py_result,
+            py_result = update(
                 py_from_cache(
                     py::arg("solution_cls") = py_VRPDFDSolution,
                     py::arg("truck_paths") = truck_paths_cast(new_truck_paths),
                     py::arg("drone_paths") = drone_paths_cast(new_drone_paths)));
 
-#ifdef DEBUG
-            counter++;
-#endif
+            std::vector<unsigned> path_single = {0, customer};
+            auto py_path_single_frozenset = py_frozenset(path_single.begin(), path_single.end());
+            for (unsigned drone = 0; drone < drones_count; drone++)
+            {
+                py_result = update(py_self.attr("append_drone_path")(drone, py_path_single_frozenset));
+            }
         }
     }
 
@@ -527,82 +620,155 @@ py::object local_search(
         }
     }
 
-    std::vector<unsigned> in_truck_paths_vector, in_drone_paths_vector;
+    auto remove_intersection = [&in_both](std::set<unsigned> &customers)
+    {
+        for (auto iter = customers.begin(); iter != customers.end();)
+        {
+            if (in_both.count(*iter))
+            {
+                iter = customers.erase(iter);
+            }
+            else
+            {
+                iter++;
+            }
+        }
+    };
+    remove_intersection(in_truck_paths);
+    remove_intersection(in_drone_paths);
+
+    // Migrate customers only present in truck paths
     for (auto customer : in_truck_paths)
     {
-        if (!in_both.count(customer))
+        auto [new_truck_paths, new_drone_paths] = copy();
+
+        for (auto &path : new_truck_paths)
         {
-            in_truck_paths_vector.push_back(customer);
+            path.erase(customer);
         }
+
+        for (auto &paths : new_drone_paths)
+        {
+            for (auto &path : paths)
+            {
+                path.insert(customer);
+            }
+        }
+
+        py_result = update(
+            py_from_cache(
+                py::arg("solution_cls") = py_VRPDFDSolution,
+                py::arg("truck_paths") = truck_paths_cast(new_truck_paths),
+                py::arg("drone_paths") = drone_paths_cast(new_drone_paths)));
     }
+
+    // Migrate customers only present in drone paths
     for (auto customer : in_drone_paths)
     {
-        if (!in_both.count(customer))
+        auto [new_truck_paths, new_drone_paths] = copy();
+
+        for (auto &path : new_truck_paths)
         {
-            in_drone_paths_vector.push_back(customer);
+            path.insert(customer);
         }
+
+        for (auto &paths : new_drone_paths)
+        {
+            for (auto &path : paths)
+            {
+                path.erase(customer);
+            }
+        }
+
+        py_result = update(
+            py_from_cache(
+                py::arg("solution_cls") = py_VRPDFDSolution,
+                py::arg("truck_paths") = truck_paths_cast(new_truck_paths),
+                py::arg("drone_paths") = drone_paths_cast(new_drone_paths)));
     }
 
-    std::vector<unsigned> truck_improved_countdown(in_truck_paths_vector.size(), 4 * customers_count),
-        drone_improved_countdown(in_drone_paths_vector.size(), 4 * customers_count);
+    std::vector<unsigned> in_drone_paths_vector(in_drone_paths.begin(), in_drone_paths.end());
 
-    for (unsigned truck_i = 0; truck_i < in_truck_paths_vector.size(); truck_i++)
+    // Swap according to smallest enclosing circle
+    for (unsigned truck = 0; truck < trucks_count; truck++)
     {
-        for (unsigned truck_j = truck_i; truck_j < in_truck_paths_vector.size(); truck_j++) // truck_i = truck_j -> Only swap 1 customer from truck paths
-        {
-            for (unsigned drone_i = 0; drone_i < in_drone_paths_vector.size(); drone_i++)
-            {
-                for (unsigned drone_j = drone_i; drone_j < in_drone_paths_vector.size(); drone_j++) // drone_i = drone_j -> Only swap 1 customer from drone paths
-                {
-                    if (truck_improved_countdown[truck_i] * truck_improved_countdown[truck_j] * drone_improved_countdown[drone_i] * drone_improved_countdown[drone_j] == 0)
-                    {
-                        continue;
-                    }
-
-                    // Generate copy of original solution
-                    std::vector<std::set<unsigned>> new_truck_paths = truck_paths;
-                    std::vector<std::vector<std::set<unsigned>>> new_drone_paths = drone_paths;
-
-                    for (auto &path : new_truck_paths)
-                    {
-                        path.erase(in_truck_paths_vector[truck_i]);
-                        path.erase(in_truck_paths_vector[truck_j]);
-                        path.insert(in_drone_paths_vector[drone_i]);
-                        path.insert(in_drone_paths_vector[drone_j]);
-                    }
-
-                    for (auto &paths : new_drone_paths)
-                    {
-                        for (auto &path : paths)
-                        {
-                            path.erase(in_drone_paths_vector[drone_i]);
-                            path.erase(in_drone_paths_vector[drone_j]);
-                            path.insert(in_truck_paths_vector[truck_i]);
-                            path.insert(in_truck_paths_vector[truck_j]);
-                        }
-                    }
-
-                    py::object result = py_from_cache(
-                        py::arg("solution_cls") = py_VRPDFDSolution,
-                        py::arg("truck_paths") = truck_paths_cast(new_truck_paths),
-                        py::arg("drone_paths") = drone_paths_cast(new_drone_paths));
-
-                    if (result < py_result)
-                    {
-                        py_result = result;
-                    }
-                    else
-                    {
-                        truck_improved_countdown[truck_i]--;
-                        truck_improved_countdown[truck_j]--;
-                        drone_improved_countdown[drone_i]--;
-                        drone_improved_countdown[drone_j]--;
-                    }
-
+        auto [radius, center] = smallest_circle_cached(std::set<unsigned>(truck_paths[truck].begin(), truck_paths[truck].end()));
+        radius = weird_round(radius, 2);
 #ifdef DEBUG
-                    counter++;
+        std::cout << "Radius " << radius << " from center " << center.first << " " << center.second << std::endl;
 #endif
+
+        std::vector<unsigned> on_circle;
+        for (unsigned i = 1; i < truck_paths[truck].size() - 1; i++) // The first and last one represent the depot
+        {
+            unsigned customer = truck_paths[truck][i];
+            auto to_center = distance(Customer::customers[customer].location(), center);
+#ifdef DEBUG
+            std::cout << "Customer " << customer << " to center " << to_center << std::endl;
+#endif
+
+            if (std::abs(to_center - radius) < 0.01)
+            {
+                on_circle.push_back(customer);
+            }
+        }
+
+        for (unsigned bitmask = 1; bitmask < (1u << on_circle.size()); bitmask++)
+        {
+            std::vector<unsigned> from_truck;
+            for (unsigned i = 0; i < on_circle.size(); i++)
+            {
+                if (bitmask & (1 << i))
+                {
+                    from_truck.push_back(on_circle[i]);
                 }
+            }
+
+            for (unsigned truck_i = 1; truck_i < truck_paths[truck].size() - 1; truck_i++) // The first and last one represent the depot
+            {
+                from_truck.push_back(truck_paths[truck][truck_i]); // Remember to pop this one later
+
+                for (unsigned drone_i = 0; drone_i < in_drone_paths_vector.size(); drone_i++)
+                {
+                    for (unsigned drone_j = drone_i; drone_j < in_drone_paths_vector.size(); drone_j++) // drone_i = drone_j -> Only swap 1 customer from drone paths
+                    {
+                        auto [new_truck_paths, new_drone_paths] = copy();
+
+                        for (auto &path : new_truck_paths)
+                        {
+                            for (auto truck_i : from_truck)
+                            {
+                                path.erase(truck_i);
+                            }
+
+                            path.insert(in_drone_paths_vector[drone_i]);
+                            path.insert(in_drone_paths_vector[drone_j]);
+                        }
+
+                        for (auto &paths : new_drone_paths)
+                        {
+                            for (auto &path : paths)
+                            {
+                                for (auto truck_i : from_truck)
+                                {
+                                    path.insert(truck_i);
+                                }
+
+                                path.erase(in_drone_paths_vector[drone_i]);
+                                path.erase(in_drone_paths_vector[drone_j]);
+                            }
+                        }
+
+                        py::object py_new_individual = py_from_cache(
+                            py::arg("solution_cls") = py_VRPDFDSolution,
+                            py::arg("truck_paths") = truck_paths_cast(new_truck_paths),
+                            py::arg("drone_paths") = drone_paths_cast(new_drone_paths));
+
+                        py_result = update(py_new_individual);
+                    }
+                }
+
+                from_truck.pop_back();
             }
         }
     }
@@ -618,7 +784,7 @@ PYBIND11_MODULE(cpp_utils, m)
 {
     m.def(
         "set_customers", &set_customers,
-        py::arg("low"), py::arg("high"), py::arg("w"),
+        py::arg("low"), py::arg("high"), py::arg("w"), py::arg("x"), py::arg("y"),
         py::call_guard<py::gil_scoped_release>());
     m.def(
         "paths_from_flow", &paths_from_flow,

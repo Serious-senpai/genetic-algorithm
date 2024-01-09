@@ -159,6 +159,8 @@ class ProblemConfig:
                     [customer.low for customer in customers],
                     [customer.high for customer in customers],
                     [customer.w for customer in customers],
+                    [customer.x for customer in customers],
+                    [customer.y for customer in customers],
                 )
 
         except BaseException as error:
@@ -207,3 +209,10 @@ class ProblemConfig:
         ordered = list(map(customers.__getitem__, path_index))
         ordered.append(0)
         return distance, tuple(ordered)
+
+    @classmethod
+    def debug_setup(cls, problem: str, /) -> ProblemConfig:
+        config = cls.get_config(problem)
+        ProblemConfig.context = problem
+        config.initial_fine_coefficient = 1000.0
+        return config
