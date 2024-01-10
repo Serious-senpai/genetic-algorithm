@@ -539,24 +539,38 @@ py::object local_search(
     }
 
     // Attempt to add absent customers
+    std::vector<unsigned> absent;
     for (unsigned customer = 1; customer < Customer::customers.size(); customer++)
     {
         if (!in_truck_paths.count(customer) && !in_drone_paths.count(customer))
         {
+            absent.push_back(customer);
+        }
+    }
+
+    for (unsigned truck = 0; truck < trucks_count; truck++)
+    {
+        auto [new_truck_paths, new_drone_paths] = copy();
+        new_truck_paths[truck].insert(absent.begin(), absent.end());
+
+        py_result = std::min(
+            py_result,
+            py_from_cache(
+                py::arg("solution_cls") = py_VRPDFDSolution,
+                py::arg("truck_paths") = truck_paths_cast(new_truck_paths),
+                py::arg("drone_paths") = drone_paths_cast(new_drone_paths)));
+    }
+
+    std::vector<unsigned> new_path = absent;
+    new_path.push_back(0);
+
+    auto py_new_path = py_frozenset(new_path.begin(), new_path.end());
+    for (unsigned drone = 0; drone < drones_count; drone++)
+    {
+        for (unsigned path = 0; path < drone_paths[drone].size(); path++)
+        {
             auto [new_truck_paths, new_drone_paths] = copy();
-
-            for (auto &path : new_truck_paths)
-            {
-                path.insert(customer);
-            }
-
-            for (auto &paths : new_drone_paths)
-            {
-                for (auto &path : paths)
-                {
-                    path.insert(customer);
-                }
-            }
+            new_drone_paths[drone][path].insert(absent.begin(), absent.end());
 
             py_result = std::min(
                 py_result,
@@ -564,14 +578,9 @@ py::object local_search(
                     py::arg("solution_cls") = py_VRPDFDSolution,
                     py::arg("truck_paths") = truck_paths_cast(new_truck_paths),
                     py::arg("drone_paths") = drone_paths_cast(new_drone_paths)));
-
-            std::vector<unsigned> path_single = {0, customer};
-            auto py_path_single_frozenset = py_frozenset(path_single.begin(), path_single.end());
-            for (unsigned drone = 0; drone < drones_count; drone++)
-            {
-                py_result = std::min(py_result, py_self.attr("append_drone_path")(drone, py_path_single_frozenset));
-            }
         }
+
+        py_result = std::min(py_result, py_self.attr("append_drone_path")(drone, py_new_path));
     }
 
     // Remove elements in both sets
@@ -600,6 +609,37 @@ py::object local_search(
     };
     remove_intersection(in_truck_paths);
     remove_intersection(in_drone_paths);
+
+    // Swap all customers in truck paths with all customers in drone paths
+    {
+        auto [new_truck_paths, new_drone_paths] = copy();
+        for (auto &path : new_truck_paths)
+        {
+            for (auto customer : in_truck_paths)
+            {
+                path.erase(customer);
+                path.insert(in_drone_paths.begin(), in_drone_paths.end());
+            }
+        }
+        for (auto &paths : new_drone_paths)
+        {
+            for (auto &path : paths)
+            {
+                for (auto customer : in_drone_paths)
+                {
+                    path.erase(customer);
+                    path.insert(in_truck_paths.begin(), in_truck_paths.end());
+                }
+            }
+        }
+
+        py_result = std::min(
+            py_result,
+            py_from_cache(
+                py::arg("solution_cls") = py_VRPDFDSolution,
+                py::arg("truck_paths") = truck_paths_cast(new_truck_paths),
+                py::arg("drone_paths") = drone_paths_cast(new_drone_paths)));
+    }
 
     std::vector<unsigned> in_truck_paths_vector(in_truck_paths.begin(), in_truck_paths.end()),
         in_drone_paths_vector(in_drone_paths.begin(), in_drone_paths.end());
@@ -645,7 +685,7 @@ py::object local_search(
         }
     }
 
-    return py_result;
+    return py_result.attr("educate")();
 }
 
 PYBIND11_MODULE(cpp_utils, m)
