@@ -13,7 +13,6 @@
 #include <pybind11/stl.h>
 
 #include "../../utils/helpers.cpp"
-#include "../../utils/smallest_circle.cpp"
 
 namespace py = pybind11;
 const double TOLERANCE = 1e-5;
@@ -27,7 +26,6 @@ struct Customer
     static std::vector<Customer> customers;
     static std::vector<std::vector<double>> distances;
     static std::vector<std::vector<unsigned>> nearests;
-    static std::map<std::set<unsigned>, std::pair<double, std::pair<double, double>>> smallest_circle_cache;
 
     Customer(double low, double high, double w, double x, double y) : low(low), high(high), w(w), x(x), y(y) {}
 
@@ -40,7 +38,6 @@ struct Customer
 std::vector<Customer> Customer::customers;
 std::vector<std::vector<double>> Customer::distances;
 std::vector<std::vector<unsigned>> Customer::nearests;
-std::map<std::set<unsigned>, std::pair<double, std::pair<double, double>>> Customer::smallest_circle_cache;
 
 double Customer::total_low = 0.0, Customer::total_high = 0.0;
 
@@ -91,26 +88,6 @@ void set_customers(
             });
 
         Customer::nearests.push_back(all);
-    }
-
-    Customer::smallest_circle_cache.clear();
-}
-
-const std::pair<double, std::pair<double, double>> smallest_circle_cached(const std::set<unsigned> &path)
-{
-    try
-    {
-        return Customer::smallest_circle_cache.at(path);
-    }
-    catch (const std::out_of_range &e)
-    {
-        std::vector<std::pair<double, double>> points;
-        for (auto customer : path)
-        {
-            points.push_back(Customer::customers[customer].location());
-        }
-
-        return Customer::smallest_circle_cache[path] = smallest_circle(points);
     }
 }
 
@@ -624,140 +601,46 @@ py::object local_search(
     remove_intersection(in_truck_paths);
     remove_intersection(in_drone_paths);
 
-    // Migrate customers only present in truck paths
-    for (auto customer : in_truck_paths)
+    std::vector<unsigned> in_truck_paths_vector(in_truck_paths.begin(), in_truck_paths.end()),
+        in_drone_paths_vector(in_drone_paths.begin(), in_drone_paths.end());
+
+    // Brute-force swap
+    for (unsigned truck_i = 0; truck_i < in_truck_paths_vector.size(); truck_i++)
     {
-        auto [new_truck_paths, new_drone_paths] = copy();
-
-        for (auto &path : new_truck_paths)
+        for (unsigned truck_j = truck_i; truck_j < in_truck_paths_vector.size(); truck_j++) // truck_i = truck_j -> Only swap 1 customer from truck paths
         {
-            path.erase(customer);
-        }
-
-        for (auto &paths : new_drone_paths)
-        {
-            for (auto &path : paths)
+            for (unsigned drone_i = 0; drone_i < in_drone_paths_vector.size(); drone_i++)
             {
-                path.insert(customer);
-            }
-        }
-
-        py_result = std::min(
-            py_result,
-            py_from_cache(
-                py::arg("solution_cls") = py_VRPDFDSolution,
-                py::arg("truck_paths") = truck_paths_cast(new_truck_paths),
-                py::arg("drone_paths") = drone_paths_cast(new_drone_paths)));
-    }
-
-    // Migrate customers only present in drone paths
-    for (auto customer : in_drone_paths)
-    {
-        auto [new_truck_paths, new_drone_paths] = copy();
-
-        for (auto &path : new_truck_paths)
-        {
-            path.insert(customer);
-        }
-
-        for (auto &paths : new_drone_paths)
-        {
-            for (auto &path : paths)
-            {
-                path.erase(customer);
-            }
-        }
-
-        py_result = std::min(
-            py_result,
-            py_from_cache(
-                py::arg("solution_cls") = py_VRPDFDSolution,
-                py::arg("truck_paths") = truck_paths_cast(new_truck_paths),
-                py::arg("drone_paths") = drone_paths_cast(new_drone_paths)));
-    }
-
-    std::vector<unsigned> in_drone_paths_vector(in_drone_paths.begin(), in_drone_paths.end());
-
-    // Swap according to smallest enclosing circle
-    for (unsigned truck = 0; truck < trucks_count; truck++)
-    {
-        auto [radius, center] = smallest_circle_cached(std::set<unsigned>(truck_paths[truck].begin(), truck_paths[truck].end()));
-        radius = weird_round(radius, 2);
-#ifdef DEBUG
-        std::cout << "Radius " << radius << " from center " << center.first << " " << center.second << std::endl;
-#endif
-
-        std::vector<unsigned> on_circle;
-        for (unsigned i = 1; i < truck_paths[truck].size() - 1; i++) // The first and last one represent the depot
-        {
-            unsigned customer = truck_paths[truck][i];
-            auto to_center = distance(Customer::customers[customer].location(), center);
-#ifdef DEBUG
-            std::cout << "Customer " << customer << " to center " << to_center << std::endl;
-#endif
-
-            if (std::abs(to_center - radius) < 0.01)
-            {
-                on_circle.push_back(customer);
-            }
-        }
-
-        for (unsigned bitmask = 1; bitmask < (1u << on_circle.size()); bitmask++)
-        {
-            std::vector<unsigned> from_truck;
-            for (unsigned i = 0; i < on_circle.size(); i++)
-            {
-                if (bitmask & (1 << i))
+                for (unsigned drone_j = drone_i; drone_j < in_drone_paths_vector.size(); drone_j++) // drone_i = drone_j -> Only swap 1 customer from drone paths
                 {
-                    from_truck.push_back(on_circle[i]);
-                }
-            }
+                    auto [new_truck_paths, new_drone_paths] = copy();
 
-            for (unsigned truck_i = 1; truck_i < truck_paths[truck].size() - 1; truck_i++) // The first and last one represent the depot
-            {
-                from_truck.push_back(truck_paths[truck][truck_i]); // Remember to pop this one later
-
-                for (unsigned drone_i = 0; drone_i < in_drone_paths_vector.size(); drone_i++)
-                {
-                    for (unsigned drone_j = drone_i; drone_j < in_drone_paths_vector.size(); drone_j++) // drone_i = drone_j -> Only swap 1 customer from drone paths
+                    for (auto &path : new_truck_paths)
                     {
-                        auto [new_truck_paths, new_drone_paths] = copy();
-
-                        for (auto &path : new_truck_paths)
-                        {
-                            for (auto truck_i : from_truck)
-                            {
-                                path.erase(truck_i);
-                            }
-
-                            path.insert(in_drone_paths_vector[drone_i]);
-                            path.insert(in_drone_paths_vector[drone_j]);
-                        }
-
-                        for (auto &paths : new_drone_paths)
-                        {
-                            for (auto &path : paths)
-                            {
-                                for (auto truck_i : from_truck)
-                                {
-                                    path.insert(truck_i);
-                                }
-
-                                path.erase(in_drone_paths_vector[drone_i]);
-                                path.erase(in_drone_paths_vector[drone_j]);
-                            }
-                        }
-
-                        py::object py_new_individual = py_from_cache(
-                            py::arg("solution_cls") = py_VRPDFDSolution,
-                            py::arg("truck_paths") = truck_paths_cast(new_truck_paths),
-                            py::arg("drone_paths") = drone_paths_cast(new_drone_paths));
-
-                        py_result = std::min(py_result, py_new_individual);
+                        path.erase(in_truck_paths_vector[truck_i]);
+                        path.erase(in_truck_paths_vector[truck_j]);
+                        path.insert(in_drone_paths_vector[drone_i]);
+                        path.insert(in_drone_paths_vector[drone_j]);
                     }
-                }
 
-                from_truck.pop_back();
+                    for (auto &paths : new_drone_paths)
+                    {
+                        for (auto &path : paths)
+                        {
+                            path.erase(in_drone_paths_vector[drone_i]);
+                            path.erase(in_drone_paths_vector[drone_j]);
+                            path.insert(in_truck_paths_vector[truck_i]);
+                            path.insert(in_truck_paths_vector[truck_j]);
+                        }
+                    }
+
+                    py::object py_new_individual = py_from_cache(
+                        py::arg("solution_cls") = py_VRPDFDSolution,
+                        py::arg("truck_paths") = truck_paths_cast(new_truck_paths),
+                        py::arg("drone_paths") = drone_paths_cast(new_drone_paths));
+
+                    py_result = std::min(py_result, py_new_individual);
+                }
             }
         }
     }
