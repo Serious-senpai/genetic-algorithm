@@ -4,8 +4,8 @@
 #include <set>
 #include <vector>
 
-#include "jaccard_distance.cpp"
-#include "helpers.cpp"
+#include "jaccard_distance.hpp"
+#include "helpers.hpp"
 
 std::vector<unsigned> crowding_distance_sort(const std::vector<std::vector<std::set<unsigned>>> &sets, const unsigned k = 2)
 {

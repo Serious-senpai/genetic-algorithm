@@ -5,8 +5,8 @@
 #include <set>
 #include <stdexcept>
 
-#include "helpers.cpp"
-#include "maximum_flow.cpp"
+#include "helpers.hpp"
+#include "maximum_flow.hpp"
 
 void check_constraints(
     const unsigned size,

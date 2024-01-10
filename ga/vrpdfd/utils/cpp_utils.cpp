@@ -12,7 +12,7 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
-#include "../../utils/helpers.cpp"
+#include "../../utils/helpers.hpp"
 
 namespace py = pybind11;
 const double TOLERANCE = 1e-5;

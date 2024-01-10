@@ -3,14 +3,14 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
-#include "crowding_distance.cpp"
-#include "fake_tsp_solver.cpp"
-#include "flows_with_demands.cpp"
-#include "jaccard_distance.cpp"
-#include "maximum_flow.cpp"
-#include "smallest_circle.cpp"
-#include "tsp_solver.cpp"
-#include "weighted_random.cpp"
+#include "crowding_distance.hpp"
+#include "fake_tsp_solver.hpp"
+#include "flows_with_demands.hpp"
+#include "jaccard_distance.hpp"
+#include "maximum_flow.hpp"
+#include "smallest_circle.hpp"
+#include "tsp_solver.hpp"
+#include "weighted_random.hpp"
 
 namespace py = pybind11;
 

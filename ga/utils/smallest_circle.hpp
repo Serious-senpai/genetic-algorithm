@@ -3,13 +3,10 @@
 #include <algorithm>
 #include <vector>
 
-#include "helpers.cpp"
+#include "helpers.hpp"
 
 // Implementation taken from
 // https://www.geeksforgeeks.org/minimum-enclosing-circle-using-welzls-algorithm/
-
-// Defining infinity
-const double INF = 1e18;
 
 // Structure to represent a 2D point
 struct Point

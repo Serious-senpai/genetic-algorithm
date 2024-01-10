@@ -4,7 +4,7 @@
 #include <stdexcept>
 #include <vector>
 
-#include "helpers.cpp"
+#include "helpers.hpp"
 
 std::vector<unsigned> weighted_random(const std::vector<double> &weights, const unsigned count = 1)
 {
