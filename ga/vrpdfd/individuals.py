@@ -61,7 +61,7 @@ class VRPDFDIndividual(BaseIndividual):
         __stuck_penalty: float
         __decoded: Optional[VRPDFDSolution]
         __educated: Optional[VRPDFDIndividual]
-        __local_searched: Optional[VRPDFDIndividual]
+        __local_searched: Optional[Tuple[Optional[VRPDFDIndividual], VRPDFDIndividual]]
         truck_paths: Final[Tuple[FrozenSet[int], ...]]
         drone_paths: Final[Tuple[Tuple[FrozenSet[int], ...], ...]]
 
@@ -72,7 +72,7 @@ class VRPDFDIndividual(BaseIndividual):
         truck_paths: Tuple[FrozenSet[int], ...],
         drone_paths: Tuple[Tuple[FrozenSet[int], ...], ...],
         decoded: Optional[VRPDFDSolution] = None,
-        local_searched: Optional[VRPDFDIndividual] = None,
+        local_searched: Optional[Tuple[Optional[VRPDFDIndividual], VRPDFDIndividual]] = None,
     ) -> None:
         self.__cls = solution_cls
         self.__stuck_penalty = 1.0
@@ -90,7 +90,7 @@ class VRPDFDIndividual(BaseIndividual):
         truck_paths: Tuple[FrozenSet[int], ...],
         drone_paths: Sequence[Sequence[FrozenSet[int]]],
         decoded: Optional[VRPDFDSolution] = None,
-        local_searched: Optional[VRPDFDIndividual] = None,
+        local_searched: Optional[Tuple[Optional[VRPDFDIndividual], VRPDFDIndividual]] = None,
     ) -> VRPDFDIndividual:
         tuplized_drone_paths = tuple(tuple(filter(lambda path: len(path) > 1, paths)) for paths in drone_paths)
         hashed = truck_paths, tuplized_drone_paths
@@ -328,13 +328,16 @@ class VRPDFDIndividual(BaseIndividual):
     def local_searched(self) -> bool:
         return self.__local_searched is not None
 
-    def local_search(self) -> VRPDFDIndividual:
+    def local_search(self, *, prioritize_feasible: bool = False) -> VRPDFDIndividual:
         """Just like educate(), but more expensive"""
         if self.__local_searched is None:
-            feasible, any = local_search(self.truck_paths, self.drone_paths)
-            self.__local_searched = any if feasible is None else feasible
+            self.__local_searched = local_search(self.truck_paths, self.drone_paths)
 
-        return self.__local_searched
+        feasible, any = self.__local_searched
+        if prioritize_feasible and feasible is not None:
+            return feasible
+        else:
+            return any
 
     @classmethod
     def after_generation_hook(
@@ -369,6 +372,7 @@ class VRPDFDIndividual(BaseIndividual):
             local_searched = set(filter(lambda i: i.local_searched, population))
             not_local_searched = list(population.difference(local_searched))
 
+            original_size = len(population)
             population.clear()
             population.update(local_searched)
 
@@ -390,7 +394,16 @@ class VRPDFDIndividual(BaseIndividual):
                 individuals = tqdm(individuals, desc=f"Local search (#{generation + 1})", ascii=" █", colour="red")
 
             for individual in individuals:
-                population.add(individual.local_search())
+                population.update(
+                    [
+                        individual.local_search(prioritize_feasible=True),
+                        individual.local_search(prioritize_feasible=False),
+                    ],
+                )
+
+            population_sorted = sorted(population, key=lambda i: i.penalized_cost)
+            population.clear()
+            population.update(population_sorted[:original_size])
 
         if config.logger is not None:
             config.logger.write(f"Generation #{generation + 1},Result,{result.cost}\n#,Cost,Penalized cost,Fine coefficient,Feasible,Individual\n")
