@@ -71,7 +71,7 @@ class ProblemConfig:
     __cache__: ClassVar[Dict[str, ProblemConfig]] = {}
     context: ClassVar[str] = "None"
     if TYPE_CHECKING:
-        __tsp_cache: Final[LRUCache[FrozenSet[int], Tuple[float, List[int]]]]
+        __tsp_cache: Final[LRUCache[FrozenSet[int], Tuple[float, Tuple[int, ...]]]]
 
         problem: Final[str]
         trucks_count: Final[int]
@@ -167,7 +167,7 @@ class ProblemConfig:
             raise ConfigImportException(error) from error
 
     @property
-    def tsp_cache(self) -> LRUCache[FrozenSet[int], Tuple[float, List[int]]]:
+    def tsp_cache(self) -> LRUCache[FrozenSet[int], Tuple[float, Tuple[int, ...]]]:
         return self.__tsp_cache
 
     @property
@@ -197,18 +197,19 @@ class ProblemConfig:
             return config
 
     def path_order(self, path: FrozenSet[int]) -> Tuple[float, Tuple[int, ...]]:
-        customers = tuple(path)
-        depot_index = customers.index(0)
         try:
-            distance, path_index = self.__tsp_cache[path]
+            return self.__tsp_cache[path]
 
         except KeyError:
+            customers = tuple(path)
+            depot_index = customers.index(0)
             distance, path_index = tsp_solver([self.customers[i].location for i in customers], first=depot_index)
-            self.__tsp_cache[path] = distance, path_index
 
-        ordered = list(map(customers.__getitem__, path_index))
-        ordered.append(0)
-        return distance, tuple(ordered)
+            ordered = list(map(customers.__getitem__, path_index))
+            ordered.append(0)
+
+            self.__tsp_cache[path] = result = distance, tuple(ordered)
+            return result
 
     @classmethod
     def debug_setup(cls, problem: str, /) -> ProblemConfig:
