@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <deque>
 #include <map>
+#include <optional>
 #include <set>
 #include <vector>
 #ifdef DEBUG
@@ -472,14 +473,19 @@ py::tuple drone_paths_cast(const std::vector<std::vector<_PathContainer>> &drone
     return py_drone_paths;
 }
 
-bool feasible(const py::object &individual)
+bool feasible(const py::object &py_individual)
 {
-    return py::cast<bool>(individual.attr("feasible")());
+    return py::cast<bool>(py_individual.attr("feasible")());
 }
 
-py::object local_search(
-    const std::vector<std::vector<unsigned>> &truck_paths,
-    const std::vector<std::vector<std::vector<unsigned>>> &drone_paths)
+py::object educate(const py::object py_individual)
+{
+    return py_individual.attr("educate")();
+}
+
+std::pair<std::optional<py::object>, py::object> local_search(
+    const std::vector<std::set<unsigned>> &truck_paths,
+    const std::vector<std::vector<std::set<unsigned>>> &drone_paths)
 {
     py::object py_VRPDFDSolution = py::module::import("ga.vrpdfd.solutions").attr("VRPDFDSolution"),
                py_from_cache = py::module::import("ga.vrpdfd.individuals").attr("VRPDFDIndividual").attr("from_cache"),
@@ -487,7 +493,13 @@ py::object local_search(
                    py::arg("solution_cls") = py_VRPDFDSolution,
                    py::arg("truck_paths") = truck_paths_cast(truck_paths),
                    py::arg("drone_paths") = drone_paths_cast(drone_paths)),
-               py_result = py_self;
+               py_result_any = py_self;
+
+    std::optional<py::object> py_result_feasible;
+    if (feasible(py_self))
+    {
+        py_result_feasible = py_self;
+    }
 
     unsigned trucks_count = truck_paths.size(),
              drones_count = drone_paths.size();
@@ -553,12 +565,16 @@ py::object local_search(
         auto [new_truck_paths, new_drone_paths] = copy();
         new_truck_paths[truck].insert(absent.begin(), absent.end());
 
-        py_result = std::min(
-            py_result,
-            py_from_cache(
-                py::arg("solution_cls") = py_VRPDFDSolution,
-                py::arg("truck_paths") = truck_paths_cast(new_truck_paths),
-                py::arg("drone_paths") = drone_paths_cast(new_drone_paths)));
+        py::object new_individual = py_from_cache(
+            py::arg("solution_cls") = py_VRPDFDSolution,
+            py::arg("truck_paths") = truck_paths_cast(new_truck_paths),
+            py::arg("drone_paths") = drone_paths_cast(new_drone_paths));
+
+        if (feasible(new_individual))
+        {
+            py_result_feasible = std::min(py_result_feasible.value_or(new_individual), new_individual);
+        }
+        py_result_any = std::min(py_result_any, new_individual);
     }
 
     std::vector<unsigned> new_path = absent;
@@ -572,15 +588,24 @@ py::object local_search(
             auto [new_truck_paths, new_drone_paths] = copy();
             new_drone_paths[drone][path].insert(absent.begin(), absent.end());
 
-            py_result = std::min(
-                py_result,
-                py_from_cache(
-                    py::arg("solution_cls") = py_VRPDFDSolution,
-                    py::arg("truck_paths") = truck_paths_cast(new_truck_paths),
-                    py::arg("drone_paths") = drone_paths_cast(new_drone_paths)));
+            py::object new_individual = py_from_cache(
+                py::arg("solution_cls") = py_VRPDFDSolution,
+                py::arg("truck_paths") = truck_paths_cast(new_truck_paths),
+                py::arg("drone_paths") = drone_paths_cast(new_drone_paths));
+
+            if (feasible(new_individual))
+            {
+                py_result_feasible = std::min(py_result_feasible.value_or(new_individual), new_individual);
+            }
+            py_result_any = std::min(py_result_any, new_individual);
         }
 
-        py_result = std::min(py_result, py_self.attr("append_drone_path")(drone, py_new_path));
+        py::object new_individual = py_self.attr("append_drone_path")(drone, py_new_path);
+        if (feasible(new_individual))
+        {
+            py_result_feasible = std::min(py_result_feasible.value_or(new_individual), new_individual);
+        }
+        py_result_any = std::min(py_result_any, new_individual);
     }
 
     // Remove elements in both sets
@@ -633,12 +658,16 @@ py::object local_search(
             }
         }
 
-        py_result = std::min(
-            py_result,
-            py_from_cache(
-                py::arg("solution_cls") = py_VRPDFDSolution,
-                py::arg("truck_paths") = truck_paths_cast(new_truck_paths),
-                py::arg("drone_paths") = drone_paths_cast(new_drone_paths)));
+        py::object new_individual = py_from_cache(
+            py::arg("solution_cls") = py_VRPDFDSolution,
+            py::arg("truck_paths") = truck_paths_cast(new_truck_paths),
+            py::arg("drone_paths") = drone_paths_cast(new_drone_paths));
+
+        if (feasible(new_individual))
+        {
+            py_result_feasible = std::min(py_result_feasible.value_or(new_individual), new_individual);
+        }
+        py_result_any = std::min(py_result_any, new_individual);
     }
 
     std::vector<unsigned> in_truck_paths_vector(in_truck_paths.begin(), in_truck_paths.end()),
@@ -674,18 +703,22 @@ py::object local_search(
                         }
                     }
 
-                    py::object py_new_individual = py_from_cache(
+                    py::object new_individual = py_from_cache(
                         py::arg("solution_cls") = py_VRPDFDSolution,
                         py::arg("truck_paths") = truck_paths_cast(new_truck_paths),
                         py::arg("drone_paths") = drone_paths_cast(new_drone_paths));
 
-                    py_result = std::min(py_result, py_new_individual);
+                    if (feasible(new_individual))
+                    {
+                        py_result_feasible = std::min(py_result_feasible.value_or(new_individual), new_individual);
+                    }
+                    py_result_any = std::min(py_result_any, new_individual);
                 }
             }
         }
     }
 
-    return py_result.attr("educate")();
+    return std::make_pair(py_result_feasible, educate(py_result_any));
 }
 
 PYBIND11_MODULE(cpp_utils, m)

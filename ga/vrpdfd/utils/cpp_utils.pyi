@@ -1,4 +1,4 @@
-from typing import AbstractSet, Dict, List, Sequence, Set, Tuple
+from typing import AbstractSet, Dict, List, Optional, Sequence, Set, Tuple
 
 from ..individuals import VRPDFDIndividual
 
@@ -43,6 +43,6 @@ def paths_from_flow_chained(
 
 
 def local_search(
-    truck_paths: Sequence[Sequence[int]],
-    drone_paths: Sequence[Sequence[Sequence[int]]],
-) -> VRPDFDIndividual: ...
+    truck_paths: Sequence[AbstractSet[int]],
+    drone_paths: Sequence[Sequence[AbstractSet[int]]],
+) -> Tuple[Optional[VRPDFDIndividual], VRPDFDIndividual]: ...

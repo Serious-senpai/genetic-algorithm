@@ -331,11 +331,8 @@ class VRPDFDIndividual(BaseIndividual):
     def local_search(self) -> VRPDFDIndividual:
         """Just like educate(), but more expensive"""
         if self.__local_searched is None:
-            config = ProblemConfig.get_config()
-            self.__local_searched = local_search(
-                [config.path_order(path)[1] for path in self.truck_paths],
-                [[config.path_order(path)[1] for path in paths] for paths in self.drone_paths],
-            )
+            feasible, any = local_search(self.truck_paths, self.drone_paths)
+            self.__local_searched = any if feasible is None else feasible
 
         return self.__local_searched
 
