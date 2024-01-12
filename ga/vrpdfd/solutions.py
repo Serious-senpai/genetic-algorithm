@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import itertools
-from typing import Final, List, Optional, Sequence, Tuple, TYPE_CHECKING, final
+from typing import Final, List, Literal, Optional, Sequence, Tuple, Union, TYPE_CHECKING, final
 
 from matplotlib import axes, pyplot
 
@@ -252,13 +252,14 @@ class VRPDFDSolution(SingleObjectiveSolution[VRPDFDIndividual]):
         self.__fine_coefficient *= config.fine_coefficient_increase_rate
         self.__fine_coefficient = min(self.__fine_coefficient, 10 ** 9)
 
-    def encode(self, *, create_new: bool = False) -> VRPDFDIndividual:
+    def encode(self, *, create_new: bool = False, insert_missing: Union[Optional[VRPDFDIndividual], Literal["self"]] = None) -> VRPDFDIndividual:
         factory = VRPDFDIndividual if create_new else VRPDFDIndividual.from_cache
         result = factory(
             solution_cls=self.__class__,
             truck_paths=tuple(map(lambda path: frozenset(c[0] for c in path), self.truck_paths)),
             drone_paths=tuple(tuple(map(lambda path: frozenset(c[0] for c in path), paths)) for paths in self.drone_paths),
             decoded=self,
+            insert_missing=insert_missing,
         )
 
         if create_new:

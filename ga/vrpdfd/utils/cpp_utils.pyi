@@ -8,6 +8,7 @@ __all__ = (
     "paths_from_flow",
     "paths_from_flow_chained",
     "local_search",
+    "insert_missing",
 )
 
 
@@ -46,3 +47,9 @@ def local_search(
     truck_paths: Sequence[AbstractSet[int]],
     drone_paths: Sequence[Sequence[AbstractSet[int]]],
 ) -> Tuple[Optional[VRPDFDIndividual], VRPDFDIndividual]: ...
+
+
+def insert_missing(
+    truck_paths: Sequence[AbstractSet[int]],
+    drone_paths: Sequence[Sequence[AbstractSet[int]]],
+) -> VRPDFDIndividual: ...

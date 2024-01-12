@@ -8,6 +8,7 @@ from typing import (
     Final,
     FrozenSet,
     List,
+    Literal,
     Optional,
     Sequence,
     Set,
@@ -25,7 +26,7 @@ if TYPE_CHECKING:
 
 from .config import ProblemConfig
 from .errors import PopulationInitializationException
-from .utils import local_search, paths_from_flow_chained
+from .utils import insert_missing, local_search, paths_from_flow_chained
 from ..abc import SingleObjectiveIndividual
 from ..utils import LRUCache, weighted_random, weighted_random_choice
 if TYPE_CHECKING:
@@ -51,6 +52,7 @@ class VRPDFDIndividual(BaseIndividual):
         "__decoded",
         "__educated",
         "__local_searched",
+        "__insert_missing",
         "truck_paths",
         "drone_paths",
     )
@@ -62,6 +64,7 @@ class VRPDFDIndividual(BaseIndividual):
         __decoded: Optional[VRPDFDSolution]
         __educated: Optional[VRPDFDIndividual]
         __local_searched: Optional[Tuple[Optional[VRPDFDIndividual], VRPDFDIndividual]]
+        __insert_missing: Optional[VRPDFDIndividual]
         truck_paths: Final[Tuple[FrozenSet[int], ...]]
         drone_paths: Final[Tuple[Tuple[FrozenSet[int], ...], ...]]
 
@@ -73,12 +76,14 @@ class VRPDFDIndividual(BaseIndividual):
         drone_paths: Tuple[Tuple[FrozenSet[int], ...], ...],
         decoded: Optional[VRPDFDSolution] = None,
         local_searched: Optional[Tuple[Optional[VRPDFDIndividual], VRPDFDIndividual]] = None,
+        insert_missing: Union[Optional[VRPDFDIndividual], Literal["self"]] = None,
     ) -> None:
         self.__cls = solution_cls
         self.__stuck_penalty = 1.0
         self.__decoded = decoded
         self.__educated = None
         self.__local_searched = local_searched
+        self.__insert_missing = self if insert_missing == "self" else insert_missing
         self.truck_paths = truck_paths
         self.drone_paths = drone_paths
 
@@ -91,6 +96,7 @@ class VRPDFDIndividual(BaseIndividual):
         drone_paths: Sequence[Sequence[FrozenSet[int]]],
         decoded: Optional[VRPDFDSolution] = None,
         local_searched: Optional[Tuple[Optional[VRPDFDIndividual], VRPDFDIndividual]] = None,
+        insert_missing: Union[Optional[VRPDFDIndividual], Literal["self"]] = None,
     ) -> VRPDFDIndividual:
         tuplized_drone_paths = tuple(tuple(filter(lambda path: len(path) > 1, paths)) for paths in drone_paths)
         hashed = truck_paths, tuplized_drone_paths
@@ -104,6 +110,7 @@ class VRPDFDIndividual(BaseIndividual):
                 drone_paths=tuplized_drone_paths,
                 decoded=decoded,
                 local_searched=local_searched,
+                insert_missing=insert_missing,
             ).decode().encode(create_new=True)  # remove customers with 0 weight on each path
 
             try:
@@ -340,6 +347,12 @@ class VRPDFDIndividual(BaseIndividual):
         else:
             return any
 
+    def insert_missing(self) -> VRPDFDIndividual:
+        if self.__insert_missing is None:
+            self.__insert_missing = insert_missing(self.truck_paths, self.drone_paths)
+
+        return self.__insert_missing
+
     @classmethod
     def after_generation_hook(
         cls,
@@ -363,6 +376,16 @@ class VRPDFDIndividual(BaseIndividual):
             if config.logger is not None:
                 config.logger.write("Increasing stuck penalty and applying local search\n")
 
+            original_size = len(population)
+
+            insert_missing_population: Union[tqdm[VRPDFDIndividual], Set[VRPDFDIndividual]] = population
+            if verbose:
+                insert_missing_population = tqdm(insert_missing_population, desc=f"Insert missing (#{generation + 1})", ascii=" █", colour="blue")
+
+            missing_inserted = set(individual.insert_missing() for individual in insert_missing_population)
+            population.clear()
+            population.update(missing_inserted)
+
             for individual in population:
                 individual.bump_stuck_penalty()
 
@@ -373,7 +396,6 @@ class VRPDFDIndividual(BaseIndividual):
             local_searched = set(filter(lambda i: i.local_searched, population))
             not_local_searched = list(population.difference(local_searched))
 
-            original_size = len(population)
             population.clear()
             population.update(local_searched)
 
