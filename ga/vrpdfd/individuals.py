@@ -83,7 +83,7 @@ class VRPDFDIndividual(BaseIndividual):
         self.__decoded = decoded
         self.__educated = None
         self.__local_searched = local_searched
-        self.__insert_missing = self if insert_missing == "self" else insert_missing
+        self.__insert_missing = self if isinstance(insert_missing, str) else insert_missing
         self.truck_paths = truck_paths
         self.drone_paths = drone_paths
 
