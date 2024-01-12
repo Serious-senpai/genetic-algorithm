@@ -195,6 +195,7 @@ class VRPDFDIndividual(BaseIndividual):
     def bump_stuck_penalty(self) -> None:
         config = ProblemConfig.get_config()
         self.__stuck_penalty *= config.stuck_penalty_increase_rate or 1.0
+        self.__stuck_penalty = min(self.__stuck_penalty, 10**9)
 
     def decode(self) -> VRPDFDSolution:
         if self.__decoded is None:
@@ -433,7 +434,7 @@ class VRPDFDIndividual(BaseIndividual):
         results: Set[VRPDFDIndividual] = set()
         all_customers = frozenset(range(len(config.customers)))
         try:
-            for paths_per_drone in range(min(5, size)):
+            for paths_per_drone in range(min(11, size)):
                 results.add(
                     cls.from_cache(
                         solution_cls=solution_cls,
@@ -445,8 +446,7 @@ class VRPDFDIndividual(BaseIndividual):
             while len(results) < size:
                 array = list(results)
                 base = random.choice(array)
-                for _ in range(5):
-                    base = base.mutate()
+                base = base.mutate()
 
                 results.add(base)
 
