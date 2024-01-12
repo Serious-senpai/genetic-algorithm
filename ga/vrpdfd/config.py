@@ -7,7 +7,7 @@ import json
 from dataclasses import dataclass
 from math import sqrt
 from os import path
-from typing import ClassVar, Dict, Final, FrozenSet, List, Optional, Tuple, TYPE_CHECKING, final
+from typing import ClassVar, Dict, Final, FrozenSet, Optional, Tuple, TYPE_CHECKING, final
 
 from .errors import ConfigImportException
 from .utils import set_customers
