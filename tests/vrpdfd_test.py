@@ -64,12 +64,37 @@ def test_decode_6_5_4() -> None:
     assert utils.isclose(solution.drone_cost, 606.0)
 
 
+def test_decode_6_10_1() -> None:
+    vrpdfd.ProblemConfig.get_config("6.10.1").initial_fine_coefficient = 10 ** 3
+    vrpdfd.ProblemConfig.context = "6.10.1"
+    solution = vrpdfd.VRPDFDIndividual(
+        solution_cls=vrpdfd.VRPDFDSolution,
+        truck_paths=(frozenset([0, 1, 2, 4, 5]),),
+        drone_paths=(
+            (
+                frozenset([0, 6]),
+                frozenset([0, 2]),
+                frozenset([0, 2]),
+                frozenset([0, 2]),
+                frozenset([0, 2]),
+                frozenset([0, 2]),
+                frozenset([0, 3]),
+            ),
+        ),
+    ).decode()
+
+    check_solution(solution, expected=-8418.2)
+    assert utils.isclose(solution.revenue, 16700.0)
+    assert utils.isclose(solution.truck_cost, 7304.799999999999)
+    assert utils.isclose(solution.drone_cost, 976.9999999999999)
+
+
 def test_decode_6_10_2() -> None:
     vrpdfd.ProblemConfig.get_config("6.10.2").initial_fine_coefficient = 10 ** 3
     vrpdfd.ProblemConfig.context = "6.10.2"
     solution = vrpdfd.VRPDFDIndividual(
         solution_cls=vrpdfd.VRPDFDSolution,
-        truck_paths=(frozenset([0, 2, 5, 3, 4, 1]),),
+        truck_paths=(frozenset([0, 1, 2, 3, 4, 5]),),
         drone_paths=(
             (
                 frozenset([0, 6]),
@@ -87,12 +112,34 @@ def test_decode_6_10_2() -> None:
     assert utils.isclose(solution.drone_cost, 903.0)
 
 
+def test_decode_6_20_3() -> None:
+    vrpdfd.ProblemConfig.get_config("6.20.3").initial_fine_coefficient = 10 ** 3
+    vrpdfd.ProblemConfig.context = "6.20.3"
+    solution = vrpdfd.VRPDFDIndividual(
+        solution_cls=vrpdfd.VRPDFDSolution,
+        truck_paths=(frozenset([0, 1, 4, 5, 6]),),
+        drone_paths=(
+            (
+                frozenset([0, 2]),
+                frozenset([0, 2]),
+                frozenset([0, 3]),
+                frozenset([0, 3]),
+            ),
+        ),
+    ).decode()
+
+    check_solution(solution, expected=-4431.5999999999985)
+    assert utils.isclose(solution.revenue, 24875.0)
+    assert utils.isclose(solution.truck_cost, 18464.399999999998)
+    assert utils.isclose(solution.drone_cost, 1979.0)
+
+
 def test_decode_10_5_3() -> None:
     vrpdfd.ProblemConfig.get_config("10.5.3").initial_fine_coefficient = 10 ** 3
     vrpdfd.ProblemConfig.context = "10.5.3"
     solution = vrpdfd.VRPDFDIndividual(
         solution_cls=vrpdfd.VRPDFDSolution,
-        truck_paths=(frozenset([0, 5, 3, 6, 2]),),
+        truck_paths=(frozenset([0, 2, 3, 5, 6]),),
         drone_paths=(
             (
                 frozenset([0, 9]),
@@ -131,3 +178,54 @@ def test_decode_10_20_1() -> None:
     assert utils.isclose(solution.revenue, 18125.0)
     assert utils.isclose(solution.truck_cost, 16099.999999999998)
     assert utils.isclose(solution.drone_cost, 2396.0)
+
+
+def test_decode_12_20_4() -> None:
+    vrpdfd.ProblemConfig.get_config("12.20.4").initial_fine_coefficient = 10 ** 3
+    vrpdfd.ProblemConfig.context = "12.20.4"
+    solution = vrpdfd.VRPDFDIndividual(
+        solution_cls=vrpdfd.VRPDFDSolution,
+        truck_paths=(frozenset([0, 1, 3, 6, 8, 9, 12]),),
+        drone_paths=(
+            (
+                frozenset([0, 2]),
+                frozenset([0, 2]),
+                frozenset([0, 2]),
+                frozenset([0, 2]),
+                frozenset([0, 2]),
+                frozenset([0, 4]),
+                frozenset([0, 5]),
+            ),
+        ),
+    ).decode()
+
+    check_solution(solution, expected=4610.4)
+    assert utils.isclose(solution.revenue, 11825.0)
+    assert utils.isclose(solution.truck_cost, 13404.4)
+    assert utils.isclose(solution.drone_cost, 3031.0)
+
+
+def test_decode_20_20_3() -> None:
+    vrpdfd.ProblemConfig.get_config("20.20.3").initial_fine_coefficient = 10 ** 3
+    vrpdfd.ProblemConfig.context = "20.20.3"
+    solution = vrpdfd.VRPDFDIndividual(
+        solution_cls=vrpdfd.VRPDFDSolution,
+        truck_paths=(frozenset([0, 1, 2, 3, 5, 8, 9, 10, 12, 13, 14, 15]),),
+        drone_paths=(
+            (
+                frozenset([0, 16]),
+                frozenset([0, 16]),
+                frozenset([0, 16]),
+                frozenset([0, 18]),
+                frozenset([0, 20]),
+                frozenset([0, 20]),
+                frozenset([0, 20]),
+                frozenset([0, 16, 20]),
+            ),
+        ),
+    ).decode()
+
+    check_solution(solution, expected=1070.4500000000007)
+    assert utils.isclose(solution.revenue, 28675.0)
+    assert utils.isclose(solution.truck_cost, 26689.2)
+    assert utils.isclose(solution.drone_cost, 3056.25)

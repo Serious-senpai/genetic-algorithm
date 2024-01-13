@@ -3,11 +3,13 @@ from __future__ import annotations
 import itertools
 from typing import Final, List, Optional, Sequence, Tuple, TYPE_CHECKING, final
 
+from matplotlib import axes, pyplot
+
 from .config import ProblemConfig
 from .errors import InfeasibleSolution
 from .individuals import VRPDFDIndividual
 from ..abc import SingleObjectiveSolution
-from ..utils import positive_max
+from ..utils import isclose, positive_max
 
 
 __all__ = ("VRPDFDSolution",)
@@ -233,6 +235,9 @@ class VRPDFDSolution(SingleObjectiveSolution[VRPDFDIndividual]):
                         + positive_max(total_weight[index] - customer.high)
                     ) / customer.high
 
+            if isclose(result, 0.0):
+                result = 0.0
+
             self.__fine = result
 
         return self.__fine
@@ -247,16 +252,99 @@ class VRPDFDSolution(SingleObjectiveSolution[VRPDFDIndividual]):
         self.__fine_coefficient *= config.fine_coefficient_increase_rate
         self.__fine_coefficient = min(self.__fine_coefficient, 10 ** 9)
 
-    def encode(self) -> VRPDFDIndividual:
+    def encode(self, *, create_new: bool = False) -> VRPDFDIndividual:
+        factory = VRPDFDIndividual if create_new else VRPDFDIndividual.from_cache
+        result = factory(
+            solution_cls=self.__class__,
+            truck_paths=tuple(map(lambda path: frozenset(c[0] for c in path), self.truck_paths)),
+            drone_paths=tuple(tuple(map(lambda path: frozenset(c[0] for c in path), paths)) for paths in self.drone_paths),
+            decoded=self,
+        )
+
+        if create_new:
+            return result
+
         if self.__encoded is None:
-            self.__encoded = VRPDFDIndividual(
-                solution_cls=self.__class__,
-                truck_paths=tuple(map(lambda path: frozenset(c[0] for c in path), self.truck_paths)),
-                drone_paths=tuple(tuple(map(lambda path: frozenset(c[0] for c in path), paths)) for paths in self.drone_paths),
-                decoded=self,
-            )
+            self.__encoded = result
 
         return self.__encoded
+
+    def plot(self) -> None:
+        _, ax = pyplot.subplots()
+        assert isinstance(ax, axes.Axes)
+
+        config = ProblemConfig.get_config()
+
+        for path in self.truck_paths:
+            truck_x: List[float] = []
+            truck_y: List[float] = []
+            truck_u: List[float] = []
+            truck_v: List[float] = []
+
+            for index in range(len(path) - 1):
+                current, _ = path[index]
+                after, _ = path[index + 1]
+
+                truck_x.append(config.customers[current].x)
+                truck_y.append(config.customers[current].y)
+                truck_u.append(config.customers[after].x - config.customers[current].x)
+                truck_v.append(config.customers[after].y - config.customers[current].y)
+
+            ax.quiver(
+                truck_x,
+                truck_y,
+                truck_u,
+                truck_v,
+                color="darkviolet",
+                angles="xy",
+                scale_units="xy",
+                scale=1,
+            )
+
+        for paths in self.drone_paths:
+            drone_x: List[float] = []
+            drone_y: List[float] = []
+            drone_u: List[float] = []
+            drone_v: List[float] = []
+
+            for path in paths:
+                for index in range(len(path) - 1):
+                    current, _ = path[index]
+                    after, _ = path[index + 1]
+
+                    drone_x.append(config.customers[current].x)
+                    drone_y.append(config.customers[current].y)
+                    drone_u.append(config.customers[after].x - config.customers[current].x)
+                    drone_v.append(config.customers[after].y - config.customers[current].y)
+
+            ax.quiver(
+                drone_x,
+                drone_y,
+                drone_u,
+                drone_v,
+                color="cyan",
+                angles="xy",
+                scale_units="xy",
+                scale=1,
+            )
+
+        ax.scatter((0,), (0,), c="black", label="Depot")
+        ax.scatter(
+            tuple(customer.x for customer in config.customers[1:]),
+            tuple(customer.y for customer in config.customers[1:]),
+            c="red",
+            label="Customers",
+        )
+
+        ax.annotate("0", (0, 0))
+        for index in range(1, len(config.customers)):
+            ax.annotate(str(index), config.customers[index].location)
+
+        ax.grid(True)
+
+        pyplot.legend()
+        pyplot.show()
+        pyplot.close()
 
     def __hash__(self) -> int:
         if self.__hash is None:

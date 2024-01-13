@@ -3,13 +3,14 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
-#include "crowding_distance.cpp"
-#include "fake_tsp_solver.cpp"
-#include "flows_with_demands.cpp"
-#include "jaccard_distance.cpp"
-#include "maximum_flow.cpp"
-#include "tsp_solver.cpp"
-#include "weighted_random.cpp"
+#include "crowding_distance.hpp"
+#include "fake_tsp_solver.hpp"
+#include "flows_with_demands.hpp"
+#include "jaccard_distance.hpp"
+#include "maximum_flow.hpp"
+#include "smallest_circle.hpp"
+#include "tsp_solver.hpp"
+#include "weighted_random.hpp"
 
 namespace py = pybind11;
 
@@ -34,6 +35,10 @@ PYBIND11_MODULE(cpp_utils, m)
     m.def(
         "maximum_flow", &maximum_flow,
         py::kw_only(), py::arg("size"), py::arg("capacities"), py::arg("neighbors"), py::arg("source"), py::arg("sink"),
+        py::call_guard<py::gil_scoped_release>());
+    m.def(
+        "smallest_circle", &smallest_circle,
+        py::arg("points"),
         py::call_guard<py::gil_scoped_release>());
     m.def(
         "tsp_solver", &tsp_solver,

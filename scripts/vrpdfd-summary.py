@@ -6,7 +6,7 @@ from pathlib import Path
 from traceback import print_exc
 from typing import Any, Dict, DefaultDict, List, Optional, Tuple, TypedDict
 
-from ga.utils import isclose
+from ga.utils import LRUCacheInfo, isclose
 from ga.vrpdfd import ProblemConfig, VRPDFDSolution
 
 
@@ -17,6 +17,12 @@ class SolutionInfo(TypedDict):
     drone_paths: List[List[List[Tuple[int, float]]]]
 
 
+class CacheInfo(TypedDict):
+    limit: int
+    individual: LRUCacheInfo
+    tsp: LRUCacheInfo
+
+
 class SolutionJSON(TypedDict):
     problem: str
     generations: int
@@ -24,11 +30,15 @@ class SolutionJSON(TypedDict):
     mutation_rate: float
     initial_fine_coefficient: float
     fine_coefficient_increase_rate: float
+    reset_after: int
+    stuck_penalty_increase_rate: float
+    local_search_batch: int
     solution: SolutionInfo
     time: str
     fake_tsp_solver: bool
     last_improved: int
     extra: Optional[str]
+    cache_info: CacheInfo
 
 
 class MILPSolutionJSON(TypedDict):
@@ -66,7 +76,7 @@ def read_milp_solution(data: MILPSolutionJSON) -> VRPDFDSolution:
             while len(truck_volumes) <= truck:
                 truck_volumes.append(defaultdict(lambda: 0.0))
 
-            truck_volumes[truck][customer] = value
+            truck_volumes[truck][customer] = round(value, 4)
 
         drone_volumes: List[List[DefaultDict[int, float]]] = []
         for key, value in data["cusWeightByDrone"].items():
@@ -80,7 +90,7 @@ def read_milp_solution(data: MILPSolutionJSON) -> VRPDFDSolution:
             while len(drone_volumes[drone]) <= path_id:
                 drone_volumes[drone].append(defaultdict(lambda: 0.0))
 
-            drone_volumes[drone][path_id][customer] = value
+            drone_volumes[drone][path_id][customer] = round(value, 4)
 
         truck_after: List[Dict[int, int]] = []
         for key, value in data["truck"].items():
@@ -136,6 +146,7 @@ def read_milp_solution(data: MILPSolutionJSON) -> VRPDFDSolution:
             drone_paths=tuple(tuple(map(tuple, paths)) for paths in drone_paths),
         )
 
+        solution.assert_feasible()
         try:
             if not isclose(milp_data["obj_value"], -solution.cost):
                 message = f"MILP solution for {problem_name} reported profit {milp_data['obj_value']}, actual value {-solution.cost}:\n{solution}"
@@ -155,6 +166,9 @@ field_names = (
     "Mutation rate",
     "Initial fine coefficient",
     "Fine coefficient increase rate",
+    "Reset after",
+    "Stuck penalty increase rate",
+    "Local search batch",
     "Profit",
     "Feasible",
     "Truck paths",
@@ -163,6 +177,8 @@ field_names = (
     "Fake TSP solver",
     "Last improved",
     "Extra",
+    "I hit/miss/cached",
+    "T hit/miss/cached",
     "MILP profit",
     "MILP status",
     "MILP computation time",
@@ -184,6 +200,9 @@ with open(summary_dir / "vrpdfd-summary.csv", "w") as csvfile:
                 data["mutation_rate"],
                 data["initial_fine_coefficient"],
                 data["fine_coefficient_increase_rate"],
+                data["reset_after"],
+                data["stuck_penalty_increase_rate"],
+                data["local_search_batch"],
                 data["solution"]["profit"],
                 int(data["solution"]["feasible"]),
                 wrap_double_quotes(data["solution"]["truck_paths"]),
@@ -192,6 +211,26 @@ with open(summary_dir / "vrpdfd-summary.csv", "w") as csvfile:
                 int(data["fake_tsp_solver"]),
                 data["last_improved"],
                 data["extra"],
+                "/".join(
+                    map(
+                        str,
+                        [
+                            data["cache_info"]["individual"]["hit"],
+                            data["cache_info"]["individual"]["miss"],
+                            data["cache_info"]["individual"]["cached"],
+                        ],
+                    ),
+                ),
+                "/".join(
+                    map(
+                        str,
+                        [
+                            data["cache_info"]["tsp"]["hit"],
+                            data["cache_info"]["tsp"]["miss"],
+                            data["cache_info"]["tsp"]["cached"],
+                        ],
+                    ),
+                ),
             ]
 
             problem_name = data["problem"]

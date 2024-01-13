@@ -2,12 +2,16 @@
 
 #include <algorithm>
 #include <chrono>
+#include <ctime>
 #include <map>
 #include <random>
 #include <stdexcept>
 #include <string>
 
 #include <lemon/maps.h>
+#include <pybind11/pybind11.h>
+
+namespace py = pybind11;
 
 template <typename K, typename V>
 class LemonMap : lemon::MapBase<K, V>
@@ -16,6 +20,9 @@ private:
     std::map<K, V> data;
 
 public:
+    typedef K Key;
+    typedef V Value;
+
     void set(const K &key, const V &value)
     {
         data[key] = value;
@@ -24,6 +31,31 @@ public:
     const V &operator[](const K &key) const
     {
         return data.at(key);
+    }
+
+    bool empty() const
+    {
+        return data.empty();
+    }
+};
+
+class Timer
+{
+private:
+    const double _limit;
+    const double _start;
+
+public:
+    Timer(const double seconds_limit) : _limit(seconds_limit), _start((double)std::clock() / (double)CLOCKS_PER_SEC) {}
+
+    bool timeup() const
+    {
+        return elapsed() >= _limit;
+    }
+
+    double elapsed() const
+    {
+        return (double)std::clock() / (double)CLOCKS_PER_SEC - _start;
     }
 };
 
@@ -54,6 +86,16 @@ unsigned random_int(const unsigned l, const unsigned r)
 {
     std::uniform_int_distribution<unsigned> unif(l, r);
     return unif(rng);
+}
+
+unsigned sum(const std::vector<unsigned> &v)
+{
+    unsigned __sum = 0;
+    for (auto __i : v)
+    {
+        __sum += __i;
+    }
+    return __sum;
 }
 
 void rotate_to_first(std::vector<unsigned> &path, const unsigned first)
@@ -112,4 +154,43 @@ double weird_round(const double value, const unsigned precision)
 {
     double factor = std::pow(10, precision);
     return std::ceil(value * factor) / factor;
+}
+
+double distance(const double dx, const double dy)
+{
+    return weird_round(sqrt_impl(dx * dx + dy * dy), 2);
+}
+
+double distance(
+    const std::pair<double, double> &first,
+    const std::pair<double, double> &second)
+{
+    return distance(first.first - second.first, first.second - second.second);
+}
+
+template <typename _ForwardIterator>
+py::tuple py_tuple(const _ForwardIterator &first, const _ForwardIterator &last)
+{
+    unsigned __size = std::distance(first, last);
+    py::tuple __t(__size);
+
+    auto iter = first;
+    for (unsigned __i = 0; __i < __size; __i++)
+    {
+        __t[__i] = *iter;
+        iter++;
+    }
+
+    return __t;
+}
+
+template <typename _ForwardIterator>
+py::frozenset py_frozenset(const _ForwardIterator &first, const _ForwardIterator &last)
+{
+    py::set __ps;
+    for (auto __i = first; __i != last; __i++)
+    {
+        __ps.add(*__i);
+    }
+    return py::frozenset(__ps);
 }

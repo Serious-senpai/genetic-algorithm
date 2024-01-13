@@ -145,7 +145,9 @@ class SingleObjectiveIndividual(BaseIndividual[_ST], BaseCostComparison):
         if len(filtered) > 0:
             result = min(filtered)
         else:
-            result = min(population)
+            # The entire population is infeasible, so we pick the highest cost so that
+            # in will be more likely to be replaced by a feasible individual later
+            result = max(population)
 
         if len(population) < population_size:
             message = f"Initial population size {len(population)} < {population_size}"
@@ -198,8 +200,6 @@ class SingleObjectiveIndividual(BaseIndividual[_ST], BaseCostComparison):
                 if current_result != result:
                     last_improved = iteration
 
-                progress.append(result.cost)
-
                 cls.after_generation_hook(
                     generation=iteration,
                     last_improved=last_improved,
@@ -210,6 +210,16 @@ class SingleObjectiveIndividual(BaseIndividual[_ST], BaseCostComparison):
                 if len(population) > population_size:
                     message = f"Population size {len(population)} > {population_size}"
                     raise ValueError(message)
+
+                # after_generation_hook may add new individuals
+                filtered = tuple(filter(lambda i: i.feasible(), population))
+                if len(filtered) > 0:
+                    result = min(result, *filtered)
+
+                if current_result != result:
+                    last_improved = iteration
+
+                progress.append(result.cost)
 
             if verbose:
                 pyplot.plot(progress)

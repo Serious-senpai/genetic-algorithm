@@ -9,6 +9,7 @@ __all__ = (
     "flows_with_demands",
     "jaccard_distance",
     "maximum_flow",
+    "smallest_circle",
     "tsp_solver",
     "weighted_random",
 )
@@ -47,6 +48,9 @@ def maximum_flow(
     source: int,
     sink: int,
 ) -> Tuple[float, List[List[float]]]: ...
+
+
+def smallest_circle(points: Sequence[Tuple[float, float]]) -> Tuple[float, Tuple[float, float]]: ...
 
 
 def tsp_solver(

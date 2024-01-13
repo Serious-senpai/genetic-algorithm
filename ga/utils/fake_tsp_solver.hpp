@@ -4,7 +4,7 @@
 #include <optional>
 #include <vector>
 
-#include "helpers.cpp"
+#include "helpers.hpp"
 
 double pow_2(const double x)
 {

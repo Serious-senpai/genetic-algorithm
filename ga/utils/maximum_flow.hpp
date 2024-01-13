@@ -5,7 +5,7 @@
 #include <stdexcept>
 #include <vector>
 
-#include "helpers.cpp"
+#include "helpers.hpp"
 
 std::pair<double, std::vector<unsigned>> __flow(
     const unsigned size,

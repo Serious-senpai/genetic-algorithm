@@ -3,6 +3,7 @@ from __future__ import annotations
 import itertools
 import random
 from typing import (
+    Any,
     ClassVar,
     Final,
     FrozenSet,
@@ -24,9 +25,9 @@ if TYPE_CHECKING:
 
 from .config import ProblemConfig
 from .errors import PopulationInitializationException
-from .utils import paths_from_flow_chained
+from .utils import local_search, paths_from_flow_chained
 from ..abc import SingleObjectiveIndividual
-from ..utils import flows_with_demands, weighted_random, weighted_random_choice
+from ..utils import LRUCache, weighted_random, weighted_random_choice
 if TYPE_CHECKING:
     from .solutions import VRPDFDSolution
 
@@ -46,18 +47,21 @@ class VRPDFDIndividual(BaseIndividual):
 
     __slots__ = (
         "__cls",
-        "__hash",
+        "__stuck_penalty",
         "__decoded",
+        "__educated",
         "__local_searched",
         "truck_paths",
         "drone_paths",
     )
     genetic_algorithm_last_improved: ClassVar[int] = 0
+    cache: ClassVar[LRUCache[Tuple[Tuple[FrozenSet[int], ...], Tuple[Tuple[FrozenSet[int], ...], ...]], VRPDFDIndividual]] = LRUCache()
     if TYPE_CHECKING:
         __cls: Final[Type[VRPDFDSolution]]
-        __hash: Final[int]
+        __stuck_penalty: float
         __decoded: Optional[VRPDFDSolution]
-        __local_searched: Optional[VRPDFDIndividual]
+        __educated: Optional[VRPDFDIndividual]
+        __local_searched: Optional[Tuple[Optional[VRPDFDIndividual], VRPDFDIndividual]]
         truck_paths: Final[Tuple[FrozenSet[int], ...]]
         drone_paths: Final[Tuple[Tuple[FrozenSet[int], ...], ...]]
 
@@ -66,19 +70,49 @@ class VRPDFDIndividual(BaseIndividual):
         *,
         solution_cls: Type[VRPDFDSolution],
         truck_paths: Tuple[FrozenSet[int], ...],
-        drone_paths: Sequence[Sequence[FrozenSet[int]]],
+        drone_paths: Tuple[Tuple[FrozenSet[int], ...], ...],
         decoded: Optional[VRPDFDSolution] = None,
-        local_searched: Optional[VRPDFDIndividual] = None,
+        local_searched: Optional[Tuple[Optional[VRPDFDIndividual], VRPDFDIndividual]] = None,
     ) -> None:
         self.__cls = solution_cls
-        self.__hash = hash((frozenset(truck_paths), frozenset(frozenset(paths) for paths in drone_paths)))
+        self.__stuck_penalty = 1.0
         self.__decoded = decoded
+        self.__educated = None
         self.__local_searched = local_searched
         self.truck_paths = truck_paths
-        self.drone_paths = tuple(tuple(filter(lambda path: len(path) > 1, paths)) for paths in drone_paths)
+        self.drone_paths = drone_paths
 
-    def get_unique(self) -> VRPDFDIndividual:
-        return self.decode().encode()
+    @classmethod
+    def from_cache(
+        cls,
+        *,
+        solution_cls: Type[VRPDFDSolution],
+        truck_paths: Tuple[FrozenSet[int], ...],
+        drone_paths: Sequence[Sequence[FrozenSet[int]]],
+        decoded: Optional[VRPDFDSolution] = None,
+        local_searched: Optional[Tuple[Optional[VRPDFDIndividual], VRPDFDIndividual]] = None,
+    ) -> VRPDFDIndividual:
+        tuplized_drone_paths = tuple(tuple(filter(lambda path: len(path) > 1, paths)) for paths in drone_paths)
+        hashed = truck_paths, tuplized_drone_paths
+        try:
+            return cls.cache[hashed]
+
+        except KeyError:
+            unique = cls(
+                solution_cls=solution_cls,
+                truck_paths=truck_paths,
+                drone_paths=tuplized_drone_paths,
+                decoded=decoded,
+                local_searched=local_searched,
+            ).decode().encode(create_new=True)  # remove customers with 0 weight on each path
+
+            try:
+                result = cls.cache[unique.truck_paths, unique.drone_paths]
+            except KeyError:
+                result = unique
+
+            cls.cache[hashed] = cls.cache[unique.truck_paths, unique.drone_paths] = result
+            return result
 
     @property
     def cls(self) -> Type[VRPDFDSolution]:
@@ -119,31 +153,31 @@ class VRPDFDIndividual(BaseIndividual):
             for _ in range(len(paths)):
                 drone_paths[-1].append(next(drone_paths_iter))
 
-        return VRPDFDIndividual(
+        return VRPDFDIndividual.from_cache(
             solution_cls=self.cls,
             truck_paths=tuple(truck_paths),
             drone_paths=drone_paths,
-        ).get_unique()
+        )
 
     def append_drone_path(self, drone: int, path: FrozenSet[int]) -> VRPDFDIndividual:
         drone_paths = list(map(list, self.drone_paths))
         drone_paths[drone].append(path)
-        return VRPDFDIndividual(
+        return VRPDFDIndividual.from_cache(
             solution_cls=self.cls,
             truck_paths=self.truck_paths,
             drone_paths=drone_paths,
-        ).get_unique()
+        )
 
     def append_drone_paths(self, *, drones: Sequence[int], paths: Sequence[FrozenSet[int]]) -> VRPDFDIndividual:
         drone_paths = list(map(list, self.drone_paths))
         for drone, path in zip(drones, paths, strict=True):
             drone_paths[drone].append(path)
 
-        return VRPDFDIndividual(
+        return VRPDFDIndividual.from_cache(
             solution_cls=self.cls,
             truck_paths=self.truck_paths,
             drone_paths=drone_paths,
-        ).get_unique()
+        )
 
     def feasible(self) -> bool:
         decoded = self.decode()
@@ -153,6 +187,15 @@ class VRPDFDIndividual(BaseIndividual):
     def cost(self) -> float:
         decoded = self.decode()
         return decoded.cost
+
+    @property
+    def penalized_cost(self) -> float:
+        return self.cost + self.__stuck_penalty
+
+    def bump_stuck_penalty(self) -> None:
+        config = ProblemConfig.get_config()
+        self.__stuck_penalty *= config.stuck_penalty_increase_rate or 1.0
+        self.__stuck_penalty = min(self.__stuck_penalty, 10**9)
 
     def decode(self) -> VRPDFDSolution:
         if self.__decoded is None:
@@ -171,7 +214,7 @@ class VRPDFDIndividual(BaseIndividual):
                 _, ordered = config.path_order(path)
 
                 for customer in ordered:
-                    weight = round(truck_paths_mapping[truck][customer])
+                    weight = round(truck_paths_mapping[truck][customer], 4)
                     if customer == 0 or weight > 0.0:
                         truck_paths[-1].append((customer, weight))
 
@@ -183,9 +226,12 @@ class VRPDFDIndividual(BaseIndividual):
                     _, ordered = config.path_order(path)
 
                     for customer in ordered:
-                        weight = round(drone_paths_mapping[drone][path_index][customer])
+                        weight = round(drone_paths_mapping[drone][path_index][customer], 4)
                         if customer == 0 or weight > 0.0:
                             drone_paths[-1][-1].append((customer, weight))
+
+                    if len(drone_paths[-1][-1]) == 2:
+                        drone_paths[-1].pop()
 
             self.__decoded = self.cls(
                 truck_paths=tuple(map(tuple, truck_paths)),
@@ -262,41 +308,37 @@ class VRPDFDIndividual(BaseIndividual):
 
         return self
 
-    def local_search(self) -> VRPDFDIndividual:
+    def educate(self) -> VRPDFDIndividual:
+        if self.__educated is None:
+            config = ProblemConfig.get_config()
+
+            decoded = self.decode()
+            paths = self.flatten()
+            for path_index, drone_path in enumerate(itertools.chain(*decoded.drone_paths)):
+                if len(drone_path) > 3:
+                    to_remove, _ = min(drone_path, key=lambda c: float("inf") if c[0] == 0 else c[1])
+                    index = config.trucks_count + path_index
+
+                    paths[index] = paths[index].difference([to_remove])
+
+            self.__educated = min(self, self.reconstruct(paths))
+
+        return self.__educated
+
+    @property
+    def local_searched(self) -> bool:
+        return self.__local_searched is not None
+
+    def local_search(self, *, prioritize_feasible: bool = False) -> VRPDFDIndividual:
+        """Just like educate(), but more expensive"""
         if self.__local_searched is None:
-            paths = tuple(self.flatten())
-            paths_count = len(paths)
-            unique = self.get_unique()
-            results: List[VRPDFDIndividual] = []
+            self.__local_searched = local_search(self.truck_paths, self.drone_paths)
 
-            # Split a customer from an existing path to 2 existing paths
-            for sender, *receivers in itertools.combinations(range(paths_count), 3):
-                for customer in paths[sender]:
-                    if all(customer not in paths[r] for r in receivers):
-                        mutable_paths = list(paths)
-                        mutable_paths[sender] = paths[sender].difference([customer])
-                        for receiver in receivers:
-                            mutable_paths[receiver] = paths[receiver].union([customer])
-
-                        results.append(unique.reconstruct(mutable_paths))
-
-            # Swap 2 customers between 2 existing paths
-            for first, second in itertools.combinations(range(paths_count), 2):
-                first_unique = paths[first].difference(paths[second])
-                second_unique = paths[second].difference(paths[first])
-                for f, s in itertools.product(first_unique, second_unique):
-                    mutable_paths = list(paths)
-                    mutable_paths[first] = paths[first].difference([f]).union([s])
-                    mutable_paths[second] = paths[second].difference([s]).union([f])
-
-                    results.append(unique.reconstruct(mutable_paths))
-
-            if len(results) == 0:
-                results.append(unique)
-
-            self.__local_searched = min(results)
-
-        return self.__local_searched
+        feasible, any = self.__local_searched
+        if prioritize_feasible and feasible is not None:
+            return feasible
+        else:
+            return any
 
     @classmethod
     def after_generation_hook(
@@ -313,36 +355,75 @@ class VRPDFDIndividual(BaseIndividual):
             individual.decode().bump_fine_coefficient()
 
         config = ProblemConfig.get_config()
-        if generation != last_improved and (generation - last_improved) % 10 == 0:
+        if (
+            config.reset_after is not None
+            and generation != last_improved
+            and (generation - last_improved) % config.reset_after == 0
+        ):
             if config.logger is not None:
-                config.logger.write("Applying local search\n")
+                config.logger.write("Increasing stuck penalty and applying local search\n")
 
-            new_population: Set[VRPDFDIndividual] = set()
+            for individual in population:
+                individual.bump_stuck_penalty()
 
-            iterable = list(population)
-            random.shuffle(iterable)
-            iterable = iterable[:config.local_search_batch]
+            if result not in population:
+                population.pop()
+                population.add(result)
 
-            individuals: Union[tqdm[VRPDFDIndividual], List[VRPDFDIndividual]] = iterable
+            local_searched = set(filter(lambda i: i.local_searched, population))
+            not_local_searched = list(population.difference(local_searched))
+
+            original_size = len(population)
+            population.clear()
+            population.update(local_searched)
+
+            not_local_searched.sort()
+            assert config.local_search_batch is not None
+            to_local_search = set(
+                map(
+                    not_local_searched.__getitem__,
+                    weighted_random(
+                        [1 + 1 / (index + 1) for index in range(len(not_local_searched))],
+                        count=min(config.local_search_batch, len(not_local_searched)),
+                    ),
+                ),
+            )
+            population.update(i for i in not_local_searched if i not in to_local_search)
+
+            individuals: Union[tqdm[VRPDFDIndividual], Set[VRPDFDIndividual]] = to_local_search
             if verbose:
-                individuals = tqdm(iterable, desc=f"Local search (#{generation + 1})", ascii=" █", colour="red")
+                individuals = tqdm(individuals, desc=f"Local search (#{generation + 1})", ascii=" █", colour="red")
 
             for individual in individuals:
-                new_population.add(individual.local_search())
+                population.update(
+                    [
+                        individual.local_search(prioritize_feasible=True),
+                        individual.local_search(prioritize_feasible=False),
+                    ],
+                )
 
+            population_sorted = sorted(population, key=lambda i: i.penalized_cost)
             population.clear()
-            population.update(new_population)
+            population.update(population_sorted[:original_size])
 
         if config.logger is not None:
-            config.logger.write(f"Generation #{generation + 1},Result,{result.cost}\n#,Cost,Fine coefficient,Feasible,Individual\n")
+            config.logger.write(f"Generation #{generation + 1},Result,{result.cost}\n#,Cost,Penalized cost,Fine coefficient,Feasible,Individual\n")
             config.logger.write(
-                "\n".join(f"{index + 1},{i.cost},{i.decode().fine_coefficient},{int(i.feasible())},\"{i}\"" for index, i in enumerate(sorted(population)))
+                "\n".join(
+                    f"{index + 1},{i.cost},{i.penalized_cost},{i.decode().fine_coefficient},{int(i.feasible())},\"{i}\""
+                    for index, i in enumerate(sorted(population, key=lambda i: i.penalized_cost))
+                )
             )
             config.logger.write("\n")
 
     @classmethod
+    def selection(cls, *, population: FrozenSet[Self], size: int) -> Set[Self]:
+        population_sorted = sorted(population, key=lambda i: i.penalized_cost)
+        return set(population_sorted[:size])
+
+    @classmethod
     def parents_selection(cls, *, population: FrozenSet[Self]) -> Tuple[Self, Self]:
-        population_sorted = sorted(population)
+        population_sorted = sorted(population, key=lambda i: i.penalized_cost)
         first, second = weighted_random([1 + 1 / (index + 1) for index in range(len(population))], count=2)
         return population_sorted[first], population_sorted[second]
 
@@ -351,95 +432,25 @@ class VRPDFDIndividual(BaseIndividual):
         config = ProblemConfig.get_config()
 
         results: Set[VRPDFDIndividual] = set()
+        all_customers = frozenset(range(len(config.customers)))
         try:
-            # Solve flows with demands problem with 4 layers: source - routes - customers - sink
-            paths_per_drone = 1
-            while True:
-                network_size = 1 + (config.trucks_count + config.drones_count * paths_per_drone) + config.customers_count + 1  # network with 4 layers
-                network_source = 0
-                network_sink = network_size - 1
-
-                network_customers_offset = config.trucks_count + config.drones_count * paths_per_drone + 1
-
-                network_demands = [[0.0] * network_size for _ in range(network_size)]
-                network_capacities = [[0.0] * network_size for _ in range(network_size)]
-
-                for network_route in range(1, network_customers_offset):
-                    if network_route < 1 + config.trucks_count:
-                        network_capacities[network_source][network_route] = config.truck.capacity
-                    else:
-                        network_capacities[network_source][network_route] = config.drone.capacity
-
-                for network_route, network_customer in itertools.product(range(1, network_customers_offset), range(network_customers_offset, network_sink)):
-                    network_capacities[network_route][network_customer] = 10 ** 9
-
-                for customer, network_customer in enumerate(range(network_customers_offset, network_sink), start=1):
-                    network_demands[network_customer][network_sink] = config.customers[customer].low
-                    network_capacities[network_customer][network_sink] = config.customers[customer].high
-
-                network_neighbors: List[Set[int]] = [set() for _ in range(network_size)]
-                network_neighbors[network_source].update(range(1, network_customers_offset))
-
-                for network_route in range(1, network_customers_offset):
-                    network_neighbors[network_route].update(range(network_customers_offset, network_sink))
-
-                for network_customer in range(network_customers_offset, network_sink):
-                    network_neighbors[network_customer].add(network_sink)
-
-                network_flow_weights: List[List[float]] = [[0.0] * network_size for _ in range(network_size)]
-                for customer in range(1, len(config.customers)):
-                    network_weight = config.customers[customer].w
-                    network_flow_weights[network_customers_offset + customer - 1][network_sink] = network_weight
-
-                flows = flows_with_demands(
-                    size=network_size,
-                    demands=network_demands,
-                    capacities=network_capacities,
-                    neighbors=network_neighbors,
-                    source=network_source,
-                    sink=network_sink,
-                )
-                if flows is None:
-                    paths_per_drone += 1
-                    continue
-
-                truck_paths = [{0} for _ in range(config.trucks_count)]
-                drone_paths = [[{0} for _ in range(paths_per_drone)] for _ in range(config.drones_count)]
-                for vehicle, network_route in zip(
-                    list(range(config.drones_count)) * paths_per_drone + list(range(config.trucks_count)),
-                    range(1, network_customers_offset),
-                    strict=True,
-                ):
-                    if network_route < 1 + config.trucks_count:
-                        path = truck_paths[vehicle]
-                        capacity = config.truck.capacity
-                    else:
-                        path = drone_paths[vehicle][(network_route - config.trucks_count - 1) // config.drones_count]
-                        capacity = config.drone.capacity
-
-                    for customer, network_customer in enumerate(range(network_customers_offset, network_sink), start=1):
-                        deliver = flows[network_route][network_customer]
-                        if deliver > 0.0:
-                            capacity -= deliver
-                            path.add(customer)
-
+            for paths_per_drone in range(min(11, size)):
                 results.add(
-                    cls(
+                    cls.from_cache(
                         solution_cls=solution_cls,
-                        truck_paths=tuple(map(frozenset, truck_paths)),
-                        drone_paths=tuple(tuple(map(frozenset, paths)) for paths in drone_paths),
-                    ).get_unique()
+                        truck_paths=tuple(all_customers for _ in range(config.trucks_count)),
+                        drone_paths=tuple(tuple(all_customers for _ in range(paths_per_drone)) for _ in range(config.drones_count)),
+                    )
                 )
 
-                while len(results) < size:
-                    array = list(results)
-                    base = random.choice(array)
-                    for _ in range(5):
-                        base = base.mutate()
+            while len(results) < size:
+                array = list(results)
+                base = random.choice(array)
+                base = base.mutate()
 
-                    results.add(base)
+                results.add(base)
 
-                return results
+            return results
 
         except BaseException as e:
             raise PopulationInitializationException(e) from e
@@ -448,4 +459,10 @@ class VRPDFDIndividual(BaseIndividual):
         return f"VRPDFDIndividual(truck_paths={self.truck_paths!r}, drone_paths={self.drone_paths!r})"
 
     def __hash__(self) -> int:
-        return self.__hash
+        return hash((self.truck_paths, self.drone_paths))
+
+    def __eq__(self, other: Any) -> bool:
+        if isinstance(other, VRPDFDIndividual):
+            return self.truck_paths == other.truck_paths and self.drone_paths == other.drone_paths
+
+        return NotImplemented

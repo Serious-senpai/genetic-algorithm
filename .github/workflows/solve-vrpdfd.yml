@@ -42,28 +42,29 @@ jobs:
         run: scripts/build.sh
 
       - name: Run optimizer
-        timeout-minutes: 300
         run: |
           for i in $(seq 0 9)
           do
+            echo "---------- RUN #$i ----------"
+            timeout --signal=INT 1200 \
             python vrpdfd.py ${{ matrix.problem }} \
             --dump "output-${{ matrix.problem }}-$i.json" \
             --log "log-${{ matrix.problem }}-$i.csv" \
-            --extra "run #$i"
+            --extra "run #$i" || true
           done
 
 # It is also possible to run the algorithm 10 times in parallel (by delegating to 10 child processes and add `wait` at the end),
 # but it will affect the computation time
 
       - name: Upload solutions
-        if: ${{ !cancelled() }}
+        if: ${{ always() }}
         uses: actions/upload-artifact@v3
         with:
           name: vrpdfd-summary
           path: output-*.json
 
       - name: Upload log
-        if: ${{ !cancelled() }}
+        if: ${{ always() }}
         uses: actions/upload-artifact@v3
         with:
           name: log-${{ matrix.problem }}
@@ -72,7 +73,7 @@ jobs:
   summary:
     name: Summarize solutions
     runs-on: ubuntu-latest
-    if: ${{ !cancelled() }}
+    if: ${{ always() }}
     needs: run
 
     steps:
