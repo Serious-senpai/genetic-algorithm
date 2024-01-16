@@ -98,18 +98,6 @@ solution paths_from_flow(
     const std::vector<std::vector<double>> &flows,
     const std::vector<std::set<unsigned>> &neighbors)
 {
-#ifdef DEBUG
-    std::cout << "Building paths from flow" << std::endl;
-    for (unsigned i = 0; i < flows.size(); i++)
-    {
-        for (unsigned j = 0; j < flows[i].size(); j++)
-        {
-            std::cout << flows[i][j] << " ";
-        }
-        std::cout << std::endl;
-    }
-#endif
-
     unsigned network_trucks_offset = 1,
              network_drones_offset = network_trucks_offset + truck_paths_count,
              network_customers_offset = network_trucks_offset + truck_paths_count + sum(drone_paths_count);
@@ -162,50 +150,6 @@ std::vector<std::vector<double>> __solve_flow(
 {
     unsigned network_size = network_neighbors.size();
 
-#ifdef DEBUG
-    std::cout << "Solving flow with network size " << network_size << std::endl;
-    std::cout << "network_demands:" << std::endl;
-    for (unsigned i = 0; i < network_size; i++)
-    {
-        for (unsigned j = 0; j < network_size; j++)
-        {
-            std::cout << network_demands[i][j] << " ";
-        }
-        std::cout << std::endl;
-    }
-
-    std::cout << "network_capacities:" << std::endl;
-    for (unsigned i = 0; i < network_size; i++)
-    {
-        for (unsigned j = 0; j < network_size; j++)
-        {
-            std::cout << network_capacities[i][j] << " ";
-        }
-        std::cout << std::endl;
-    }
-
-    std::cout << "network_flow_weights:" << std::endl;
-    for (unsigned i = 0; i < network_size; i++)
-    {
-        for (unsigned j = 0; j < network_size; j++)
-        {
-            std::cout << network_flow_weights[i][j] << " ";
-        }
-        std::cout << std::endl;
-    }
-
-    std::cout << "network_neighbors:" << std::endl;
-    for (unsigned i = 0; i < network_size; i++)
-    {
-        std::cout << i << ": ";
-        for (auto neighbor : network_neighbors[i])
-        {
-            std::cout << neighbor << " ";
-        }
-        std::cout << std::endl;
-    }
-#endif
-
     lemon::SmartDigraph graph;
     std::vector<lemon::SmartDigraph::Node> nodes;
     for (unsigned i = 0; i < network_size; i++)
@@ -242,10 +186,6 @@ std::vector<std::vector<double>> __solve_flow(
     solver.stSupply(nodes[network_source], nodes[network_sink], total_out);
     if (solver.run() == lemon::NetworkSimplex<lemon::SmartDigraph, double, double>::INFEASIBLE)
     {
-#ifdef DEBUG
-        std::cout << "Unable to find a feasible flow with " << total_out << std::endl;
-#endif
-
         double total_demands = 0;
         for (unsigned i = 0; i < network_size; i++)
         {
@@ -263,16 +203,10 @@ std::vector<std::vector<double>> __solve_flow(
             solver.stSupply(nodes[network_source], nodes[network_sink], m);
             if (solver.run() == lemon::NetworkSimplex<lemon::SmartDigraph, double, double>::INFEASIBLE)
             {
-#ifdef DEBUG
-                std::cout << "Total flow " << m << " INFEASIBLE" << std::endl;
-#endif
                 r = m;
             }
             else
             {
-#ifdef DEBUG
-                std::cout << "Total flow " << m << " OK" << std::endl;
-#endif
                 l = m;
             }
         }
@@ -292,19 +226,6 @@ std::vector<std::vector<double>> __solve_flow(
             flows[i][neighbor] = flows_mapping[arcs_mapping[i][neighbor]];
         }
     }
-
-#ifdef DEBUG
-    std::cout << "Found flow with cost = " << solver.totalCost() << std::endl;
-    std::cout << "Resulting flow:" << std::endl;
-    for (unsigned i = 0; i < network_size; i++)
-    {
-        for (unsigned j = 0; j < network_size; j++)
-        {
-            std::cout << flows[i][j] << " ";
-        }
-        std::cout << std::endl;
-    }
-#endif
 
     return flows;
 }
@@ -409,10 +330,6 @@ solution paths_from_flow_chained(
             }
         }
 
-#ifdef DEBUG
-        std::cout << "Extending flow" << std::endl;
-#endif
-
         double extend_flow = 0.0;
         last_flow = __solve_flow(
             network_demands,
@@ -429,10 +346,6 @@ solution paths_from_flow_chained(
                 flows[i][j] += last_flow[i][j];
             }
         }
-
-#ifdef DEBUG
-        std::cout << "Flow extended by " << extend_flow << std::endl;
-#endif
 
         if (extend_flow < TOLERANCE)
         {
@@ -478,27 +391,80 @@ bool feasible(const py::object &py_individual)
     return py::cast<bool>(py_individual.attr("feasible")());
 }
 
-py::object educate(const py::object py_individual)
+std::pair<std::vector<std::set<unsigned>>, std::vector<std::vector<std::set<unsigned>>>> get_paths(const py::object &py_individual)
 {
-    return py_individual.attr("educate")();
+    auto truck_paths = py::cast<std::vector<std::set<unsigned>>>(py_individual.attr("truck_paths"));
+    auto drone_paths = py::cast<std::vector<std::vector<std::set<unsigned>>>>(py_individual.attr("drone_paths"));
+
+    return std::make_pair(truck_paths, drone_paths);
 }
 
-std::pair<std::optional<py::object>, py::object> local_search(
-    const std::vector<std::set<unsigned>> &truck_paths,
-    const std::vector<std::vector<std::set<unsigned>>> &drone_paths)
+py::object new_individual(
+    const std::vector<std::set<unsigned int>> &new_truck_paths,
+    const std::vector<std::vector<std::set<unsigned int>>> &new_drone_paths)
 {
-    py::object py_VRPDFDSolution = py::module::import("ga.vrpdfd.solutions").attr("VRPDFDSolution"),
-               py_from_cache = py::module::import("ga.vrpdfd.individuals").attr("VRPDFDIndividual").attr("from_cache"),
-               py_self = py_from_cache(
-                   py::arg("solution_cls") = py_VRPDFDSolution,
-                   py::arg("truck_paths") = truck_paths_cast(truck_paths),
-                   py::arg("drone_paths") = drone_paths_cast(drone_paths)),
-               py_result_any = py_self;
+    auto py_VRPDFDSolution = py::module::import("ga.vrpdfd.solutions").attr("VRPDFDSolution"),
+         py_from_cache = py::module::import("ga.vrpdfd.individuals").attr("VRPDFDIndividual").attr("from_cache");
 
-    std::optional<py::object> py_result_feasible;
-    if (feasible(py_self))
+    return py_from_cache(
+        py::arg("solution_cls") = py_VRPDFDSolution,
+        py::arg("truck_paths") = truck_paths_cast(new_truck_paths),
+        py::arg("drone_paths") = drone_paths_cast(new_drone_paths));
+}
+
+py::object educate(const py::object &py_individual)
+{
+    // return py_individual;
+    std::vector<bool> exists(Customer::customers.size());
+
+    auto [truck_paths, drone_paths] = get_paths(py_individual);
+    for (auto &path : truck_paths)
     {
-        py_result_feasible = py_self;
+        for (auto customer : path)
+        {
+            exists[customer] = true;
+        }
+    }
+    for (auto &paths : drone_paths)
+    {
+        for (auto &path : paths)
+        {
+            for (auto customer : path)
+            {
+                exists[customer] = true;
+            }
+        }
+    }
+
+    std::vector<unsigned> new_path = {0};
+    for (unsigned customer = 1; customer < Customer::customers.size(); customer++)
+    {
+        if (!exists[customer])
+        {
+            new_path.push_back(customer);
+        }
+    }
+
+    py::object py_result = py_individual, py_new_path = py_frozenset(new_path.begin(), new_path.end());
+    for (unsigned drone = 0; drone < drone_paths.size(); drone++)
+    {
+        py_result = std::min(py_result, py_individual.attr("append_drone_path")(drone, py_new_path));
+    }
+
+    return py_result;
+}
+
+std::pair<std::optional<py::object>, py::object> local_search(const py::object &py_individual)
+{
+    auto paths = get_paths(py_individual);
+    auto truck_paths = paths.first;
+    auto drone_paths = paths.second;
+
+    py::object py_result_any = py_individual;
+    std::optional<py::object> py_result_feasible;
+    if (feasible(py_individual))
+    {
+        py_result_feasible = py_individual;
     }
 
     unsigned trucks_count = truck_paths.size(),
@@ -508,7 +474,7 @@ std::pair<std::optional<py::object>, py::object> local_search(
     std::cout << "Local search for " << trucks_count << " truck(s) and " << drones_count << " drone(s)" << std::endl;
 #endif
 
-    auto copy = [&truck_paths, drone_paths]()
+    auto copy = [&truck_paths, &drone_paths]()
     {
         std::vector<std::set<unsigned>> new_truck_paths;
         for (auto &path : truck_paths)
@@ -550,6 +516,10 @@ std::pair<std::optional<py::object>, py::object> local_search(
         }
     }
 
+#ifdef DEBUG
+    std::cout << "Adding absent customers" << std::endl;
+#endif
+
     // Attempt to add absent customers
     std::vector<unsigned> absent;
     for (unsigned customer = 1; customer < Customer::customers.size(); customer++)
@@ -565,16 +535,13 @@ std::pair<std::optional<py::object>, py::object> local_search(
         auto [new_truck_paths, new_drone_paths] = copy();
         new_truck_paths[truck].insert(absent.begin(), absent.end());
 
-        py::object new_individual = py_from_cache(
-            py::arg("solution_cls") = py_VRPDFDSolution,
-            py::arg("truck_paths") = truck_paths_cast(new_truck_paths),
-            py::arg("drone_paths") = drone_paths_cast(new_drone_paths));
+        py::object py_new_individual = new_individual(new_truck_paths, new_drone_paths);
 
-        if (feasible(new_individual))
+        if (feasible(py_new_individual))
         {
-            py_result_feasible = std::min(py_result_feasible.value_or(new_individual), new_individual);
+            py_result_feasible = std::min(py_result_feasible.value_or(py_new_individual), py_new_individual);
         }
-        py_result_any = std::min(py_result_any, new_individual);
+        py_result_any = std::min(py_result_any, py_new_individual);
     }
 
     std::vector<unsigned> new_path = absent;
@@ -588,24 +555,21 @@ std::pair<std::optional<py::object>, py::object> local_search(
             auto [new_truck_paths, new_drone_paths] = copy();
             new_drone_paths[drone][path].insert(absent.begin(), absent.end());
 
-            py::object new_individual = py_from_cache(
-                py::arg("solution_cls") = py_VRPDFDSolution,
-                py::arg("truck_paths") = truck_paths_cast(new_truck_paths),
-                py::arg("drone_paths") = drone_paths_cast(new_drone_paths));
+            py::object py_new_individual = new_individual(new_truck_paths, new_drone_paths);
 
-            if (feasible(new_individual))
+            if (feasible(py_new_individual))
             {
-                py_result_feasible = std::min(py_result_feasible.value_or(new_individual), new_individual);
+                py_result_feasible = std::min(py_result_feasible.value_or(py_new_individual), py_new_individual);
             }
-            py_result_any = std::min(py_result_any, new_individual);
+            py_result_any = std::min(py_result_any, py_new_individual);
         }
 
-        py::object new_individual = py_self.attr("append_drone_path")(drone, py_new_path);
-        if (feasible(new_individual))
+        py::object py_new_individual = py_individual.attr("append_drone_path")(drone, py_new_path);
+        if (feasible(py_new_individual))
         {
-            py_result_feasible = std::min(py_result_feasible.value_or(new_individual), new_individual);
+            py_result_feasible = std::min(py_result_feasible.value_or(py_new_individual), py_new_individual);
         }
-        py_result_any = std::min(py_result_any, new_individual);
+        py_result_any = std::min(py_result_any, py_new_individual);
     }
 
     // Remove elements in both sets
@@ -635,6 +599,10 @@ std::pair<std::optional<py::object>, py::object> local_search(
     remove_intersection(in_truck_paths);
     remove_intersection(in_drone_paths);
 
+#ifdef DEBUG
+    std::cout << "Swapping all customers in truck paths with all customers in drone paths" << std::endl;
+#endif
+
     // Swap all customers in truck paths with all customers in drone paths
     {
         auto [new_truck_paths, new_drone_paths] = copy();
@@ -658,20 +626,21 @@ std::pair<std::optional<py::object>, py::object> local_search(
             }
         }
 
-        py::object new_individual = py_from_cache(
-            py::arg("solution_cls") = py_VRPDFDSolution,
-            py::arg("truck_paths") = truck_paths_cast(new_truck_paths),
-            py::arg("drone_paths") = drone_paths_cast(new_drone_paths));
+        py::object py_new_individual = new_individual(new_truck_paths, new_drone_paths);
 
-        if (feasible(new_individual))
+        if (feasible(py_new_individual))
         {
-            py_result_feasible = std::min(py_result_feasible.value_or(new_individual), new_individual);
+            py_result_feasible = std::min(py_result_feasible.value_or(py_new_individual), py_new_individual);
         }
-        py_result_any = std::min(py_result_any, new_individual);
+        py_result_any = std::min(py_result_any, py_new_individual);
     }
 
     std::vector<unsigned> in_truck_paths_vector(in_truck_paths.begin(), in_truck_paths.end()),
         in_drone_paths_vector(in_drone_paths.begin(), in_drone_paths.end());
+
+#ifdef DEBUG
+    std::cout << "Brute-force swapping" << std::endl;
+#endif
 
     // Brute-force swap
     for (unsigned truck_i = 0; truck_i < in_truck_paths_vector.size(); truck_i++)
@@ -703,22 +672,19 @@ std::pair<std::optional<py::object>, py::object> local_search(
                         }
                     }
 
-                    py::object new_individual = py_from_cache(
-                        py::arg("solution_cls") = py_VRPDFDSolution,
-                        py::arg("truck_paths") = truck_paths_cast(new_truck_paths),
-                        py::arg("drone_paths") = drone_paths_cast(new_drone_paths));
+                    py::object py_new_individual = new_individual(new_truck_paths, new_drone_paths);
 
-                    if (feasible(new_individual))
+                    if (feasible(py_new_individual))
                     {
-                        py_result_feasible = std::min(py_result_feasible.value_or(new_individual), new_individual);
+                        py_result_feasible = std::min(py_result_feasible.value_or(py_new_individual), py_new_individual);
                     }
-                    py_result_any = std::min(py_result_any, new_individual);
+                    py_result_any = std::min(py_result_any, py_new_individual);
                 }
             }
         }
     }
 
-    return std::make_pair(py_result_feasible, educate(py_result_any));
+    return std::make_pair(py_result_feasible, py_result_any);
 }
 
 PYBIND11_MODULE(cpp_utils, m)
@@ -737,5 +703,8 @@ PYBIND11_MODULE(cpp_utils, m)
         py::call_guard<py::gil_scoped_release>());
     m.def(
         "local_search", &local_search,
-        py::arg("truck_paths"), py::arg("drone_paths")); // Do not release the GIL
+        py::arg("py_individual")); // Do not release the GIL
+    m.def(
+        "educate", &educate,
+        py::arg("py_individual")); // Do not release the GIL
 }

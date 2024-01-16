@@ -8,6 +8,7 @@ __all__ = (
     "paths_from_flow",
     "paths_from_flow_chained",
     "local_search",
+    "educate",
 )
 
 
@@ -42,7 +43,5 @@ def paths_from_flow_chained(
 ]: ...
 
 
-def local_search(
-    truck_paths: Sequence[AbstractSet[int]],
-    drone_paths: Sequence[Sequence[AbstractSet[int]]],
-) -> Tuple[Optional[VRPDFDIndividual], VRPDFDIndividual]: ...
+def local_search(py_individual: VRPDFDIndividual) -> Tuple[Optional[VRPDFDIndividual], VRPDFDIndividual]: ...
+def educate(py_individual: VRPDFDIndividual) -> VRPDFDIndividual: ...
