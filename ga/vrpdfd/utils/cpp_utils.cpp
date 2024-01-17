@@ -451,6 +451,24 @@ py::object educate(const py::object &py_individual)
         py_result = std::min(py_result, py_individual.attr("append_drone_path")(drone, py_new_path));
     }
 
+    /*
+    auto flattened_paths = py::cast<std::vector<py::frozenset>>(py_individual.attr("flatten")());
+    for (unsigned i = 0; i < flattened_paths.size(); i++)
+    {
+        auto old_path = flattened_paths[i];
+
+        std::set<unsigned> extended(new_path.begin(), new_path.end());
+        for (auto c : old_path)
+        {
+            extended.insert(py::cast<unsigned>(c));
+        }
+        flattened_paths[i] = py_frozenset(extended.begin(), extended.end());
+
+        py_result = std::min(py_result, py_individual.attr("reconstruct")(flattened_paths));
+        flattened_paths[i] = old_path;
+    }
+    */
+
     return py_result;
 }
 

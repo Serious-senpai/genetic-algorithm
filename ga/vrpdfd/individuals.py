@@ -310,18 +310,7 @@ class VRPDFDIndividual(BaseIndividual):
 
     def educate(self) -> VRPDFDIndividual:
         if self.__educated is None:
-            config = ProblemConfig.get_config()
-
-            decoded = self.decode()
-            paths = self.flatten()
-            for path_index, drone_path in enumerate(itertools.chain(*decoded.drone_paths)):
-                if len(drone_path) > 3:
-                    to_remove, _ = min(drone_path, key=lambda c: float("inf") if c[0] == 0 else c[1])
-                    index = config.trucks_count + path_index
-
-                    paths[index] = paths[index].difference([to_remove])
-
-            self.__educated = educate(min(self, self.reconstruct(paths)))
+            self.__educated = educate(self)
 
         return self.__educated
 
