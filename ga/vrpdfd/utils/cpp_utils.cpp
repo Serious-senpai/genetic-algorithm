@@ -414,7 +414,9 @@ py::object new_individual(
 
 py::object educate(const py::object &py_individual)
 {
-    // return py_individual;
+    py::object py_result = py_individual;
+
+    /*
     std::vector<bool> exists(Customer::customers.size());
 
     auto [truck_paths, drone_paths] = get_paths(py_individual);
@@ -445,13 +447,12 @@ py::object educate(const py::object &py_individual)
         }
     }
 
-    py::object py_result = py_individual, py_new_path = py_frozenset(new_path.begin(), new_path.end());
+    auto py_new_path = py_frozenset(new_path.begin(), new_path.end());
     for (unsigned drone = 0; drone < drone_paths.size(); drone++)
     {
         py_result = std::min(py_result, py_individual.attr("append_drone_path")(drone, py_new_path));
     }
 
-    /*
     auto flattened_paths = py::cast<std::vector<py::frozenset>>(py_individual.attr("flatten")());
     for (unsigned i = 0; i < flattened_paths.size(); i++)
     {
