@@ -25,7 +25,7 @@ if TYPE_CHECKING:
 
 from .config import ProblemConfig
 from .errors import PopulationInitializationException
-from .utils import local_search, paths_from_flow_chained
+from .utils import educate, local_search, paths_from_flow_chained
 from ..abc import SingleObjectiveIndividual
 from ..utils import LRUCache, weighted_random, weighted_random_choice
 if TYPE_CHECKING:
@@ -310,18 +310,7 @@ class VRPDFDIndividual(BaseIndividual):
 
     def educate(self) -> VRPDFDIndividual:
         if self.__educated is None:
-            config = ProblemConfig.get_config()
-
-            decoded = self.decode()
-            paths = self.flatten()
-            for path_index, drone_path in enumerate(itertools.chain(*decoded.drone_paths)):
-                if len(drone_path) > 3:
-                    to_remove, _ = min(drone_path, key=lambda c: float("inf") if c[0] == 0 else c[1])
-                    index = config.trucks_count + path_index
-
-                    paths[index] = paths[index].difference([to_remove])
-
-            self.__educated = min(self, self.reconstruct(paths))
+            self.__educated = educate(self)
 
         return self.__educated
 
@@ -332,7 +321,7 @@ class VRPDFDIndividual(BaseIndividual):
     def local_search(self, *, prioritize_feasible: bool = False) -> VRPDFDIndividual:
         """Just like educate(), but more expensive"""
         if self.__local_searched is None:
-            self.__local_searched = local_search(self.truck_paths, self.drone_paths)
+            self.__local_searched = local_search(self)
 
         feasible, any = self.__local_searched
         if prioritize_feasible and feasible is not None:
