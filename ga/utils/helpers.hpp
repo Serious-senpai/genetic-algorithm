@@ -121,10 +121,10 @@ double sqrt_impl(const double value)
         return 0.0;
     }
 
-    double low = 0.0, high = value;
-    while (high - low > 1.0e-9)
+    double low = 0.0, high = std::max(1.0, value);
+    while (high - low > 1.0e-6)
     {
-        double mid = (low + high) / 2;
+        double mid = (low + high) / 2.0;
         if (mid * mid < value)
         {
             low = mid;
