@@ -16,19 +16,20 @@
 #include "../../utils/helpers.hpp"
 
 namespace py = pybind11;
-const double TOLERANCE = 1e-5;
+typedef int volume_t;
 typedef std::pair<std::vector<std::set<unsigned>>, std::vector<std::vector<std::set<unsigned>>>> individual;
-typedef std::pair<std::vector<std::map<unsigned, double>>, std::vector<std::vector<std::map<unsigned, double>>>> solution;
+typedef std::pair<std::vector<std::map<unsigned, volume_t>>, std::vector<std::vector<std::map<unsigned, volume_t>>>> solution;
 
 struct Customer
 {
-    const double low, high, w, x, y;
-    static double total_low, total_high;
+    const volume_t low, high, w;
+    const double x, y;
+    static volume_t total_low, total_high;
     static std::vector<Customer> customers;
     static std::vector<std::vector<double>> distances;
     static std::vector<std::vector<unsigned>> nearests;
 
-    Customer(double low, double high, double w, double x, double y) : low(low), high(high), w(w), x(x), y(y) {}
+    Customer(volume_t low, volume_t high, volume_t w, double x, double y) : low(low), high(high), w(w), x(x), y(y) {}
 
     std::pair<double, double> location() const
     {
@@ -40,12 +41,12 @@ std::vector<Customer> Customer::customers;
 std::vector<std::vector<double>> Customer::distances;
 std::vector<std::vector<unsigned>> Customer::nearests;
 
-double Customer::total_low = 0.0, Customer::total_high = 0.0;
+volume_t Customer::total_low = 0, Customer::total_high = 0;
 
 void set_customers(
-    const std::vector<double> &low,
-    const std::vector<double> &high,
-    const std::vector<double> &w,
+    const std::vector<volume_t> &low,
+    const std::vector<volume_t> &high,
+    const std::vector<volume_t> &w,
     const std::vector<double> &x,
     const std::vector<double> &y)
 {
@@ -95,14 +96,14 @@ void set_customers(
 solution paths_from_flow(
     const unsigned truck_paths_count,
     const std::vector<unsigned> &drone_paths_count,
-    const std::vector<std::vector<double>> &flows,
+    const std::vector<std::vector<volume_t>> &flows,
     const std::vector<std::set<unsigned>> &neighbors)
 {
     unsigned network_trucks_offset = 1,
              network_drones_offset = network_trucks_offset + truck_paths_count,
              network_customers_offset = network_trucks_offset + truck_paths_count + sum(drone_paths_count);
 
-    std::vector<std::map<unsigned, double>> truck_paths;
+    std::vector<std::map<unsigned, volume_t>> truck_paths;
     for (unsigned network_truck = network_trucks_offset; network_truck < network_drones_offset; network_truck++)
     {
         truck_paths.emplace_back();
@@ -116,7 +117,7 @@ solution paths_from_flow(
         }
     }
 
-    std::vector<std::vector<std::map<unsigned, double>>> drone_paths(drone_paths_count.size());
+    std::vector<std::vector<std::map<unsigned, volume_t>>> drone_paths(drone_paths_count.size());
     for (unsigned network_drone = network_drones_offset; network_drone < network_customers_offset; network_drone++)
     {
         unsigned drone = 0, from_offset = network_drone - network_drones_offset;
@@ -137,13 +138,13 @@ solution paths_from_flow(
         }
     }
 
-    return {truck_paths, drone_paths};
+    return std::make_pair(truck_paths, drone_paths);
 }
 
-std::vector<std::vector<double>> __solve_flow(
-    const std::vector<std::vector<double>> &network_demands,
-    const std::vector<std::vector<double>> &network_capacities,
-    const std::vector<std::vector<double>> &network_flow_weights,
+std::vector<std::vector<volume_t>> __solve_flow(
+    const std::vector<std::vector<volume_t>> &network_demands,
+    const std::vector<std::vector<volume_t>> &network_capacities,
+    const std::vector<std::vector<volume_t>> &network_flow_weights,
     const std::vector<std::set<unsigned>> &network_neighbors,
     const unsigned network_source,
     const unsigned network_sink)
@@ -158,7 +159,7 @@ std::vector<std::vector<double>> __solve_flow(
     }
 
     std::vector<std::map<unsigned, lemon::SmartDigraph::Arc>> arcs_mapping(network_size);
-    LemonMap<lemon::SmartDigraph::Arc, double> demands_map, capacities_map, flow_weights_map;
+    LemonMap<lemon::SmartDigraph::Arc, volume_t> demands_map, capacities_map, flow_weights_map;
     for (unsigned i = 0; i < network_size; i++)
     {
         for (auto neighbor : network_neighbors[i])
@@ -172,21 +173,21 @@ std::vector<std::vector<double>> __solve_flow(
         }
     }
 
-    lemon::NetworkSimplex<lemon::SmartDigraph, double, double> solver(graph);
+    lemon::NetworkSimplex<lemon::SmartDigraph, volume_t, volume_t> solver(graph);
     solver.lowerMap(demands_map);
     solver.upperMap(capacities_map);
     solver.costMap(flow_weights_map);
 
-    double total_out = 0;
+    volume_t total_out = 0;
     for (auto neighbor : network_neighbors[network_source])
     {
         total_out += network_capacities[network_source][neighbor];
     }
 
     solver.stSupply(nodes[network_source], nodes[network_sink], total_out);
-    if (solver.run() == lemon::NetworkSimplex<lemon::SmartDigraph, double, double>::INFEASIBLE)
+    if (solver.run() == lemon::NetworkSimplex<lemon::SmartDigraph, volume_t, volume_t>::INFEASIBLE)
     {
-        double total_demands = 0;
+        volume_t total_demands = 0;
         for (unsigned i = 0; i < network_size; i++)
         {
             for (auto neighbor : network_neighbors[i])
@@ -195,13 +196,13 @@ std::vector<std::vector<double>> __solve_flow(
             }
         }
 
-        double l = total_demands, r = total_out;
-        while (r - l > TOLERANCE)
+        volume_t l = total_demands, r = total_out;
+        while (r - l > 1)
         {
-            double m = (l + r) / 2;
+            volume_t m = (l + r) / 2;
 
             solver.stSupply(nodes[network_source], nodes[network_sink], m);
-            if (solver.run() == lemon::NetworkSimplex<lemon::SmartDigraph, double, double>::INFEASIBLE)
+            if (solver.run() == lemon::NetworkSimplex<lemon::SmartDigraph, volume_t, volume_t>::INFEASIBLE)
             {
                 r = m;
             }
@@ -215,10 +216,10 @@ std::vector<std::vector<double>> __solve_flow(
         solver.run();
     }
 
-    LemonMap<lemon::SmartDigraph::Arc, double> flows_mapping;
+    LemonMap<lemon::SmartDigraph::Arc, volume_t> flows_mapping;
     solver.flowMap(flows_mapping);
 
-    std::vector<std::vector<double>> flows(network_size, std::vector<double>(network_size, 0.0));
+    std::vector<std::vector<volume_t>> flows(network_size, std::vector<volume_t>(network_size, 0));
     for (unsigned i = 0; i < network_size; i++)
     {
         for (auto neighbor : network_neighbors[i])
@@ -233,8 +234,8 @@ std::vector<std::vector<double>> __solve_flow(
 solution paths_from_flow_chained(
     const std::vector<std::set<unsigned>> &truck_paths,
     const std::vector<std::vector<std::set<unsigned>>> &drone_paths,
-    const double truck_capacity,
-    const double drone_capacity)
+    const volume_t truck_capacity,
+    const volume_t drone_capacity)
 {
     unsigned trucks_count = truck_paths.size(),
              drones_count = drone_paths.size(),
@@ -251,9 +252,9 @@ solution paths_from_flow_chained(
              network_source = 0, network_sink = network_customers_offset + customers_count,
              network_size = network_sink + 1;
 
-    std::vector<std::vector<double>> network_demands(network_size, std::vector<double>(network_size, 0.0)),
-        network_capacities(network_size, std::vector<double>(network_size, 0.0)),
-        network_flow_weights(network_size, std::vector<double>(network_size, 0.0));
+    std::vector<std::vector<volume_t>> network_demands(network_size, std::vector<volume_t>(network_size, 0)),
+        network_capacities(network_size, std::vector<volume_t>(network_size, 0)),
+        network_flow_weights(network_size, std::vector<volume_t>(network_size, 0));
     std::vector<std::set<unsigned>> network_neighbors(network_size);
 
     for (unsigned i = 1; i < network_customers_offset; i++)
@@ -308,50 +309,12 @@ solution paths_from_flow_chained(
     }
 
     auto flows = __solve_flow(
-             network_demands,
-             network_capacities,
-             network_flow_weights,
-             network_neighbors,
-             network_source,
-             network_sink),
-         last_flow = flows;
-
-    while (true)
-    {
-        for (unsigned i = 0; i < network_size; i++)
-        {
-            for (unsigned j = 0; j < network_size; j++)
-            {
-                network_demands[i][j] -= last_flow[i][j];
-                network_capacities[i][j] -= last_flow[i][j];
-
-                network_demands[i][j] = std::max(0.0, network_demands[i][j]);
-                network_capacities[i][j] = std::max(0.0, network_capacities[i][j]);
-            }
-        }
-
-        double extend_flow = 0.0;
-        last_flow = __solve_flow(
-            network_demands,
-            network_capacities,
-            network_flow_weights,
-            network_neighbors,
-            network_source,
-            network_sink);
-        for (unsigned i = 0; i < network_size; i++)
-        {
-            for (unsigned j = 0; j < network_size; j++)
-            {
-                extend_flow += last_flow[i][j];
-                flows[i][j] += last_flow[i][j];
-            }
-        }
-
-        if (extend_flow < TOLERANCE)
-        {
-            break;
-        }
-    }
+        network_demands,
+        network_capacities,
+        network_flow_weights,
+        network_neighbors,
+        network_source,
+        network_sink);
 
     return paths_from_flow(trucks_count, drone_paths_count, flows, network_neighbors);
 }

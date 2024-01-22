@@ -39,23 +39,23 @@ class VRPDFDSolution(SingleObjectiveSolution[VRPDFDIndividual]):
         __drone_distance: Optional[float]
         __truck_distances: Optional[Tuple[float, ...]]
         __drone_distances: Optional[Tuple[Tuple[float, ...], ...]]
-        __revenue: Optional[float]
+        __revenue: Optional[int]
         __cost: Optional[float]
         __fine: Optional[float]
         __fine_coefficient: float
-        truck_paths: Final[Tuple[Tuple[Tuple[int, float], ...], ...]]
-        drone_paths: Final[Tuple[Tuple[Tuple[Tuple[int, float], ...], ...], ...]]
+        truck_paths: Final[Tuple[Tuple[Tuple[int, int], ...], ...]]
+        drone_paths: Final[Tuple[Tuple[Tuple[Tuple[int, int], ...], ...], ...]]
 
     def __init__(
         self,
         *,
-        truck_paths: Tuple[Tuple[Tuple[int, float], ...], ...],
-        drone_paths: Tuple[Tuple[Tuple[Tuple[int, float], ...], ...], ...],
+        truck_paths: Tuple[Tuple[Tuple[int, int], ...], ...],
+        drone_paths: Tuple[Tuple[Tuple[Tuple[int, int], ...], ...], ...],
         truck_distance: Optional[float] = None,
         drone_distance: Optional[float] = None,
         truck_distances: Optional[Tuple[float, ...]] = None,
         drone_distances: Optional[Tuple[Tuple[float, ...], ...]] = None,
-        revenue: Optional[float] = None,
+        revenue: Optional[int] = None,
         cost: Optional[float] = None,
         fine: Optional[float] = None,
     ) -> None:
@@ -178,7 +178,7 @@ class VRPDFDSolution(SingleObjectiveSolution[VRPDFDIndividual]):
     @property
     def revenue(self) -> float:
         if self.__revenue is None:
-            revenue = 0.0
+            revenue = 0
             config = ProblemConfig.get_config()
             for path in self.truck_paths:
                 for value in path:

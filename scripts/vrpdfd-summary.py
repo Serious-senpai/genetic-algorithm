@@ -67,18 +67,18 @@ def read_milp_solution(data: MILPSolutionJSON) -> VRPDFDSolution:
     except KeyError:
         problem_size = int(data["data_set"].split(".")[0])
 
-        truck_volumes: List[DefaultDict[int, float]] = []
+        truck_volumes: List[DefaultDict[int, int]] = []
         for key, value in data["cusWeightByTruck"].items():
             match = re.fullmatch(r"m\[(\d+),(\d+)\]", key)
             assert match is not None
 
             customer, truck = map(int, match.groups())
             while len(truck_volumes) <= truck:
-                truck_volumes.append(defaultdict(lambda: 0.0))
+                truck_volumes.append(defaultdict(lambda: 0))
 
-            truck_volumes[truck][customer] = round(value, 4)
+            truck_volumes[truck][customer] = round(value)
 
-        drone_volumes: List[List[DefaultDict[int, float]]] = []
+        drone_volumes: List[List[DefaultDict[int, int]]] = []
         for key, value in data["cusWeightByDrone"].items():
             match = re.fullmatch(r"m\[(\d+),(\d+),(\d+)\]", key)
             assert match is not None
@@ -88,9 +88,9 @@ def read_milp_solution(data: MILPSolutionJSON) -> VRPDFDSolution:
                 drone_volumes.append([])
 
             while len(drone_volumes[drone]) <= path_id:
-                drone_volumes[drone].append(defaultdict(lambda: 0.0))
+                drone_volumes[drone].append(defaultdict(lambda: 0))
 
-            drone_volumes[drone][path_id][customer] = round(value, 4)
+            drone_volumes[drone][path_id][customer] = round(value)
 
         truck_after: List[Dict[int, int]] = []
         for key, value in data["truck"].items():
@@ -119,7 +119,7 @@ def read_milp_solution(data: MILPSolutionJSON) -> VRPDFDSolution:
 
                 drone_after[drone][path_id][before] = after
 
-        truck_paths: List[List[Tuple[int, float]]] = []
+        truck_paths: List[List[Tuple[int, int]]] = []
         for truck, path_data in enumerate(truck_after):
             truck_paths.append([])
             current = 0
@@ -127,9 +127,9 @@ def read_milp_solution(data: MILPSolutionJSON) -> VRPDFDSolution:
                 truck_paths[-1].append((current, truck_volumes[truck][current]))
                 current = path_data[current]
 
-            truck_paths[-1].append((0, 0.0))
+            truck_paths[-1].append((0, 0))
 
-        drone_paths: List[List[List[Tuple[int, float]]]] = []
+        drone_paths: List[List[List[Tuple[int, int]]]] = []
         for drone, paths_data in enumerate(drone_after):
             drone_paths.append([])
             for path_id, path_data in enumerate(paths_data):
@@ -139,7 +139,7 @@ def read_milp_solution(data: MILPSolutionJSON) -> VRPDFDSolution:
                     drone_paths[-1][-1].append((current, drone_volumes[drone][path_id][current]))
                     current = path_data[current]
 
-                drone_paths[-1][-1].append((0, 0.0))
+                drone_paths[-1][-1].append((0, 0))
 
         _read_milp_solution_cache[data["data_set"]] = solution = VRPDFDSolution(
             truck_paths=tuple(map(tuple, truck_paths)),

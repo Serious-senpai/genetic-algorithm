@@ -23,9 +23,9 @@ __all__ = (
 class Customer:
     x: float
     y: float
-    low: float
-    high: float
-    w: float
+    low: int
+    high: int
+    w: int
 
     @property
     def location(self) -> Tuple[float, float]:
@@ -35,7 +35,7 @@ class Customer:
 @dataclass(frozen=True, kw_only=True, slots=True)
 class Vehicle:
     speed: float
-    capacity: float
+    capacity: int
     cost_coefficient: float
     time_limit: float
 
@@ -117,7 +117,12 @@ class ProblemConfig:
 
                     if row[2] == problem:
                         trucks_count, drones_count, time_limit, truck_capacity, drone_capacity, drone_speed, truck_speed, drone_duration = map(float, row[6:])
-                        assert trucks_count.is_integer() and drones_count.is_integer()
+                        assert (
+                            trucks_count.is_integer()
+                            and drones_count.is_integer()
+                            and truck_capacity.is_integer()
+                            and drone_capacity.is_integer()
+                        )
 
                         self.trucks_count = int(trucks_count)
                         self.drones_count = int(drones_count)
@@ -128,22 +133,23 @@ class ProblemConfig:
                             truck_coefficient = data["truck_cost_over_time"] / truck_speed
                             drone_coefficient = data["drone_cost_over_time"] / drone_speed
 
-                        self.truck = Vehicle(speed=truck_speed, capacity=truck_capacity, cost_coefficient=truck_coefficient, time_limit=10 ** 9)
-                        self.drone = Vehicle(speed=drone_speed, capacity=drone_capacity, cost_coefficient=drone_coefficient, time_limit=drone_duration)
+                        self.truck = Vehicle(speed=truck_speed, capacity=int(truck_capacity), cost_coefficient=truck_coefficient, time_limit=10 ** 9)
+                        self.drone = Vehicle(speed=drone_speed, capacity=int(drone_capacity), cost_coefficient=drone_coefficient, time_limit=drone_duration)
 
                         break
 
             file_path = path.join("problems", "vrpdfd", f"{problem}.csv")
             with open(file_path, "r", encoding="utf-8", newline="") as file:
                 header = True  # Skip header
-                customers = [Customer(x=0.0, y=0.0, low=0.0, high=0.0, w=0.0)]
+                customers = [Customer(x=0.0, y=0.0, low=0, high=0, w=0)]
                 for row in csv.reader(file):
                     if header:
                         header = False
                         continue
 
                     _, x, y, low, high, w = map(float, row)
-                    customers.append(Customer(x=x, y=y, low=low, high=high, w=w))
+                    assert low.is_integer() and high.is_integer() and w.is_integer()
+                    customers.append(Customer(x=x, y=y, low=int(low), high=int(high), w=int(w)))
 
                 customers_count = len(customers)
                 self.customers = tuple(customers)

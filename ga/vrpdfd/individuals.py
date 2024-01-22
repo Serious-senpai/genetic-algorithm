@@ -120,14 +120,14 @@ class VRPDFDIndividual(BaseIndividual):
 
     @overload
     @staticmethod
-    def calculate_distance(path: Sequence[int]) -> float: ...
+    def calculate_distance(path: Sequence[int], /) -> float: ...
 
     @overload
     @staticmethod
-    def calculate_distance(path: FrozenSet[int]) -> float: ...
+    def calculate_distance(path: FrozenSet[int], /) -> float: ...
 
     @staticmethod
-    def calculate_distance(path: Union[Sequence[int], FrozenSet[int]]) -> float:
+    def calculate_distance(path: Union[Sequence[int], FrozenSet[int]], /) -> float:
         config = ProblemConfig.get_config()
         if isinstance(path, frozenset):
             distance, _ = config.path_order(path)
@@ -208,7 +208,7 @@ class VRPDFDIndividual(BaseIndividual):
                 drone_capacity=config.drone.capacity,
             )
 
-            truck_paths: List[List[Tuple[int, float]]] = []
+            truck_paths: List[List[Tuple[int, int]]] = []
             for truck, path in enumerate(self.truck_paths):
                 truck_paths.append([])
                 _, ordered = config.path_order(path)
@@ -218,7 +218,7 @@ class VRPDFDIndividual(BaseIndividual):
                     if customer == 0 or weight > 0.0:
                         truck_paths[-1].append((customer, weight))
 
-            drone_paths: List[List[List[Tuple[int, float]]]] = []
+            drone_paths: List[List[List[Tuple[int, int]]]] = []
             for drone, paths in enumerate(self.drone_paths):
                 drone_paths.append([])
                 for path_index, path in enumerate(paths):
