@@ -618,6 +618,7 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
     improved_ratio[1].resize(in_drone_paths_vector.size(), -1);
 
     {
+        // Calculate improved ratios
         std::vector<double> truck_paths_distance;
         for (auto &path : truck_paths)
         {
@@ -690,6 +691,7 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
     }
 #endif
 
+    // Filter customers with best improved ratios
     std::vector<unsigned> in_truck_paths_vector_best_ratio;
     for (unsigned truck_i = 0; truck_i < in_truck_paths_vector.size(); truck_i++)
     {
@@ -712,55 +714,61 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
     {
         for (auto truck_iter_2 = truck_iter_1; truck_iter_2 != in_truck_paths_vector_best_ratio.end(); truck_iter_2++)
         {
-            for (auto truck_iter_3 = std::lower_bound(in_truck_paths_vector.begin(), in_truck_paths_vector.end(), *truck_iter_2); truck_iter_3 != in_truck_paths_vector.end(); truck_iter_3++)
+            for (auto truck_iter_3 = truck_iter_2; truck_iter_3 != in_truck_paths_vector_best_ratio.end(); truck_iter_3++)
             {
-                for (auto drone_iter_1 = in_drone_paths_vector_best_ratio.begin(); drone_iter_1 != in_drone_paths_vector_best_ratio.end(); drone_iter_1++)
+                for (auto truck_iter_4 = std::lower_bound(in_truck_paths_vector.begin(), in_truck_paths_vector.end(), *truck_iter_3); truck_iter_4 != in_truck_paths_vector.end(); truck_iter_4++)
                 {
-                    for (auto drone_iter_2 = drone_iter_1; drone_iter_2 != in_drone_paths_vector_best_ratio.end(); drone_iter_2++)
+                    for (auto drone_iter_1 = in_drone_paths_vector_best_ratio.begin(); drone_iter_1 != in_drone_paths_vector_best_ratio.end(); drone_iter_1++)
                     {
-                        for (auto drone_iter_3 = std::lower_bound(in_drone_paths_vector.begin(), in_drone_paths_vector.end(), *drone_iter_2); drone_iter_3 != in_drone_paths_vector.end(); drone_iter_3++)
+                        for (auto drone_iter_2 = drone_iter_1; drone_iter_2 != in_drone_paths_vector_best_ratio.end(); drone_iter_2++)
                         {
-                            auto [new_truck_paths, new_drone_paths] = copy();
-                            unsigned from_trucks[] = {*truck_iter_1, *truck_iter_2, *truck_iter_3},
-                                     from_drones[] = {*drone_iter_1, *drone_iter_2, *drone_iter_3};
-
-                            for (auto &path : new_truck_paths)
+                            for (auto drone_iter_3 = drone_iter_2; drone_iter_3 != in_drone_paths_vector_best_ratio.end(); drone_iter_3++)
                             {
-                                for (auto customer : from_trucks)
+                                for (auto drone_iter_4 = std::lower_bound(in_drone_paths_vector.begin(), in_drone_paths_vector.end(), *drone_iter_3); drone_iter_4 != in_drone_paths_vector.end(); drone_iter_4++)
                                 {
-                                    path.erase(customer);
-                                }
-                                for (auto customer : from_drones)
-                                {
-                                    path.insert(customer);
-                                }
-                            }
+                                    auto [new_truck_paths, new_drone_paths] = copy();
+                                    unsigned from_trucks[] = {*truck_iter_1, *truck_iter_2, *truck_iter_3, *truck_iter_4},
+                                             from_drones[] = {*drone_iter_1, *drone_iter_2, *truck_iter_3, *drone_iter_4};
 
-                            for (auto &paths : new_drone_paths)
-                            {
-                                for (auto &path : paths)
-                                {
-                                    for (auto customer : from_drones)
+                                    for (auto &path : new_truck_paths)
                                     {
-                                        path.erase(customer);
+                                        for (auto customer : from_trucks)
+                                        {
+                                            path.erase(customer);
+                                        }
+                                        for (auto customer : from_drones)
+                                        {
+                                            path.insert(customer);
+                                        }
                                     }
-                                    for (auto customer : from_trucks)
-                                    {
-                                        path.insert(customer);
-                                    }
-                                }
-                            }
 
-                            py::object py_new_individual = new_individual(new_truck_paths, new_drone_paths);
+                                    for (auto &paths : new_drone_paths)
+                                    {
+                                        for (auto &path : paths)
+                                        {
+                                            for (auto customer : from_drones)
+                                            {
+                                                path.erase(customer);
+                                            }
+                                            for (auto customer : from_trucks)
+                                            {
+                                                path.insert(customer);
+                                            }
+                                        }
+                                    }
+
+                                    py::object py_new_individual = new_individual(new_truck_paths, new_drone_paths);
 #ifdef DEBUG
-                            counter++;
+                                    counter++;
 #endif
 
-                            if (feasible(py_new_individual))
-                            {
-                                py_result_feasible = std::min(py_result_feasible.value_or(py_new_individual), py_new_individual);
+                                    if (feasible(py_new_individual))
+                                    {
+                                        py_result_feasible = std::min(py_result_feasible.value_or(py_new_individual), py_new_individual);
+                                    }
+                                    py_result_any = std::min(py_result_any, py_new_individual);
+                                }
                             }
-                            py_result_any = std::min(py_result_any, py_new_individual);
                         }
                     }
                 }
