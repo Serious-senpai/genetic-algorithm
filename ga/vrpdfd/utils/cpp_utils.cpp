@@ -356,7 +356,7 @@ bool feasible(const py::object &py_individual)
     return py::cast<bool>(py_individual.attr("feasible")());
 }
 
-std::pair<std::vector<std::set<unsigned>>, std::vector<std::vector<std::set<unsigned>>>> get_paths(const py::object &py_individual)
+individual get_paths(const py::object &py_individual)
 {
     auto truck_paths = py::cast<std::vector<std::set<unsigned>>>(py_individual.attr("truck_paths"));
     auto drone_paths = py::cast<std::vector<std::vector<std::set<unsigned>>>>(py_individual.attr("drone_paths"));
@@ -364,27 +364,70 @@ std::pair<std::vector<std::set<unsigned>>, std::vector<std::vector<std::set<unsi
     return std::make_pair(truck_paths, drone_paths);
 }
 
+individual copy(
+    const std::vector<std::set<unsigned int>> &truck_paths,
+    const std::vector<std::vector<std::set<unsigned int>>> &drone_paths)
+{
+    std::vector<std::set<unsigned int>> new_truck_paths = truck_paths;
+    std::vector<std::vector<std::set<unsigned int>>> new_drone_paths = drone_paths;
+    return std::make_pair(new_truck_paths, new_drone_paths);
+}
+
 py::object new_individual(
     const std::vector<std::set<unsigned int>> &new_truck_paths,
-    const std::vector<std::vector<std::set<unsigned int>>> &new_drone_paths)
-{
-    auto py_VRPDFDSolution = py::module::import("ga.vrpdfd").attr("VRPDFDSolution"),
-         py_from_cache = py::module::import("ga.vrpdfd").attr("VRPDFDIndividual").attr("from_cache");
-
-    return py_from_cache(
-        py::arg("solution_cls") = py_VRPDFDSolution,
-        py::arg("truck_paths") = truck_paths_cast(new_truck_paths),
-        py::arg("drone_paths") = drone_paths_cast(new_drone_paths));
-}
+    const std::vector<std::vector<std::set<unsigned int>>> &new_drone_paths,
+    bool to_educate);
 
 py::object educate(const py::object &py_individual)
 {
-    py::object py_result = py_individual;
+    py::object py_result = py_individual,
+               py_decoded = py_individual.attr("decode")();
+
+    const bool feasibility = feasible(py_individual);
+    const auto [truck_paths, drone_paths] = get_paths(py_individual);
+    // unused: auto truck_paths = py::cast<std::vector<std::vector<std::pair<unsigned, volume_t>>>>(py_decoded.attr("truck_paths"));
+    const auto encoded_drone_paths = py::cast<std::vector<std::vector<std::vector<std::pair<unsigned, volume_t>>>>>(py_decoded.attr("drone_paths"));
+
+    {
+        auto [new_truck_paths, new_drone_paths] = copy(truck_paths, drone_paths);
+        for (unsigned drone = 0; drone < encoded_drone_paths.size(); drone++)
+        {
+            for (unsigned path = 0; path < encoded_drone_paths[drone].size(); path++)
+            {
+                if (encoded_drone_paths[drone][path].size() > 3)
+                {
+                    unsigned remove_customer = 0;
+                    volume_t remove_volume = -1;
+                    for (unsigned i = 1; i < encoded_drone_paths[drone][path].size() - 1; i++)
+                    {
+                        auto &[customer, volume] = encoded_drone_paths[drone][path][i];
+                        if (volume < remove_volume || remove_volume == -1)
+                        {
+                            remove_customer = customer;
+                            remove_volume = volume;
+                        }
+                    }
+
+                    new_drone_paths[drone][path].erase(remove_customer);
+                }
+            }
+        }
+
+        auto py_new_individual = new_individual(new_truck_paths, new_drone_paths, false);
+
+        if (feasible(py_new_individual))
+        {
+            py_result = feasibility ? std::min(py_result, py_new_individual) : py_new_individual;
+        }
+        else if (!feasibility)
+        {
+            py_result = std::min(py_result, py_new_individual);
+        }
+    }
 
     /*
     std::vector<bool> exists(Customer::customers.size());
 
-    auto [truck_paths, drone_paths] = get_paths(py_individual);
     for (auto &path : truck_paths)
     {
         for (auto customer : path)
@@ -438,6 +481,22 @@ py::object educate(const py::object &py_individual)
     return py_result;
 }
 
+py::object new_individual(
+    const std::vector<std::set<unsigned int>> &new_truck_paths,
+    const std::vector<std::vector<std::set<unsigned int>>> &new_drone_paths,
+    const bool to_educate = true)
+{
+    auto py_VRPDFDSolution = py::module::import("ga.vrpdfd").attr("VRPDFDSolution"),
+         py_from_cache = py::module::import("ga.vrpdfd").attr("VRPDFDIndividual").attr("from_cache");
+
+    auto result = py_from_cache(
+        py::arg("solution_cls") = py_VRPDFDSolution,
+        py::arg("truck_paths") = truck_paths_cast(new_truck_paths),
+        py::arg("drone_paths") = drone_paths_cast(new_drone_paths));
+
+    return to_educate ? educate(result) : result;
+}
+
 std::pair<std::optional<py::object>, py::object> local_search(const py::object &py_individual)
 {
     auto paths = get_paths(py_individual);
@@ -458,13 +517,6 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
     unsigned counter = 0;
     std::cout << "Local search for " << trucks_count << " truck(s) and " << drones_count << " drone(s)" << std::endl;
 #endif
-
-    auto copy = [&truck_paths, &drone_paths]()
-    {
-        std::vector<std::set<unsigned>> new_truck_paths = truck_paths;
-        std::vector<std::vector<std::set<unsigned>>> new_drone_paths = drone_paths;
-        return std::make_pair(new_truck_paths, new_drone_paths);
-    };
 
     std::set<unsigned> in_truck_paths = {0}, in_drone_paths = {0};
     for (unsigned i = 0; i < trucks_count; i++)
@@ -497,7 +549,7 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
 
     for (unsigned truck = 0; truck < trucks_count; truck++)
     {
-        auto [new_truck_paths, new_drone_paths] = copy();
+        auto [new_truck_paths, new_drone_paths] = copy(truck_paths, drone_paths);
         new_truck_paths[truck].insert(absent.begin(), absent.end());
 
         py::object py_new_individual = new_individual(new_truck_paths, new_drone_paths);
@@ -520,7 +572,7 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
     {
         for (unsigned path = 0; path < drone_paths[drone].size(); path++)
         {
-            auto [new_truck_paths, new_drone_paths] = copy();
+            auto [new_truck_paths, new_drone_paths] = copy(truck_paths, drone_paths);
             new_drone_paths[drone][path].insert(absent.begin(), absent.end());
 
             py::object py_new_individual = new_individual(new_truck_paths, new_drone_paths);
@@ -576,7 +628,7 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
 
     // Swap all customers in truck paths with all customers in drone paths
     {
-        auto [new_truck_paths, new_drone_paths] = copy();
+        auto [new_truck_paths, new_drone_paths] = copy(truck_paths, drone_paths);
         for (auto &path : new_truck_paths)
         {
             for (auto customer : in_truck_paths)
@@ -710,8 +762,8 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
         }
     }
 
-    unsigned truck_trade_limit = std::min(5u, (unsigned)in_truck_paths_vector_best_ratio.size()),
-             drone_trade_limit = std::min(5u, (unsigned)in_drone_paths_vector_best_ratio.size());
+    unsigned truck_trade_limit = std::min(4u, (unsigned)in_truck_paths_vector_best_ratio.size()),
+             drone_trade_limit = std::min(4u, (unsigned)in_drone_paths_vector_best_ratio.size());
     for (unsigned truck_trade = 0; truck_trade < truck_trade_limit; truck_trade++)
     {
         Combination<unsigned> truck_comb(in_truck_paths_vector_best_ratio, truck_trade);
@@ -722,7 +774,7 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
                 Combination<unsigned> drone_comb(in_drone_paths_vector_best_ratio, drone_trade);
                 while (!drone_comb.done())
                 {
-                    auto [new_truck_paths, new_drone_paths] = copy();
+                    auto [new_truck_paths, new_drone_paths] = copy(truck_paths, drone_paths);
                     for (auto customer : truck_comb.read())
                     {
                         for (auto &path : new_truck_paths)
@@ -748,6 +800,21 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
                             for (auto &path : paths)
                             {
                                 path.erase(customer);
+                            }
+                        }
+                    }
+
+                    for (auto customer : absent)
+                    {
+                        for (auto &path : new_truck_paths)
+                        {
+                            path.insert(customer);
+                        }
+                        for (auto &paths : new_drone_paths)
+                        {
+                            for (auto &path : paths)
+                            {
+                                path.insert(customer);
                             }
                         }
                     }
