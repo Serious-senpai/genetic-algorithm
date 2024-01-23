@@ -20,7 +20,7 @@ typedef int volume_t;
 typedef std::pair<std::vector<std::set<unsigned>>, std::vector<std::vector<std::set<unsigned>>>> individual;
 typedef std::pair<std::vector<std::map<unsigned, volume_t>>, std::vector<std::vector<std::map<unsigned, volume_t>>>> solution;
 
-const double LOCAL_SEARCH_IMPROVED_RATIO_REQUIRED = 0.94;
+const double LOCAL_SEARCH_IMPROVED_RATIO_REQUIRED = 0.98;
 
 struct Customer
 {
@@ -710,69 +710,64 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
         }
     }
 
-    for (auto truck_iter_1 = in_truck_paths_vector_best_ratio.begin(); truck_iter_1 != in_truck_paths_vector_best_ratio.end(); truck_iter_1++)
+    unsigned truck_trade_limit = std::min(5u, (unsigned)in_truck_paths_vector_best_ratio.size()),
+             drone_trade_limit = std::min(5u, (unsigned)in_drone_paths_vector_best_ratio.size());
+    for (unsigned truck_trade = 0; truck_trade < truck_trade_limit; truck_trade++)
     {
-        for (auto truck_iter_2 = truck_iter_1; truck_iter_2 != in_truck_paths_vector_best_ratio.end(); truck_iter_2++)
+        Combination<unsigned> truck_comb(in_truck_paths_vector_best_ratio, truck_trade);
+        while (!truck_comb.done())
         {
-            for (auto truck_iter_3 = truck_iter_2; truck_iter_3 != in_truck_paths_vector_best_ratio.end(); truck_iter_3++)
+            for (unsigned drone_trade = 0; drone_trade < drone_trade_limit; drone_trade++)
             {
-                for (auto truck_iter_4 = std::lower_bound(in_truck_paths_vector.begin(), in_truck_paths_vector.end(), *truck_iter_3); truck_iter_4 != in_truck_paths_vector.end(); truck_iter_4++)
+                Combination<unsigned> drone_comb(in_drone_paths_vector_best_ratio, drone_trade);
+                while (!drone_comb.done())
                 {
-                    for (auto drone_iter_1 = in_drone_paths_vector_best_ratio.begin(); drone_iter_1 != in_drone_paths_vector_best_ratio.end(); drone_iter_1++)
+                    auto [new_truck_paths, new_drone_paths] = copy();
+                    for (auto customer : truck_comb.read())
                     {
-                        for (auto drone_iter_2 = drone_iter_1; drone_iter_2 != in_drone_paths_vector_best_ratio.end(); drone_iter_2++)
+                        for (auto &path : new_truck_paths)
                         {
-                            for (auto drone_iter_3 = drone_iter_2; drone_iter_3 != in_drone_paths_vector_best_ratio.end(); drone_iter_3++)
+                            path.erase(customer);
+                        }
+                        for (auto &paths : new_drone_paths)
+                        {
+                            for (auto &path : paths)
                             {
-                                for (auto drone_iter_4 = std::lower_bound(in_drone_paths_vector.begin(), in_drone_paths_vector.end(), *drone_iter_3); drone_iter_4 != in_drone_paths_vector.end(); drone_iter_4++)
-                                {
-                                    auto [new_truck_paths, new_drone_paths] = copy();
-                                    unsigned from_trucks[] = {*truck_iter_1, *truck_iter_2, *truck_iter_3, *truck_iter_4},
-                                             from_drones[] = {*drone_iter_1, *drone_iter_2, *truck_iter_3, *drone_iter_4};
-
-                                    for (auto &path : new_truck_paths)
-                                    {
-                                        for (auto customer : from_trucks)
-                                        {
-                                            path.erase(customer);
-                                        }
-                                        for (auto customer : from_drones)
-                                        {
-                                            path.insert(customer);
-                                        }
-                                    }
-
-                                    for (auto &paths : new_drone_paths)
-                                    {
-                                        for (auto &path : paths)
-                                        {
-                                            for (auto customer : from_drones)
-                                            {
-                                                path.erase(customer);
-                                            }
-                                            for (auto customer : from_trucks)
-                                            {
-                                                path.insert(customer);
-                                            }
-                                        }
-                                    }
-
-                                    py::object py_new_individual = new_individual(new_truck_paths, new_drone_paths);
-#ifdef DEBUG
-                                    counter++;
-#endif
-
-                                    if (feasible(py_new_individual))
-                                    {
-                                        py_result_feasible = std::min(py_result_feasible.value_or(py_new_individual), py_new_individual);
-                                    }
-                                    py_result_any = std::min(py_result_any, py_new_individual);
-                                }
+                                path.insert(customer);
                             }
                         }
                     }
+                    for (auto customer : drone_comb.read())
+                    {
+                        for (auto &path : new_truck_paths)
+                        {
+                            path.insert(customer);
+                        }
+                        for (auto &paths : new_drone_paths)
+                        {
+                            for (auto &path : paths)
+                            {
+                                path.erase(customer);
+                            }
+                        }
+                    }
+
+                    py::object py_new_individual = new_individual(new_truck_paths, new_drone_paths);
+#ifdef DEBUG
+                    counter++;
+#endif
+
+                    if (feasible(py_new_individual))
+                    {
+                        py_result_feasible = std::min(py_result_feasible.value_or(py_new_individual), py_new_individual);
+                    }
+                    py_result_any = std::min(py_result_any, py_new_individual);
+
+                    drone_comb.next();
                 }
             }
+
+            truck_comb.next();
         }
     }
 

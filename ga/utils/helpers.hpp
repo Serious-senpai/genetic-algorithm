@@ -168,6 +168,93 @@ double distance(
     return distance(first.first - second.first, first.second - second.second);
 }
 
+template <typename T>
+class Combination
+{
+private:
+    const int _k;
+    const std::vector<T> _data;
+
+    std::vector<unsigned> _state;
+    bool _done = false;
+
+    bool _shift(const int index)
+    {
+        if (index < 0)
+        {
+            return false;
+        }
+
+        _state[index]++;
+        if (_state[index] == (index == _k - 1 ? _data.size() : _state[index + 1]))
+        {
+            _state[index]--;
+            bool shiftable = _shift(index - 1);
+            if (shiftable)
+            {
+                _state[index] = _state[index - 1] + 1;
+            }
+
+            return shiftable;
+        }
+
+        return true;
+    }
+
+public:
+    Combination(const std::vector<T> &data, const unsigned k) : _k(k), _data(data), _state(std::vector<unsigned>(k))
+    {
+        if (k > data.size())
+        {
+            _done = true;
+        }
+        else
+        {
+            for (unsigned i = 0; i < k; i++)
+            {
+                _state[i] = i;
+            }
+        }
+    }
+
+    std::vector<T> read()
+    {
+        if (_done)
+        {
+            throw std::runtime_error("Attempted to read from exhausted combination");
+        }
+
+        std::vector<T> result;
+        for (auto index : _state)
+        {
+            result.push_back(_data[index]);
+        }
+
+        return result;
+    }
+
+    bool next()
+    {
+        if (_done)
+        {
+            return false;
+        }
+
+        bool shiftable = _shift(_k - 1);
+        if (!shiftable)
+        {
+            _done = true;
+        }
+
+        return shiftable;
+    }
+
+    bool done()
+    {
+        return _done;
+    }
+};
+
 template <typename _ForwardIterator>
 py::tuple py_tuple(const _ForwardIterator &first, const _ForwardIterator &last)
 {
