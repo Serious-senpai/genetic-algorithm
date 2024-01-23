@@ -3,7 +3,7 @@ colorama==0.4.6
 contourpy==1.2.0
 cycler==0.12.1
 exceptiongroup==1.2.0
-flake8==6.1.0
+flake8==7.0.0
 fonttools==4.47.2
 iniconfig==2.0.0
 kiwisolver==1.4.5
