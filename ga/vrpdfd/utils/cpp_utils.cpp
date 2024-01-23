@@ -380,9 +380,10 @@ py::object new_individual(
 
 py::object educate(const py::object &py_individual)
 {
-    py::object py_result = py_individual,
-               py_decoded = py_individual.attr("decode")();
+    py::object py_result = py_individual;
 
+    /*
+    const auto py_decoded = py_individual.attr("decode")();
     const bool feasibility = feasible(py_individual);
     const auto [truck_paths, drone_paths] = get_paths(py_individual);
     // unused: auto truck_paths = py::cast<std::vector<std::vector<std::pair<unsigned, volume_t>>>>(py_decoded.attr("truck_paths"));
@@ -425,7 +426,6 @@ py::object educate(const py::object &py_individual)
         }
     }
 
-    /*
     std::vector<bool> exists(Customer::customers.size());
 
     for (auto &path : truck_paths)
