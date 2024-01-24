@@ -20,6 +20,8 @@ typedef int volume_t;
 typedef std::pair<std::vector<std::set<unsigned>>, std::vector<std::vector<std::set<unsigned>>>> individual;
 typedef std::pair<std::vector<std::map<unsigned, volume_t>>, std::vector<std::vector<std::map<unsigned, volume_t>>>> solution;
 
+const double LOCAL_SEARCH_IMPROVED_RATIO_REQUIRED = 0.98;
+
 struct Customer
 {
     const volume_t low, high, w;
@@ -91,6 +93,13 @@ void set_customers(
 
         Customer::nearests.push_back(all);
     }
+}
+
+template <typename _Container>
+std::pair<double, std::vector<unsigned>> path_order(const _Container &path)
+{
+    auto path_order_func = py::module::import("ga.vrpdfd").attr("ProblemConfig").attr("get_config")().attr("path_order");
+    return py::cast<std::pair<double, std::vector<unsigned>>>(path_order_func(py_frozenset(path.begin(), path.end())));
 }
 
 solution paths_from_flow(
@@ -173,7 +182,9 @@ std::vector<std::vector<volume_t>> __solve_flow(
         }
     }
 
-    lemon::NetworkSimplex<lemon::SmartDigraph, volume_t, volume_t> solver(graph);
+    typedef lemon::NetworkSimplex<lemon::SmartDigraph, volume_t, volume_t> NetworkSimplex;
+
+    NetworkSimplex solver(graph);
     solver.lowerMap(demands_map);
     solver.upperMap(capacities_map);
     solver.costMap(flow_weights_map);
@@ -185,24 +196,15 @@ std::vector<std::vector<volume_t>> __solve_flow(
     }
 
     solver.stSupply(nodes[network_source], nodes[network_sink], total_out);
-    if (solver.run() == lemon::NetworkSimplex<lemon::SmartDigraph, volume_t, volume_t>::INFEASIBLE)
+    if (solver.run() == NetworkSimplex::INFEASIBLE)
     {
-        volume_t total_demands = 0;
-        for (unsigned i = 0; i < network_size; i++)
-        {
-            for (auto neighbor : network_neighbors[i])
-            {
-                total_demands += network_demands[i][neighbor];
-            }
-        }
-
-        volume_t l = total_demands, r = total_out;
+        volume_t l = Customer::total_low, r = total_out;
         while (r - l > 1)
         {
             volume_t m = (l + r) / 2;
 
             solver.stSupply(nodes[network_source], nodes[network_sink], m);
-            if (solver.run() == lemon::NetworkSimplex<lemon::SmartDigraph, volume_t, volume_t>::INFEASIBLE)
+            if (solver.run() == NetworkSimplex::INFEASIBLE)
             {
                 r = m;
             }
@@ -231,7 +233,7 @@ std::vector<std::vector<volume_t>> __solve_flow(
     return flows;
 }
 
-solution paths_from_flow_chained(
+solution decode(
     const std::vector<std::set<unsigned>> &truck_paths,
     const std::vector<std::vector<std::set<unsigned>>> &drone_paths,
     const volume_t truck_capacity,
@@ -354,7 +356,7 @@ bool feasible(const py::object &py_individual)
     return py::cast<bool>(py_individual.attr("feasible")());
 }
 
-std::pair<std::vector<std::set<unsigned>>, std::vector<std::vector<std::set<unsigned>>>> get_paths(const py::object &py_individual)
+individual get_paths(const py::object &py_individual)
 {
     auto truck_paths = py::cast<std::vector<std::set<unsigned>>>(py_individual.attr("truck_paths"));
     auto drone_paths = py::cast<std::vector<std::vector<std::set<unsigned>>>>(py_individual.attr("drone_paths"));
@@ -362,27 +364,71 @@ std::pair<std::vector<std::set<unsigned>>, std::vector<std::vector<std::set<unsi
     return std::make_pair(truck_paths, drone_paths);
 }
 
+individual copy(
+    const std::vector<std::set<unsigned int>> &truck_paths,
+    const std::vector<std::vector<std::set<unsigned int>>> &drone_paths)
+{
+    std::vector<std::set<unsigned int>> new_truck_paths = truck_paths;
+    std::vector<std::vector<std::set<unsigned int>>> new_drone_paths = drone_paths;
+    return std::make_pair(new_truck_paths, new_drone_paths);
+}
+
 py::object new_individual(
     const std::vector<std::set<unsigned int>> &new_truck_paths,
-    const std::vector<std::vector<std::set<unsigned int>>> &new_drone_paths)
-{
-    auto py_VRPDFDSolution = py::module::import("ga.vrpdfd.solutions").attr("VRPDFDSolution"),
-         py_from_cache = py::module::import("ga.vrpdfd.individuals").attr("VRPDFDIndividual").attr("from_cache");
-
-    return py_from_cache(
-        py::arg("solution_cls") = py_VRPDFDSolution,
-        py::arg("truck_paths") = truck_paths_cast(new_truck_paths),
-        py::arg("drone_paths") = drone_paths_cast(new_drone_paths));
-}
+    const std::vector<std::vector<std::set<unsigned int>>> &new_drone_paths,
+    bool to_educate);
 
 py::object educate(const py::object &py_individual)
 {
     py::object py_result = py_individual;
 
+    const auto [truck_paths, drone_paths] = get_paths(py_individual);
     /*
+    const auto py_decoded = py_individual.attr("decode")();
+    const bool feasibility = feasible(py_individual);
+    // unused: auto truck_paths = py::cast<std::vector<std::vector<std::pair<unsigned, volume_t>>>>(py_decoded.attr("truck_paths"));
+    const auto encoded_drone_paths = py::cast<std::vector<std::vector<std::vector<std::pair<unsigned, volume_t>>>>>(py_decoded.attr("drone_paths"));
+
+    {
+        auto [new_truck_paths, new_drone_paths] = copy(truck_paths, drone_paths);
+        for (unsigned drone = 0; drone < encoded_drone_paths.size(); drone++)
+        {
+            for (unsigned path = 0; path < encoded_drone_paths[drone].size(); path++)
+            {
+                if (encoded_drone_paths[drone][path].size() > 3)
+                {
+                    unsigned remove_customer = 0;
+                    volume_t remove_volume = -1;
+                    for (unsigned i = 1; i < encoded_drone_paths[drone][path].size() - 1; i++)
+                    {
+                        auto &[customer, volume] = encoded_drone_paths[drone][path][i];
+                        if (volume < remove_volume || remove_volume == -1)
+                        {
+                            remove_customer = customer;
+                            remove_volume = volume;
+                        }
+                    }
+
+                    new_drone_paths[drone][path].erase(remove_customer);
+                }
+            }
+        }
+
+        auto py_new_individual = new_individual(new_truck_paths, new_drone_paths, false);
+
+        if (feasible(py_new_individual))
+        {
+            py_result = feasibility ? std::min(py_result, py_new_individual) : py_new_individual;
+        }
+        else if (!feasibility)
+        {
+            py_result = std::min(py_result, py_new_individual);
+        }
+    }
+    */
+
     std::vector<bool> exists(Customer::customers.size());
 
-    auto [truck_paths, drone_paths] = get_paths(py_individual);
     for (auto &path : truck_paths)
     {
         for (auto customer : path)
@@ -416,6 +462,7 @@ py::object educate(const py::object &py_individual)
         py_result = std::min(py_result, py_individual.attr("append_drone_path")(drone, py_new_path));
     }
 
+    /*
     auto flattened_paths = py::cast<std::vector<py::frozenset>>(py_individual.attr("flatten")());
     for (unsigned i = 0; i < flattened_paths.size(); i++)
     {
@@ -436,6 +483,22 @@ py::object educate(const py::object &py_individual)
     return py_result;
 }
 
+py::object new_individual(
+    const std::vector<std::set<unsigned int>> &new_truck_paths,
+    const std::vector<std::vector<std::set<unsigned int>>> &new_drone_paths,
+    const bool to_educate = true)
+{
+    auto py_VRPDFDSolution = py::module::import("ga.vrpdfd").attr("VRPDFDSolution"),
+         py_from_cache = py::module::import("ga.vrpdfd").attr("VRPDFDIndividual").attr("from_cache");
+
+    auto result = py_from_cache(
+        py::arg("solution_cls") = py_VRPDFDSolution,
+        py::arg("truck_paths") = truck_paths_cast(new_truck_paths),
+        py::arg("drone_paths") = drone_paths_cast(new_drone_paths));
+
+    return to_educate ? educate(result) : result;
+}
+
 std::pair<std::optional<py::object>, py::object> local_search(const py::object &py_individual)
 {
     auto paths = get_paths(py_individual);
@@ -453,31 +516,9 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
              drones_count = drone_paths.size();
 
 #ifdef DEBUG
+    unsigned counter = 0;
     std::cout << "Local search for " << trucks_count << " truck(s) and " << drones_count << " drone(s)" << std::endl;
 #endif
-
-    auto copy = [&truck_paths, &drone_paths]()
-    {
-        std::vector<std::set<unsigned>> new_truck_paths;
-        for (auto &path : truck_paths)
-        {
-            new_truck_paths.push_back(std::set<unsigned>(path.begin(), path.end()));
-        }
-
-        std::vector<std::vector<std::set<unsigned>>> new_drone_paths;
-        for (auto &paths : drone_paths)
-        {
-            std::vector<std::set<unsigned>> new_paths;
-            for (auto &path : paths)
-            {
-                new_paths.push_back(std::set<unsigned>(path.begin(), path.end()));
-            }
-
-            new_drone_paths.push_back(new_paths);
-        }
-
-        return std::make_pair(new_truck_paths, new_drone_paths);
-    };
 
     std::set<unsigned> in_truck_paths = {0}, in_drone_paths = {0};
     for (unsigned i = 0; i < trucks_count; i++)
@@ -498,10 +539,6 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
         }
     }
 
-#ifdef DEBUG
-    std::cout << "Adding absent customers" << std::endl;
-#endif
-
     // Attempt to add absent customers
     std::vector<unsigned> absent;
     for (unsigned customer = 1; customer < Customer::customers.size(); customer++)
@@ -514,10 +551,13 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
 
     for (unsigned truck = 0; truck < trucks_count; truck++)
     {
-        auto [new_truck_paths, new_drone_paths] = copy();
+        auto [new_truck_paths, new_drone_paths] = copy(truck_paths, drone_paths);
         new_truck_paths[truck].insert(absent.begin(), absent.end());
 
         py::object py_new_individual = new_individual(new_truck_paths, new_drone_paths);
+#ifdef DEBUG
+        counter++;
+#endif
 
         if (feasible(py_new_individual))
         {
@@ -534,10 +574,13 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
     {
         for (unsigned path = 0; path < drone_paths[drone].size(); path++)
         {
-            auto [new_truck_paths, new_drone_paths] = copy();
+            auto [new_truck_paths, new_drone_paths] = copy(truck_paths, drone_paths);
             new_drone_paths[drone][path].insert(absent.begin(), absent.end());
 
             py::object py_new_individual = new_individual(new_truck_paths, new_drone_paths);
+#ifdef DEBUG
+            counter++;
+#endif
 
             if (feasible(py_new_individual))
             {
@@ -547,6 +590,10 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
         }
 
         py::object py_new_individual = py_individual.attr("append_drone_path")(drone, py_new_path);
+#ifdef DEBUG
+        counter++;
+#endif
+
         if (feasible(py_new_individual))
         {
             py_result_feasible = std::min(py_result_feasible.value_or(py_new_individual), py_new_individual);
@@ -581,13 +628,9 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
     remove_intersection(in_truck_paths);
     remove_intersection(in_drone_paths);
 
-#ifdef DEBUG
-    std::cout << "Swapping all customers in truck paths with all customers in drone paths" << std::endl;
-#endif
-
     // Swap all customers in truck paths with all customers in drone paths
     {
-        auto [new_truck_paths, new_drone_paths] = copy();
+        auto [new_truck_paths, new_drone_paths] = copy(truck_paths, drone_paths);
         for (auto &path : new_truck_paths)
         {
             for (auto customer : in_truck_paths)
@@ -609,6 +652,9 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
         }
 
         py::object py_new_individual = new_individual(new_truck_paths, new_drone_paths);
+#ifdef DEBUG
+        counter++;
+#endif
 
         if (feasible(py_new_individual))
         {
@@ -620,51 +666,185 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
     std::vector<unsigned> in_truck_paths_vector(in_truck_paths.begin(), in_truck_paths.end()),
         in_drone_paths_vector(in_drone_paths.begin(), in_drone_paths.end());
 
+    // Brute-force swap
+    std::vector<std::vector<double>> improved_ratio(2);
+    improved_ratio[0].resize(in_truck_paths_vector.size(), -1);
+    improved_ratio[1].resize(in_drone_paths_vector.size(), -1);
+
+    {
+        // Calculate improved ratios
+        std::vector<double> truck_paths_distance;
+        for (auto &path : truck_paths)
+        {
+            truck_paths_distance.push_back(path_order(path).first);
+        }
+
+        std::vector<std::vector<double>> drone_paths_distance(drones_count);
+        for (unsigned drone = 0; drone < drones_count; drone++)
+        {
+            for (auto &path : drone_paths[drone])
+            {
+                drone_paths_distance[drone].push_back(path_order(path).first);
+            }
+        }
+
+        for (unsigned truck_i = 0; truck_i < in_truck_paths_vector.size(); truck_i++)
+        {
+            double total_ratio = 0.0;
+            for (unsigned truck = 0; truck < trucks_count; truck++)
+            {
+                bool erased = truck_paths[truck].erase(in_truck_paths_vector[truck_i]);
+                total_ratio += path_order(truck_paths[truck]).first / truck_paths_distance[truck];
+
+                if (erased)
+                {
+                    truck_paths[truck].insert(in_truck_paths_vector[truck_i]);
+                }
+            }
+
+            improved_ratio[0][truck_i] = total_ratio / trucks_count;
+        }
+
+        unsigned total_drone_paths = 0;
+        for (unsigned drone = 0; drone < drones_count; drone++)
+        {
+            total_drone_paths += drone_paths[drone].size();
+        }
+
+        for (unsigned drone_i = 0; drone_i < in_drone_paths_vector.size(); drone_i++)
+        {
+            double total_ratio = 0.0;
+            for (unsigned drone = 0; drone < drones_count; drone++)
+            {
+                for (unsigned path = 0; path < drone_paths[drone].size(); path++)
+                {
+
+                    bool erased = drone_paths[drone][path].erase(in_drone_paths_vector[drone_i]);
+                    total_ratio += path_order(drone_paths[drone][path]).first / drone_paths_distance[drone][path];
+
+                    if (erased)
+                    {
+                        drone_paths[drone][path].insert(in_drone_paths_vector[drone_i]);
+                    }
+                }
+            }
+
+            improved_ratio[1][drone_i] = total_ratio / total_drone_paths;
+        }
+    }
+
 #ifdef DEBUG
-    std::cout << "Brute-force swapping" << std::endl;
+    std::cout << "Improved ratio:" << std::endl;
+    for (unsigned i = 0; i < 2; i++)
+    {
+        for (auto r : improved_ratio[i])
+        {
+            std::cout << r << " ";
+        }
+        std::cout << std::endl;
+    }
 #endif
 
-    // Brute-force swap
+    // Filter customers with best improved ratios
+    std::vector<unsigned> in_truck_paths_vector_best_ratio;
     for (unsigned truck_i = 0; truck_i < in_truck_paths_vector.size(); truck_i++)
     {
-        for (unsigned truck_j = truck_i; truck_j < in_truck_paths_vector.size(); truck_j++) // truck_i = truck_j -> Only swap 1 customer from truck paths
+        if (improved_ratio[0][truck_i] < LOCAL_SEARCH_IMPROVED_RATIO_REQUIRED)
         {
-            for (unsigned drone_i = 0; drone_i < in_drone_paths_vector.size(); drone_i++)
+            in_truck_paths_vector_best_ratio.push_back(in_truck_paths_vector[truck_i]);
+        }
+    }
+
+    std::vector<unsigned> in_drone_paths_vector_best_ratio;
+    for (unsigned drone_i = 0; drone_i < in_drone_paths_vector.size(); drone_i++)
+    {
+        if (improved_ratio[1][drone_i] < LOCAL_SEARCH_IMPROVED_RATIO_REQUIRED)
+        {
+            in_drone_paths_vector_best_ratio.push_back(in_drone_paths_vector[drone_i]);
+        }
+    }
+
+    unsigned truck_trade_limit = std::min(4u, (unsigned)in_truck_paths_vector_best_ratio.size()),
+             drone_trade_limit = std::min(4u, (unsigned)in_drone_paths_vector_best_ratio.size());
+    for (unsigned truck_trade = 0; truck_trade < truck_trade_limit; truck_trade++)
+    {
+        Combination<unsigned> truck_comb(in_truck_paths_vector_best_ratio, truck_trade);
+        while (!truck_comb.done())
+        {
+            for (unsigned drone_trade = 0; drone_trade < drone_trade_limit; drone_trade++)
             {
-                for (unsigned drone_j = drone_i; drone_j < in_drone_paths_vector.size(); drone_j++) // drone_i = drone_j -> Only swap 1 customer from drone paths
+                Combination<unsigned> drone_comb(in_drone_paths_vector_best_ratio, drone_trade);
+                while (!drone_comb.done())
                 {
-                    auto [new_truck_paths, new_drone_paths] = copy();
-
-                    for (auto &path : new_truck_paths)
+                    auto [new_truck_paths, new_drone_paths] = copy(truck_paths, drone_paths);
+                    for (auto customer : truck_comb.read())
                     {
-                        path.erase(in_truck_paths_vector[truck_i]);
-                        path.erase(in_truck_paths_vector[truck_j]);
-                        path.insert(in_drone_paths_vector[drone_i]);
-                        path.insert(in_drone_paths_vector[drone_j]);
-                    }
-
-                    for (auto &paths : new_drone_paths)
-                    {
-                        for (auto &path : paths)
+                        for (auto &path : new_truck_paths)
                         {
-                            path.erase(in_drone_paths_vector[drone_i]);
-                            path.erase(in_drone_paths_vector[drone_j]);
-                            path.insert(in_truck_paths_vector[truck_i]);
-                            path.insert(in_truck_paths_vector[truck_j]);
+                            path.erase(customer);
+                        }
+                        for (auto &paths : new_drone_paths)
+                        {
+                            for (auto &path : paths)
+                            {
+                                path.insert(customer);
+                            }
+                        }
+                    }
+                    for (auto customer : drone_comb.read())
+                    {
+                        for (auto &path : new_truck_paths)
+                        {
+                            path.insert(customer);
+                        }
+                        for (auto &paths : new_drone_paths)
+                        {
+                            for (auto &path : paths)
+                            {
+                                path.erase(customer);
+                            }
                         }
                     }
 
+                    /*
+                    for (auto customer : absent)
+                    {
+                        for (auto &path : new_truck_paths)
+                        {
+                            path.insert(customer);
+                        }
+                        for (auto &paths : new_drone_paths)
+                        {
+                            for (auto &path : paths)
+                            {
+                                path.insert(customer);
+                            }
+                        }
+                    }
+                    */
+
                     py::object py_new_individual = new_individual(new_truck_paths, new_drone_paths);
+#ifdef DEBUG
+                    counter++;
+#endif
 
                     if (feasible(py_new_individual))
                     {
                         py_result_feasible = std::min(py_result_feasible.value_or(py_new_individual), py_new_individual);
                     }
                     py_result_any = std::min(py_result_any, py_new_individual);
+
+                    drone_comb.next();
                 }
             }
+
+            truck_comb.next();
         }
     }
+
+#ifdef DEBUG
+    std::cout << "Explored " << counter << " neighbors" << std::endl;
+#endif
 
     return std::make_pair(py_result_feasible, py_result_any);
 }
@@ -680,7 +860,7 @@ PYBIND11_MODULE(cpp_utils, m)
         py::arg("truck_paths_count"), py::arg("drone_paths_count"), py::arg("flows"), py::arg("neighbors"),
         py::call_guard<py::gil_scoped_release>());
     m.def(
-        "paths_from_flow_chained", &paths_from_flow_chained,
+        "decode", &decode,
         py::arg("truck_paths"), py::arg("drone_paths"), py::arg("truck_capacity"), py::arg("drone_capacity"),
         py::call_guard<py::gil_scoped_release>());
     m.def(

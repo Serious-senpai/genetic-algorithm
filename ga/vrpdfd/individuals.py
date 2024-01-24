@@ -25,7 +25,7 @@ if TYPE_CHECKING:
 
 from .config import ProblemConfig
 from .errors import PopulationInitializationException
-from .utils import educate, local_search, paths_from_flow_chained
+from .utils import decode, educate, local_search
 from ..abc import SingleObjectiveIndividual
 from ..utils import LRUCache, weighted_random, weighted_random_choice
 if TYPE_CHECKING:
@@ -92,7 +92,7 @@ class VRPDFDIndividual(BaseIndividual):
         decoded: Optional[VRPDFDSolution] = None,
         local_searched: Optional[Tuple[Optional[VRPDFDIndividual], VRPDFDIndividual]] = None,
     ) -> VRPDFDIndividual:
-        tuplized_drone_paths = tuple(tuple(filter(lambda path: len(path) > 1, paths)) for paths in drone_paths)
+        tuplized_drone_paths = tuple(tuple(filter(lambda path: len(path) > 1, sorted(paths, key=hash))) for paths in drone_paths)
         hashed = truck_paths, tuplized_drone_paths
         try:
             return cls.cache[hashed]
@@ -201,7 +201,7 @@ class VRPDFDIndividual(BaseIndividual):
         if self.__decoded is None:
             config = ProblemConfig.get_config()
 
-            truck_paths_mapping, drone_paths_mapping = paths_from_flow_chained(
+            truck_paths_mapping, drone_paths_mapping = decode(
                 self.truck_paths,
                 self.drone_paths,
                 truck_capacity=config.truck.capacity,

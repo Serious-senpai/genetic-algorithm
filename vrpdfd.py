@@ -89,7 +89,8 @@ if solution is None:
     raise ValueError(message)
 
 
-print(f"Got solution with profit = {-solution.cost} after {total_time:.4f}s:\n{solution}")
+additional = " (including pyplot interactive duration)" if namespace.verbose else ""
+print(f"Got solution with profit = {-solution.cost} after {total_time:.4f}s{additional}:\n{solution}")
 
 
 try:

@@ -6,7 +6,7 @@ from ..individuals import VRPDFDIndividual
 __all__ = (
     "set_customers",
     "paths_from_flow",
-    "paths_from_flow_chained",
+    "decode",
     "local_search",
     "educate",
 )
@@ -32,7 +32,7 @@ def paths_from_flow(
 ]: ...
 
 
-def paths_from_flow_chained(
+def decode(
     truck_paths: Sequence[AbstractSet[int]],
     drone_paths: Sequence[Sequence[AbstractSet[int]]],
     truck_capacity: int,
