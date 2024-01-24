@@ -1,14 +1,15 @@
-from typing import AbstractSet, Dict, List, Optional, Sequence, Set, Tuple
+from typing import AbstractSet, Dict, FrozenSet, List, Optional, Sequence, Set, Tuple, Type
 
 from ..individuals import VRPDFDIndividual
+from ..solutions import VRPDFDSolution
 
 
 __all__ = (
     "set_customers",
-    "paths_from_flow",
     "decode",
-    "local_search",
     "educate",
+    "local_search",
+    "paths_from_flow",
 )
 
 
@@ -19,17 +20,6 @@ def set_customers(
     x: Sequence[float],
     y: Sequence[float],
 ) -> None: ...
-
-
-def paths_from_flow(
-    truck_paths_count: int,
-    drone_paths_count: Sequence[int],
-    flows: Sequence[Sequence[int]],
-    neighbors: Sequence[Set[int]],
-) -> Tuple[
-    List[Dict[int, int]],
-    List[List[Dict[int, int]]],
-]: ...
 
 
 def decode(
@@ -43,5 +33,16 @@ def decode(
 ]: ...
 
 
-def local_search(py_individual: VRPDFDIndividual) -> Tuple[Optional[VRPDFDIndividual], VRPDFDIndividual]: ...
 def educate(py_individual: VRPDFDIndividual) -> VRPDFDIndividual: ...
+def local_search(py_individual: VRPDFDIndividual) -> Tuple[Optional[VRPDFDIndividual], VRPDFDIndividual]: ...
+
+
+def paths_from_flow(
+    truck_paths_count: int,
+    drone_paths_count: Sequence[int],
+    flows: Sequence[Sequence[int]],
+    neighbors: Sequence[Set[int]],
+) -> Tuple[
+    List[Dict[int, int]],
+    List[List[Dict[int, int]]],
+]: ...
