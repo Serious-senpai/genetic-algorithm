@@ -157,8 +157,8 @@ class SingleObjectiveIndividual(BaseIndividual[_ST], BaseCostComparison):
         progress: List[float] = []
         progress.append(result.cost)
 
-        try:
-            for iteration in iterations:
+        for iteration in iterations:
+            try:
                 current_result = result
                 if isinstance(iterations, tqdm):
                     display = f"GA ({result.cost:.2f})"
@@ -221,14 +221,15 @@ class SingleObjectiveIndividual(BaseIndividual[_ST], BaseCostComparison):
 
                 progress.append(result.cost)
 
-            if verbose:
-                pyplot.plot(progress)
-                pyplot.xlabel("Generations")
-                pyplot.ylabel("Cost")
-                pyplot.show()
-                pyplot.close()
+            except KeyboardInterrupt:
+                print(f"Algorithm stopped at iteration #{iteration + 1}")
+                return result
 
-        except KeyboardInterrupt:
-            pass
+        if verbose:
+            pyplot.plot(progress)
+            pyplot.xlabel("Generations")
+            pyplot.ylabel("Cost")
+            pyplot.show()
+            pyplot.close()
 
         return result
