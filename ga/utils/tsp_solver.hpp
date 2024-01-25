@@ -31,12 +31,12 @@ std::pair<double, unsigned> __held_karp_solve(
 
     if (bitmask & (1u << city))
     {
-        return dp[bitmask][city] = __held_karp_solve(bitmask - (1u << city), city, distances, dp);
+        return dp[bitmask][city] = __held_karp_solve(bitmask & ~(1u << city), city, distances, dp);
     }
 
-    if (bitmask & 1)
+    if (bitmask & 1u)
     {
-        return dp[bitmask][city] = __held_karp_solve(bitmask - 1, city, distances, dp);
+        return dp[bitmask][city] = __held_karp_solve(bitmask ^ 1u, city, distances, dp);
     }
 
     unsigned n = distances.size();
@@ -45,7 +45,7 @@ std::pair<double, unsigned> __held_karp_solve(
     {
         if (bitmask & (1u << i))
         {
-            auto before = __held_karp_solve(bitmask - (1u << i), i, distances, dp, level + 1);
+            auto before = __held_karp_solve(bitmask & ~(1u << i), i, distances, dp, level + 1);
             double d = before.first + distances[i][city];
             if (d < result.first || result.first == -1.0)
             {
@@ -80,13 +80,13 @@ std::pair<double, std::vector<unsigned>> __held_karp(const std::vector<std::vect
         }
     }
 
-    bitmask -= (1u << path_end);
+    bitmask &= ~(1u << path_end);
     std::vector<unsigned> path = {0, path_end};
     while (bitmask > 0)
     {
         auto r = __held_karp_solve(bitmask, path_end, distances, dp);
         path_end = r.second;
-        bitmask -= 1u << path_end;
+        bitmask &= ~(1u << path_end);
         path.push_back(path_end);
     }
 
