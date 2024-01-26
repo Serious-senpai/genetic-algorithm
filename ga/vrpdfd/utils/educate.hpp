@@ -4,29 +4,13 @@
 
 namespace py = pybind11;
 
-void strip_customers(std::set<unsigned> &path)
-{
-    auto iter = path.begin();
-    while (iter != path.end())
-    {
-        if (*iter != 0 && Customer::customers[*iter].low == 0)
-        {
-            iter = path.erase(iter);
-        }
-        else
-        {
-            iter++;
-        }
-    }
-}
-
 py::object educate(const py::object &py_individual)
 {
     py::object py_result = py_individual;
 
+    /*
     const auto [truck_paths, drone_paths] = get_paths(py_individual);
     const bool feasibility = feasible(py_individual);
-    /*
     const auto py_decoded = py_individual.attr("decode")();
     // unused: auto truck_paths = py::cast<std::vector<std::vector<std::pair<unsigned, volume_t>>>>(py_decoded.attr("truck_paths"));
     const auto encoded_drone_paths = py::cast<std::vector<std::vector<std::vector<std::pair<unsigned, volume_t>>>>>(py_decoded.attr("drone_paths"));
@@ -119,32 +103,6 @@ py::object educate(const py::object &py_individual)
         flattened_paths[i] = old_path;
     }
     */
-
-    {
-        auto [new_truck_paths, new_drone_paths] = copy(truck_paths, drone_paths);
-        for (auto &path : new_truck_paths)
-        {
-            strip_customers(path);
-        }
-        for (auto &paths : new_drone_paths)
-        {
-            for (auto &path : paths)
-            {
-                strip_customers(path);
-            }
-        }
-
-        auto py_new_individual = from_cache(new_truck_paths, new_drone_paths);
-
-        if (feasible(py_new_individual))
-        {
-            py_result = feasibility ? std::min(py_result, py_new_individual) : py_new_individual;
-        }
-        else if (!feasibility)
-        {
-            py_result = std::min(py_result, py_new_individual);
-        }
-    }
 
     return py_result;
 }

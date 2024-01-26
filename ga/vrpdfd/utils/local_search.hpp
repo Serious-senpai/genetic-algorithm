@@ -1,9 +1,25 @@
 #pragma once
 
-#include "educate.hpp"
+#include "config.hpp"
 
 const unsigned TRUCK_TRADE_LIMIT = 5u;
 const unsigned DRONE_TRADE_LIMIT = 5u;
+
+void strip_customers(std::set<unsigned> &path)
+{
+    auto iter = path.begin();
+    while (iter != path.end())
+    {
+        if (*iter != 0 && Customer::customers[*iter].low == 0)
+        {
+            iter = path.erase(iter);
+        }
+        else
+        {
+            iter++;
+        }
+    }
+}
 
 std::pair<std::optional<py::object>, py::object> local_search(const py::object &py_individual)
 {
@@ -23,6 +39,34 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
     unsigned counter = 0;
     std::cout << "Local search for " << trucks_count << " truck(s) and " << drones_count << " drone(s)" << std::endl;
 #endif
+
+    /*
+    {
+        auto [new_truck_paths, new_drone_paths] = copy(truck_paths, drone_paths);
+        for (auto &path : new_truck_paths)
+        {
+            strip_customers(path);
+        }
+        for (auto &paths : new_drone_paths)
+        {
+            for (auto &path : paths)
+            {
+                strip_customers(path);
+            }
+        }
+
+        auto py_new_individual = from_cache(new_truck_paths, new_drone_paths);
+#ifdef DEBUG
+        counter++;
+#endif
+
+        if (feasible(py_new_individual))
+        {
+            py_result_feasible = std::min(py_result_feasible.value_or(py_new_individual), py_new_individual);
+        }
+        py_result_any = std::min(py_result_any, py_new_individual);
+    }
+    */
 
     std::set<unsigned> in_truck_paths = {0}, in_drone_paths = {0};
     for (unsigned i = 0; i < trucks_count; i++)
@@ -325,6 +369,7 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
     std::cout << "Explored " << counter << " neighbors" << std::endl;
 #endif
 
+    /*
     if (py_result_feasible.has_value())
     {
         auto py_result_feasible_educated = educate(py_result_feasible.value());
@@ -333,6 +378,7 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
             py_result_feasible = py_result_feasible_educated;
         }
     }
+    */
 
-    return std::make_pair(py_result_feasible, educate(py_result_any));
+    return std::make_pair(py_result_feasible, py_result_any);
 }
