@@ -1,6 +1,6 @@
 #pragma once
 
-#include "config.hpp"
+#include "educate.hpp"
 
 const unsigned TRUCK_TRADE_LIMIT = 5u;
 const unsigned DRONE_TRADE_LIMIT = 5u;
@@ -325,5 +325,14 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
     std::cout << "Explored " << counter << " neighbors" << std::endl;
 #endif
 
-    return std::make_pair(py_result_feasible, py_result_any);
+    if (py_result_feasible.has_value())
+    {
+        auto py_result_feasible_educated = educate(py_result_feasible.value());
+        if (feasible(py_result_feasible_educated))
+        {
+            py_result_feasible = py_result_feasible_educated;
+        }
+    }
+
+    return std::make_pair(py_result_feasible, educate(py_result_any));
 }
