@@ -35,7 +35,7 @@ parser.add_argument("-i", "--iterations", default=200, type=int, help="the numbe
 parser.add_argument("-s", "--size", default=200, type=int, help="the population size (default: 200)")
 parser.add_argument("-m", "--mutation-rate", default=0.2, type=float, help="the mutation rate (default: 0.2)")
 parser.add_argument("-f", "--initial-fine-coefficient", default=1000.0, type=float, help="the initial fine coefficient (default: 1000.0)")
-parser.add_argument("-r", "--fine-coefficient-increase-rate", default=10.0, type=float, help="the fine coefficient increase rate (default: 10.0")
+parser.add_argument("-r", "--fine-coefficient-increase-rate", default=10.0, type=float, help="the fine coefficient increase rate (default: 10.0)")
 parser.add_argument("-a", "--reset-after", default=15, type=int, help="the number of non-improving generations before applying stuck penalty and local search (default: 15)")
 parser.add_argument("-p", "--stuck-penalty-increase-rate", default=10.0, type=float, help="the stuck penalty (default: 10.0)")
 parser.add_argument("-b", "--local-search-batch", default=25, type=int, help="the batch size for local search (default: 25)")

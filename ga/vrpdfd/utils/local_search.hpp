@@ -7,9 +7,7 @@ const unsigned DRONE_TRADE_LIMIT = 5u;
 
 std::pair<std::optional<py::object>, py::object> local_search(const py::object &py_individual)
 {
-    auto paths = get_paths(py_individual);
-    auto truck_paths = paths.first;
-    auto drone_paths = paths.second;
+    const auto [truck_paths, drone_paths] = get_paths(py_individual);
 
     py::object py_result_any = py_individual;
     std::optional<py::object> py_result_feasible;
@@ -159,17 +157,18 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
             }
         }
 
+        auto mutable_truck_paths = truck_paths;
         for (unsigned truck_i = 0; truck_i < in_truck_paths_vector.size(); truck_i++)
         {
             double total_ratio = 0.0;
             for (unsigned truck = 0; truck < trucks_count; truck++)
             {
-                bool erased = truck_paths[truck].erase(in_truck_paths_vector[truck_i]);
+                bool erased = mutable_truck_paths[truck].erase(in_truck_paths_vector[truck_i]);
                 total_ratio += path_order(truck_paths[truck]).first / truck_paths_distance[truck];
 
                 if (erased)
                 {
-                    truck_paths[truck].insert(in_truck_paths_vector[truck_i]);
+                    mutable_truck_paths[truck].insert(in_truck_paths_vector[truck_i]);
                 }
             }
 
@@ -182,6 +181,7 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
             total_drone_paths += drone_paths[drone].size();
         }
 
+        auto mutable_drone_paths = drone_paths;
         for (unsigned drone_i = 0; drone_i < in_drone_paths_vector.size(); drone_i++)
         {
             double total_ratio = 0.0;
@@ -190,12 +190,12 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
                 for (unsigned path = 0; path < drone_paths[drone].size(); path++)
                 {
 
-                    bool erased = drone_paths[drone][path].erase(in_drone_paths_vector[drone_i]);
+                    bool erased = mutable_drone_paths[drone][path].erase(in_drone_paths_vector[drone_i]);
                     total_ratio += path_order(drone_paths[drone][path]).first / drone_paths_distance[drone][path];
 
                     if (erased)
                     {
-                        drone_paths[drone][path].insert(in_drone_paths_vector[drone_i]);
+                        mutable_drone_paths[drone][path].insert(in_drone_paths_vector[drone_i]);
                     }
                 }
             }
