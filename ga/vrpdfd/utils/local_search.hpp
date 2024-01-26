@@ -269,10 +269,6 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
                     for (auto &path : paths)
                     {
                         path.insert(customer);
-                        if (path_order(path).first > Customer::drone_distance_limit)
-                        {
-                            path.erase(customer);
-                        }
                     }
                 }
             }
@@ -285,10 +281,6 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
                 for (auto &path : new_truck_paths)
                 {
                     path.insert(customer);
-                    if (path_order(path).first > Customer::truck_distance_limit)
-                    {
-                        path.erase(customer);
-                    }
                 }
                 for (auto &paths : new_drone_paths)
                 {
