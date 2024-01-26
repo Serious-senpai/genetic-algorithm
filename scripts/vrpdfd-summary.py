@@ -148,8 +148,9 @@ def read_milp_solution(data: MILPSolutionJSON) -> VRPDFDSolution:
 
         solution.assert_feasible()
         try:
-            if not isclose(milp_data["obj_value"], -solution.cost):
-                message = f"MILP solution for {problem_name} reported profit {milp_data['obj_value']}, actual value {-solution.cost}:\n{solution}"
+            problem_name = data["data_set"]
+            if not isclose(data["obj_value"], -solution.cost):
+                message = f"MILP solution for {problem_name} reported profit {data['obj_value']}, actual value {-solution.cost}:\n{solution}"
                 raise ValueError(message) from None
 
         except ValueError:

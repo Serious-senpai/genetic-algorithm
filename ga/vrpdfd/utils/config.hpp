@@ -21,6 +21,7 @@ struct Customer
     const volume_t low, high, w;
     const double x, y;
     static volume_t total_low, total_high;
+    static double truck_distance_limit, drone_distance_limit;
     static std::vector<Customer> customers;
     static std::vector<std::vector<double>> distances;
     static std::vector<std::vector<unsigned>> nearests;
@@ -34,6 +35,7 @@ struct Customer
 };
 
 volume_t Customer::total_low = 0, Customer::total_high = 0;
+double Customer::truck_distance_limit = 0.0, Customer::drone_distance_limit = 0.0;
 std::vector<Customer> Customer::customers;
 std::vector<std::vector<double>> Customer::distances;
 std::vector<std::vector<unsigned>> Customer::nearests;
@@ -43,7 +45,9 @@ void set_customers(
     const std::vector<volume_t> &high,
     const std::vector<volume_t> &w,
     const std::vector<double> &x,
-    const std::vector<double> &y)
+    const std::vector<double> &y,
+    const double truck_distance_limit,
+    const double drone_distance_limit)
 {
     unsigned size = low.size();
     if (size != high.size() || size != w.size() || size != x.size() || size != y.size())
@@ -86,6 +90,9 @@ void set_customers(
 
         Customer::nearests.push_back(all);
     }
+
+    Customer::truck_distance_limit = truck_distance_limit;
+    Customer::drone_distance_limit = drone_distance_limit;
 }
 
 template <typename _Container>

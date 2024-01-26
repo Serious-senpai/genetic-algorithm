@@ -167,6 +167,8 @@ class ProblemConfig:
                     [customer.w for customer in customers],
                     [customer.x for customer in customers],
                     [customer.y for customer in customers],
+                    self.time_limit * self.truck.speed,
+                    self.drone.time_limit * self.drone.speed,
                 )
 
         except BaseException as error:
