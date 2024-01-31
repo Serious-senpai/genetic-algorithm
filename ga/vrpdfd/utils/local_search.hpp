@@ -24,6 +24,26 @@ void strip_customers(std::set<unsigned> &path)
 std::pair<std::optional<py::object>, py::object> local_search(const py::object &py_individual)
 {
     const auto [truck_paths, drone_paths] = get_paths(py_individual);
+    const auto [decoded_truck_paths, decoded_drone_paths] = get_decoded_paths(py_individual.attr("decode")());
+
+    std::vector<volume_t> volumes(Customer::customers.size());
+    for (auto &path : decoded_truck_paths)
+    {
+        for (auto &[customer, volume] : path)
+        {
+            volumes[customer] += volume;
+        }
+    }
+    for (auto &paths : decoded_drone_paths)
+    {
+        for (auto &path : paths)
+        {
+            for (auto &[customer, volume] : path)
+            {
+                volumes[customer] += volume;
+            }
+        }
+    }
 
     py::object py_result_any = py_individual;
     std::optional<py::object> py_result_feasible;
@@ -87,6 +107,60 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
         }
     }
 
+    // Replicate drone paths with the highest profit
+    for (unsigned drone = 0; drone < drones_count; drone++)
+    {
+        std::vector<std::pair<unsigned, double>> profits;
+        for (unsigned path = 0; path < decoded_drone_paths[drone].size(); path++)
+        {
+            profits.emplace_back(path, drone_path_profit(decoded_drone_paths[drone][path]));
+        }
+
+        std::sort(
+            profits.begin(), profits.end(),
+            [](const std::pair<unsigned int, double> &a, const std::pair<unsigned int, double> &b)
+            { return a.second > b.second; });
+
+        for (auto &[path, profit] : profits)
+        {
+            if (profit < 0.0)
+            {
+                break;
+            }
+
+            volume_t available = 0;
+            std::vector<unsigned> new_path;
+            for (auto &[customer, _] : decoded_drone_paths[drone][path])
+            {
+                available += Customer::customers[customer].high - volumes[customer];
+                new_path.push_back(customer);
+            }
+
+            if (available < Customer::drone_capacity)
+            {
+                continue;
+            }
+
+            auto py_new_path = py_frozenset(new_path.begin(), new_path.end());
+            while (available >= Customer::drone_capacity)
+            {
+                available -= Customer::drone_capacity;
+                py::object py_new_individual = append_drone_path(py_individual, drone, py_new_path);
+#ifdef DEBUG
+                counter++;
+#endif
+
+                if (feasible(py_new_individual))
+                {
+                    py_result_feasible = std::min(py_result_feasible.value_or(py_new_individual), py_new_individual);
+                }
+                py_result_any = std::min(py_result_any, py_new_individual);
+            }
+
+            break;
+        }
+    }
+
     // Attempt to add absent customers
     std::vector<unsigned> absent;
     for (unsigned customer = 1; customer < Customer::customers.size(); customer++)
@@ -137,7 +211,7 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
             py_result_any = std::min(py_result_any, py_new_individual);
         }
 
-        py::object py_new_individual = py_individual.attr("append_drone_path")(drone, py_new_path);
+        py::object py_new_individual = append_drone_path(py_individual, drone, py_new_path);
 #ifdef DEBUG
         counter++;
 #endif

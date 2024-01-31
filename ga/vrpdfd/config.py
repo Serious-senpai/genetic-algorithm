@@ -169,6 +169,10 @@ class ProblemConfig:
                     [customer.y for customer in customers],
                     self.time_limit * self.truck.speed,
                     self.drone.time_limit * self.drone.speed,
+                    self.truck.capacity,
+                    self.drone.capacity,
+                    self.truck.cost_coefficient,
+                    self.drone.cost_coefficient,
                 )
 
         except BaseException as error:
