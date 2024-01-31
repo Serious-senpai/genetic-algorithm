@@ -282,7 +282,7 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
             for (unsigned truck = 0; truck < trucks_count; truck++)
             {
                 bool erased = mutable_truck_paths[truck].erase(in_truck_paths_vector[truck_i]);
-                total_ratio += path_order(truck_paths[truck]).first / truck_paths_distance[truck];
+                total_ratio += path_order(mutable_truck_paths[truck]).first / truck_paths_distance[truck];
 
                 if (erased)
                 {
@@ -305,11 +305,10 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
             double total_ratio = 0.0;
             for (unsigned drone = 0; drone < drones_count; drone++)
             {
-                for (unsigned path = 0; path < drone_paths[drone].size(); path++)
+                for (unsigned path = 0; path < mutable_drone_paths[drone].size(); path++)
                 {
-
                     bool erased = mutable_drone_paths[drone][path].erase(in_drone_paths_vector[drone_i]);
-                    total_ratio += path_order(drone_paths[drone][path]).first / drone_paths_distance[drone][path];
+                    total_ratio += path_order(mutable_drone_paths[drone][path]).first / drone_paths_distance[drone][path];
 
                     if (erased)
                     {
