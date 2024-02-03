@@ -107,7 +107,7 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
         }
     }
 
-    // Replicate drone paths with the highest profit
+    // FEATURE REQUEST #1. Replicate drone paths with the highest profit
     for (unsigned drone = 0; drone < drones_count; drone++)
     {
         std::vector<std::pair<unsigned, double>> profits;
@@ -249,6 +249,26 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
     };
     remove_intersection(in_truck_paths);
     remove_intersection(in_drone_paths);
+
+    // FEATURE REQUEST #2. Push customers from truck to a new drone path
+    for (auto customer : in_truck_paths)
+    {
+        std::vector<unsigned> new_path = {0, customer};
+        auto py_new_path = py_frozenset(new_path.begin(), new_path.end());
+        for (unsigned drone = 0; drone < drones_count; drone++)
+        {
+            py::object py_new_individual = append_drone_path(py_individual, drone, py_new_path);
+#ifdef DEBUG
+            counter++;
+#endif
+
+            if (feasible(py_new_individual))
+            {
+                py_result_feasible = std::min(py_result_feasible.value_or(py_new_individual), py_new_individual);
+            }
+            py_result_any = std::min(py_result_any, py_new_individual);
+        }
+    }
 
     std::vector<unsigned> in_truck_paths_vector(in_truck_paths.begin(), in_truck_paths.end()),
         in_drone_paths_vector(in_drone_paths.begin(), in_drone_paths.end());
