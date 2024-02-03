@@ -270,6 +270,46 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
         }
     }
 
+    // FEATURE REQUEST #3. Split drone paths serving more than 1 customer
+    {
+        auto mutable_drone_paths = drone_paths;
+        for (unsigned drone = 0; drone < drones_count; drone++)
+        {
+            for (unsigned path = 0; path < drone_paths[drone].size(); path++)
+            {
+                if (drone_paths[drone][path].size() < 3) // Require at least 3 elements: the depot and 2+ customers
+                {
+                    continue;
+                }
+
+                for (auto customer : drone_paths[drone][path])
+                {
+                    if (customer != 0)
+                    {
+                        // Temporary modify the individual
+                        mutable_drone_paths[drone][path].erase(customer);
+                        mutable_drone_paths[drone].push_back({0, customer});
+
+                        py::object py_new_individual = from_cache(truck_paths, mutable_drone_paths);
+#ifdef DEBUG
+                        counter++;
+#endif
+
+                        if (feasible(py_new_individual))
+                        {
+                            py_result_feasible = std::min(py_result_feasible.value_or(py_new_individual), py_new_individual);
+                        }
+                        py_result_any = std::min(py_result_any, py_new_individual);
+
+                        // Restore the individual
+                        mutable_drone_paths[drone][path].insert(customer);
+                        mutable_drone_paths[drone].pop_back();
+                    }
+                }
+            }
+        }
+    }
+
     std::vector<unsigned> in_truck_paths_vector(in_truck_paths.begin(), in_truck_paths.end()),
         in_drone_paths_vector(in_drone_paths.begin(), in_drone_paths.end());
 
