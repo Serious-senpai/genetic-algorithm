@@ -250,26 +250,6 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
     remove_intersection(in_truck_paths);
     remove_intersection(in_drone_paths);
 
-    // FEATURE REQUEST #2. Push customers from truck to a new drone path
-    for (auto customer : in_truck_paths)
-    {
-        std::vector<unsigned> new_path = {0, customer};
-        auto py_new_path = py_frozenset(new_path.begin(), new_path.end());
-        for (unsigned drone = 0; drone < drones_count; drone++)
-        {
-            py::object py_new_individual = append_drone_path(py_individual, drone, py_new_path);
-#ifdef DEBUG
-            counter++;
-#endif
-
-            if (feasible(py_new_individual))
-            {
-                py_result_feasible = std::min(py_result_feasible.value_or(py_new_individual), py_new_individual);
-            }
-            py_result_any = std::min(py_result_any, py_new_individual);
-        }
-    }
-
     // FEATURE REQUEST #3. Split drone paths serving more than 1 customer
     {
         auto mutable_drone_paths = drone_paths;
@@ -447,6 +427,12 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
                     {
                         path.insert(customer);
                     }
+                }
+
+                // FEATURE REQUEST #2, 4. Insert new drone paths
+                for (unsigned drone = 0; drone < drones_count; drone++)
+                {
+                    new_drone_paths[drone].push_back({0, customer});
                 }
             }
         }
