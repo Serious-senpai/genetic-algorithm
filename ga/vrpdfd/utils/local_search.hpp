@@ -411,7 +411,6 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
     for (unsigned bitmask = 1; bitmask < (1u << (truck_trade + drone_trade)); bitmask++)
     {
         auto [new_truck_paths, new_drone_paths] = copy(truck_paths, drone_paths);
-        std::vector<unsigned> truck_comb, drone_comb;
         for (unsigned i = 0; i < truck_trade; i++)
         {
             if (bitmask & (1u << (i + drone_trade)))
@@ -427,12 +426,6 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
                     {
                         path.insert(customer);
                     }
-                }
-
-                // FEATURE REQUEST #2, 4. Insert new drone paths
-                for (unsigned drone = 0; drone < drones_count; drone++)
-                {
-                    new_drone_paths[drone].push_back({0, customer});
                 }
             }
         }
@@ -472,16 +465,45 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
         }
         */
 
-        py::object py_new_individual = from_cache(new_truck_paths, new_drone_paths);
+        while (true)
+        {
+            py::object py_new_individual = from_cache(new_truck_paths, new_drone_paths);
 #ifdef DEBUG
-        counter++;
+            counter++;
 #endif
 
-        if (feasible(py_new_individual))
-        {
-            py_result_feasible = std::min(py_result_feasible.value_or(py_new_individual), py_new_individual);
+            bool improved = false;
+            if (feasible(py_new_individual))
+            {
+                improved |= !py_result_feasible.has_value() || (py_new_individual < py_result_feasible);
+                py_result_feasible = std::min(py_result_feasible.value_or(py_new_individual), py_new_individual);
+            }
+
+            improved |= py_new_individual < py_result_any;
+            py_result_any = std::min(py_result_any, py_new_individual);
+
+            if (!improved)
+            {
+                break;
+            }
+
+            // FEATURE REQUEST #2, 4. Insert new drone paths
+            for (unsigned drone = 0; drone < drones_count; drone++)
+            {
+                new_drone_paths[drone].push_back({0});
+            }
+            for (unsigned i = 0; i < truck_trade; i++)
+            {
+                if (bitmask & (1u << (i + drone_trade)))
+                {
+                    unsigned customer = in_truck_paths_vector[i];
+                    for (unsigned drone = 0; drone < drones_count; drone++)
+                    {
+                        new_drone_paths[drone].back().insert(customer);
+                    }
+                }
+            }
         }
-        py_result_any = std::min(py_result_any, py_new_individual);
     }
 
 #ifdef DEBUG
