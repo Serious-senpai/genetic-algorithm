@@ -92,7 +92,7 @@ class VRPDFDIndividual(BaseIndividual):
         decoded: Optional[VRPDFDSolution] = None,
         local_searched: Optional[Tuple[Optional[VRPDFDIndividual], VRPDFDIndividual]] = None,
     ) -> VRPDFDIndividual:
-        tuplized_drone_paths = tuple(tuple(filter(lambda path: len(path) > 1, sorted(paths, key=hash))) for paths in drone_paths)
+        tuplized_drone_paths = tuple(tuple(filter(lambda path: len(path) > 1, sorted(paths, key=tuple))) for paths in drone_paths)
         hashed = truck_paths, tuplized_drone_paths
         try:
             return cls.cache[hashed]
