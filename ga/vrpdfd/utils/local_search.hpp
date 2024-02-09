@@ -107,6 +107,7 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
         }
     }
 
+    /*
     // FEATURE REQUEST #1. Replicate drone paths with the highest profit
     for (unsigned drone = 0; drone < drones_count; drone++)
     {
@@ -160,6 +161,7 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
             break;
         }
     }
+    */
 
     // Attempt to add absent customers
     std::vector<unsigned> absent;
@@ -176,7 +178,7 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
         auto [new_truck_paths, new_drone_paths] = copy(truck_paths, drone_paths);
         new_truck_paths[truck].insert(absent.begin(), absent.end());
 
-        py::object py_new_individual = from_cache(new_truck_paths, new_drone_paths);
+        py::object py_new_individual = from_cache(new_truck_paths, new_drone_paths, "local_search", {py_individual});
 #ifdef DEBUG
         counter++;
 #endif
@@ -199,7 +201,7 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
             auto [new_truck_paths, new_drone_paths] = copy(truck_paths, drone_paths);
             new_drone_paths[drone][path].insert(absent.begin(), absent.end());
 
-            py::object py_new_individual = from_cache(new_truck_paths, new_drone_paths);
+            py::object py_new_individual = from_cache(new_truck_paths, new_drone_paths, "local_search", {py_individual});
 #ifdef DEBUG
             counter++;
 #endif
@@ -211,7 +213,7 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
             py_result_any = std::min(py_result_any, py_new_individual);
         }
 
-        py::object py_new_individual = append_drone_path(py_individual, drone, py_new_path);
+        py::object py_new_individual = append_drone_path(py_individual, drone, py_new_path, "local_search", {py_individual});
 #ifdef DEBUG
         counter++;
 #endif
@@ -223,6 +225,7 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
         py_result_any = std::min(py_result_any, py_new_individual);
     }
 
+    /*
     // FEATURE REQUEST #4.1 Push customers from truck paths to new drone paths
     for (auto customer : in_truck_paths)
     {
@@ -255,6 +258,7 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
             }
         }
     }
+    */
 
     // Remove elements in both sets
     std::set<unsigned> in_both;
@@ -303,7 +307,7 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
                         mutable_drone_paths[drone][path].erase(customer);
                         mutable_drone_paths[drone].push_back({0, customer});
 
-                        py::object py_new_individual = from_cache(truck_paths, mutable_drone_paths);
+                        py::object py_new_individual = from_cache(truck_paths, mutable_drone_paths, "local_search", {py_individual});
 #ifdef DEBUG
                         counter++;
 #endif
@@ -441,6 +445,7 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
     const unsigned truck_trade = in_truck_paths_vector.size(),
                    drone_trade = in_drone_paths_vector.size();
 
+    /*
     // FEATURE REQUEST #2. Insert customers from truck paths to new drone paths
     for (unsigned bitmask = 1; bitmask < (1u << truck_trade); bitmask++)
     {
@@ -472,6 +477,7 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
         }
         py_result_any = std::min(py_result_any, py_new_individual);
     }
+    */
 
     // Brute-force swap
     for (unsigned bitmask = 1; bitmask < (1u << (truck_trade + drone_trade)); bitmask++)
@@ -531,7 +537,7 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
         }
         */
 
-        py::object py_new_individual = from_cache(new_truck_paths, new_drone_paths);
+        py::object py_new_individual = from_cache(new_truck_paths, new_drone_paths, "local_search", {py_individual});
 #ifdef DEBUG
         counter++;
 #endif

@@ -27,6 +27,7 @@ class Namespace(argparse.Namespace):
         dump: Optional[str]
         extra: Optional[str]
         log: Optional[str]
+        record_history: bool
 
 
 parser = argparse.ArgumentParser(description="Genetic algorithm for VRPDFD problem", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -45,6 +46,7 @@ parser.add_argument("--fake-tsp-solver", action="store_true", help="use fake TSP
 parser.add_argument("--dump", type=str, help="dump the solution to a file")
 parser.add_argument("--extra", type=str, help="extra data dump to file specified by --dump")
 parser.add_argument("--log", type=str, help="log each generation to a file")
+parser.add_argument("--record-history", action="store_true", help="record history of each individual")
 
 
 namespace = Namespace()
@@ -65,6 +67,7 @@ config.fine_coefficient_increase_rate = namespace.fine_coefficient_increase_rate
 config.reset_after = namespace.reset_after
 config.stuck_penalty_increase_rate = namespace.stuck_penalty_increase_rate
 config.local_search_batch = namespace.local_search_batch
+config.record_history = namespace.record_history
 VRPDFDIndividual.cache.max_size = config.cache_limit = namespace.cache_limit
 if namespace.log is not None:
     config.logger = open(namespace.log, "w", encoding="utf-8")
@@ -102,6 +105,13 @@ else:
     feasible = True
 
 
+if namespace.record_history:
+    individual = solution.encode(history=None)
+    history = individual.history
+    assert history is not None
+    print(f"Recorded history:\n{history.display()}")
+
+
 if namespace.dump is not None:
     dump_path = Path(namespace.dump)
     dump_path.parent.mkdir(parents=True, exist_ok=True)
@@ -130,7 +140,7 @@ if namespace.dump is not None:
                 "limit": namespace.cache_limit,
                 "individual": VRPDFDIndividual.cache.to_json(),
                 "tsp": config.tsp_cache.to_json(),
-            }
+            },
         }
         json.dump(data, file)
 

@@ -67,6 +67,7 @@ class ProblemConfig:
         "stuck_penalty_increase_rate",
         "local_search_batch",
         "logger",
+        "record_history",
     )
     __cache__: ClassVar[Dict[str, ProblemConfig]] = {}
     context: ClassVar[str] = "None"
@@ -94,6 +95,7 @@ class ProblemConfig:
         stuck_penalty_increase_rate: Optional[float]
         local_search_batch: Optional[int]
         logger: Optional[io.TextIOWrapper]
+        record_history: bool
 
     def __init__(self, problem: str, /) -> None:
         self.problem = problem = problem.removesuffix(".csv")
@@ -106,6 +108,7 @@ class ProblemConfig:
         self.stuck_penalty_increase_rate = None
         self.local_search_batch = None
         self.logger = None
+        self.record_history = False
         try:
             config_path = "problems/vrpdfd/params.csv"
             with open(config_path, "r", encoding="utf-8", newline="") as file:

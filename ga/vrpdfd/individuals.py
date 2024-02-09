@@ -25,6 +25,7 @@ if TYPE_CHECKING:
 
 from .config import ProblemConfig
 from .errors import PopulationInitializationException
+from .history import HistoryRecord
 from .utils import decode, educate, local_search
 from ..abc import SingleObjectiveIndividual
 from ..utils import LRUCache, weighted_random, weighted_random_choice
@@ -53,6 +54,7 @@ class VRPDFDIndividual(BaseIndividual):
         "__local_searched",
         "truck_paths",
         "drone_paths",
+        "history",
     )
     genetic_algorithm_last_improved: ClassVar[int] = 0
     cache: ClassVar[LRUCache[Tuple[Tuple[FrozenSet[int], ...], Tuple[Tuple[FrozenSet[int], ...], ...]], VRPDFDIndividual]] = LRUCache()
@@ -64,6 +66,7 @@ class VRPDFDIndividual(BaseIndividual):
         __local_searched: Optional[Tuple[Optional[VRPDFDIndividual], VRPDFDIndividual]]
         truck_paths: Final[Tuple[FrozenSet[int], ...]]
         drone_paths: Final[Tuple[Tuple[FrozenSet[int], ...], ...]]
+        history: Final[Optional[HistoryRecord]]
 
     def __init__(
         self,
@@ -73,6 +76,7 @@ class VRPDFDIndividual(BaseIndividual):
         drone_paths: Tuple[Tuple[FrozenSet[int], ...], ...],
         decoded: Optional[VRPDFDSolution] = None,
         local_searched: Optional[Tuple[Optional[VRPDFDIndividual], VRPDFDIndividual]] = None,
+        history: Optional[HistoryRecord],
     ) -> None:
         self.__cls = solution_cls
         self.__stuck_penalty = 1.0
@@ -81,6 +85,7 @@ class VRPDFDIndividual(BaseIndividual):
         self.__local_searched = local_searched
         self.truck_paths = truck_paths
         self.drone_paths = drone_paths
+        self.history = history
 
     @classmethod
     def from_cache(
@@ -91,6 +96,7 @@ class VRPDFDIndividual(BaseIndividual):
         drone_paths: Sequence[Sequence[FrozenSet[int]]],
         decoded: Optional[VRPDFDSolution] = None,
         local_searched: Optional[Tuple[Optional[VRPDFDIndividual], VRPDFDIndividual]] = None,
+        history: Optional[HistoryRecord],
     ) -> VRPDFDIndividual:
         tuplized_drone_paths = tuple(tuple(filter(lambda path: len(path) > 1, sorted(paths, key=tuple))) for paths in drone_paths)
         hashed = truck_paths, tuplized_drone_paths
@@ -98,13 +104,16 @@ class VRPDFDIndividual(BaseIndividual):
             return cls.cache[hashed]
 
         except KeyError:
+            config = ProblemConfig.get_config()
+            history = history if config.record_history else None
             unique = cls(
                 solution_cls=solution_cls,
                 truck_paths=truck_paths,
                 drone_paths=tuplized_drone_paths,
                 decoded=decoded,
                 local_searched=local_searched,
-            ).decode().encode(create_new=True)  # remove customers with 0 weight on each path
+                history=history,
+            ).decode().encode(create_new=True, history=history)  # ensure uniqueness
 
             try:
                 result = cls.cache[unique.truck_paths, unique.drone_paths]
@@ -144,7 +153,7 @@ class VRPDFDIndividual(BaseIndividual):
     def flatten(self) -> List[FrozenSet[int]]:
         return list(itertools.chain(self.truck_paths, itertools.chain(*self.drone_paths)))
 
-    def reconstruct(self, flattened_paths: List[FrozenSet[int]]) -> VRPDFDIndividual:
+    def reconstruct(self, flattened_paths: List[FrozenSet[int]], *, history: Optional[HistoryRecord]) -> VRPDFDIndividual:
         truck_paths: List[FrozenSet[int]] = flattened_paths[:len(self.truck_paths)]
         drone_paths: List[List[FrozenSet[int]]] = []
         drone_paths_iter = iter(flattened_paths[len(self.truck_paths):])
@@ -157,18 +166,20 @@ class VRPDFDIndividual(BaseIndividual):
             solution_cls=self.cls,
             truck_paths=tuple(truck_paths),
             drone_paths=drone_paths,
+            history=history,
         )
 
-    def append_drone_path(self, drone: int, path: FrozenSet[int]) -> VRPDFDIndividual:
+    def append_drone_path(self, drone: int, path: FrozenSet[int], *, history: Optional[HistoryRecord]) -> VRPDFDIndividual:
         drone_paths = list(map(list, self.drone_paths))
         drone_paths[drone].append(path)
         return VRPDFDIndividual.from_cache(
             solution_cls=self.cls,
             truck_paths=self.truck_paths,
             drone_paths=drone_paths,
+            history=history,
         )
 
-    def append_drone_paths(self, *, drones: Sequence[int], paths: Sequence[FrozenSet[int]]) -> VRPDFDIndividual:
+    def append_drone_paths(self, *, drones: Sequence[int], paths: Sequence[FrozenSet[int]], history: Optional[HistoryRecord]) -> VRPDFDIndividual:
         drone_paths = list(map(list, self.drone_paths))
         for drone, path in zip(drones, paths, strict=True):
             drone_paths[drone].append(path)
@@ -177,6 +188,7 @@ class VRPDFDIndividual(BaseIndividual):
             solution_cls=self.cls,
             truck_paths=self.truck_paths,
             drone_paths=drone_paths,
+            history=history,
         )
 
     def feasible(self) -> bool:
@@ -259,7 +271,11 @@ class VRPDFDIndividual(BaseIndividual):
         self_paths[first_index] = frozenset(first)
         other_paths[second_index] = frozenset(second)
 
-        return [self.reconstruct(self_paths), other.reconstruct(other_paths)]
+        history = HistoryRecord("crossover", (self, other))
+        return [
+            self.reconstruct(self_paths, history=history),
+            other.reconstruct(other_paths, history=history),
+        ]
 
     def mutate(self) -> VRPDFDIndividual:
         config = ProblemConfig.get_config()
@@ -268,6 +284,7 @@ class VRPDFDIndividual(BaseIndividual):
         if random.random() < config.mutation_rate:
             random_customers = list(range(1, len(config.customers)))
             random.shuffle(random_customers)
+            history = HistoryRecord("mutation", (self,))
 
             def remove_customer(paths: List[FrozenSet[int]]) -> VRPDFDIndividual:
                 distances = [self.calculate_distance(path) for path in paths]
@@ -277,7 +294,7 @@ class VRPDFDIndividual(BaseIndividual):
                         paths[path_index] = paths[path_index].difference([customer])
                         break
 
-                return self.reconstruct(paths)
+                return self.reconstruct(paths, history=history)
 
             def add_customer(paths: List[FrozenSet[int]]) -> VRPDFDIndividual:
                 distances = [self.calculate_distance(path) for path in paths]
@@ -287,16 +304,20 @@ class VRPDFDIndividual(BaseIndividual):
                         paths[path_index] = paths[path_index].union([customer])
                         break
 
-                return self.reconstruct(paths)
+                return self.reconstruct(paths, history=history)
 
             def append_path(paths: List[FrozenSet[int]]) -> VRPDFDIndividual:
-                result = self.reconstruct(paths)
+                result = self.reconstruct(paths, history=history)
                 customer = random_customers[0]
                 for customer in random_customers:
                     if 2 * config.distances[0][customer] <= config.drone.speed * config.drone.time_limit:
                         break
 
-                return result.append_drone_path(random.randint(0, config.drones_count - 1), frozenset([0, customer]))
+                return result.append_drone_path(
+                    random.randint(0, config.drones_count - 1),
+                    frozenset([0, customer]),
+                    history=history,
+                )
 
             factories = (
                 remove_customer,
@@ -429,6 +450,7 @@ class VRPDFDIndividual(BaseIndividual):
                         solution_cls=solution_cls,
                         truck_paths=tuple(all_customers for _ in range(config.trucks_count)),
                         drone_paths=tuple(tuple(all_customers for _ in range(paths_per_drone)) for _ in range(config.drones_count)),
+                        history=HistoryRecord("initial", ()),
                     )
                 )
 
