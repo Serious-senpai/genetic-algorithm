@@ -34,7 +34,7 @@ parser = argparse.ArgumentParser(description="Genetic algorithm for VRPDFD probl
 parser.add_argument("problem", type=str, help="the problem name (e.g. \"6.5.1\", \"200.10.1\", ...)")
 parser.add_argument("-i", "--iterations", default=200, type=int, help="the number of generations")
 parser.add_argument("-s", "--size", default=200, type=int, help="the population size")
-parser.add_argument("-m", "--mutation-rate", default=0.6, type=float, help="the mutation rate")
+parser.add_argument("-m", "--mutation-rate", default=0.8, type=float, help="the mutation rate")
 parser.add_argument("-f", "--initial-fine-coefficient", default=1000.0, type=float, help="the initial fine coefficient")
 parser.add_argument("-r", "--fine-coefficient-increase-rate", default=10.0, type=float, help="the fine coefficient increase rate")
 parser.add_argument("-a", "--reset-after", default=15, type=int, help="the number of non-improving generations before applying stuck penalty and local search")
