@@ -45,3 +45,6 @@ class HistoryRecord:
                     contents.append(textwrap.indent(individual.history.display(), "  "))
 
         return "\n".join(contents)
+
+    def __repr__(self) -> str:
+        return f"<HistoryRecord message={self.message!r}>"
