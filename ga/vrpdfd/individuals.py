@@ -268,10 +268,17 @@ class VRPDFDIndividual(BaseIndividual):
         for customer in itertools.chain(self_paths[first_index], other_paths[second_index]):
             random.choice(sets).add(customer)
 
-        self_paths[first_index] = frozenset(first)
-        other_paths[second_index] = frozenset(second)
+        self_paths_first_index = frozenset(first)
+        other_paths_second_index = frozenset(second)
 
-        history = HistoryRecord("crossover", (self, other))
+        history = HistoryRecord(
+            f"[crossover] {first_index, second_index}: {self_paths[first_index]} -> {self_paths_first_index}, {other_paths[second_index]} -> {other_paths_second_index}",
+            (self, other),
+        )
+
+        self_paths[first_index] = self_paths_first_index
+        other_paths[second_index] = other_paths_second_index
+
         return [
             self.reconstruct(self_paths, history=history),
             other.reconstruct(other_paths, history=history),
@@ -284,40 +291,47 @@ class VRPDFDIndividual(BaseIndividual):
         if random.random() < config.mutation_rate:
             random_customers = list(range(1, len(config.customers)))
             random.shuffle(random_customers)
-            history = HistoryRecord("mutation", (self,))
 
             def remove_customer(paths: List[FrozenSet[int]]) -> VRPDFDIndividual:
                 distances = [self.calculate_distance(path) for path in paths]
                 path_index = weighted_random_choice(distances)
+                history_message = "no-op"
+
                 for customer in random_customers:
                     if customer in paths[path_index]:
-                        paths[path_index] = paths[path_index].difference([customer])
+                        new_path = paths[path_index].difference([customer])
+                        history_message = f"{path_index}: {paths[path_index]} -> {new_path}"
+                        paths[path_index] = new_path
                         break
 
-                return self.reconstruct(paths, history=history)
+                return self.reconstruct(paths, history=HistoryRecord(f"[mutation] remove_customer {history_message}", (self,)))
 
             def add_customer(paths: List[FrozenSet[int]]) -> VRPDFDIndividual:
                 distances = [self.calculate_distance(path) for path in paths]
                 path_index = weighted_random_choice([1 / d if d > 0.0 else 10 ** 6 for d in distances])
+                history_message = "no-op"
+
                 for customer in random_customers:
                     if customer not in paths[path_index]:
-                        paths[path_index] = paths[path_index].union([customer])
+                        new_path = paths[path_index].union([customer])
+                        history_message = f"{path_index}: {paths[path_index]} -> {new_path}"
+                        paths[path_index] = new_path
                         break
 
-                return self.reconstruct(paths, history=history)
+                return self.reconstruct(paths, history=HistoryRecord(f"[mutation] add_customer {history_message}", (self,)))
 
             def append_path(paths: List[FrozenSet[int]]) -> VRPDFDIndividual:
-                result = self.reconstruct(paths, history=history)
+                result = self.reconstruct(paths, history=HistoryRecord("[mutation] append_path preparation", (self,)))
                 customer = random_customers[0]
                 for customer in random_customers:
                     if 2 * config.distances[0][customer] <= config.drone.speed * config.drone.time_limit:
                         break
 
-                return result.append_drone_path(
-                    random.randint(0, config.drones_count - 1),
-                    frozenset([0, customer]),
-                    history=history,
-                )
+                drone = random.randint(0, config.drones_count - 1)
+                path = frozenset([0, customer])
+                history_message = f"{drone}: {path}"
+
+                return result.append_drone_path(drone, path, history=HistoryRecord(f"[mutation] append_path {history_message}", (self,)))
 
             factories = (
                 remove_customer,
@@ -450,7 +464,7 @@ class VRPDFDIndividual(BaseIndividual):
                         solution_cls=solution_cls,
                         truck_paths=tuple(all_customers for _ in range(config.trucks_count)),
                         drone_paths=tuple(tuple(all_customers for _ in range(paths_per_drone)) for _ in range(config.drones_count)),
-                        history=HistoryRecord("initial", ()),
+                        history=HistoryRecord("[initial]", ()),
                     )
                 )
 

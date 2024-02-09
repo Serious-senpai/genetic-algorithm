@@ -173,12 +173,27 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
         }
     }
 
+    std::string str_absent = "(";
+    if (!absent.empty())
+    {
+        for (unsigned i = 0; i < absent.size() - 1; i++)
+        {
+            str_absent += std::to_string(absent[i]) + ", ";
+        }
+        str_absent += std::to_string(absent.back());
+    }
+    str_absent += ")";
+
     for (unsigned truck = 0; truck < trucks_count; truck++)
     {
         auto [new_truck_paths, new_drone_paths] = copy(truck_paths, drone_paths);
         new_truck_paths[truck].insert(absent.begin(), absent.end());
 
-        py::object py_new_individual = from_cache(new_truck_paths, new_drone_paths, "local_search", {py_individual});
+        py::object py_new_individual = from_cache(
+            new_truck_paths,
+            new_drone_paths,
+            "[local_search] add absent customers " + str_absent + format(" to truck %d", truck),
+            {py_individual});
 #ifdef DEBUG
         counter++;
 #endif
@@ -190,18 +205,40 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
         py_result_any = std::min(py_result_any, py_new_individual);
     }
 
-    std::vector<unsigned> new_path = absent;
-    new_path.push_back(0);
-
-    auto py_new_path = py_frozenset(new_path.begin(), new_path.end());
-    for (unsigned drone = 0; drone < drones_count; drone++)
     {
-        for (unsigned path = 0; path < drone_paths[drone].size(); path++)
-        {
-            auto [new_truck_paths, new_drone_paths] = copy(truck_paths, drone_paths);
-            new_drone_paths[drone][path].insert(absent.begin(), absent.end());
+        std::vector<unsigned> new_path = absent;
+        new_path.push_back(0);
 
-            py::object py_new_individual = from_cache(new_truck_paths, new_drone_paths, "local_search", {py_individual});
+        auto py_new_path = py_frozenset(new_path.begin(), new_path.end());
+        for (unsigned drone = 0; drone < drones_count; drone++)
+        {
+            for (unsigned path = 0; path < drone_paths[drone].size(); path++)
+            {
+                auto [new_truck_paths, new_drone_paths] = copy(truck_paths, drone_paths);
+                new_drone_paths[drone][path].insert(absent.begin(), absent.end());
+
+                py::object py_new_individual = from_cache(
+                    new_truck_paths,
+                    new_drone_paths,
+                    "[local_search] add absent customers " + str_absent + format(" to path %d of drone %d", path, drone),
+                    {py_individual});
+#ifdef DEBUG
+                counter++;
+#endif
+
+                if (feasible(py_new_individual))
+                {
+                    py_result_feasible = std::min(py_result_feasible.value_or(py_new_individual), py_new_individual);
+                }
+                py_result_any = std::min(py_result_any, py_new_individual);
+            }
+
+            py::object py_new_individual = append_drone_path(
+                py_individual,
+                drone,
+                py_new_path,
+                "[local_search] append absent customers " + str_absent + format(" to drone %d", drone),
+                {py_individual});
 #ifdef DEBUG
             counter++;
 #endif
@@ -212,17 +249,6 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
             }
             py_result_any = std::min(py_result_any, py_new_individual);
         }
-
-        py::object py_new_individual = append_drone_path(py_individual, drone, py_new_path, "local_search", {py_individual});
-#ifdef DEBUG
-        counter++;
-#endif
-
-        if (feasible(py_new_individual))
-        {
-            py_result_feasible = std::min(py_result_feasible.value_or(py_new_individual), py_new_individual);
-        }
-        py_result_any = std::min(py_result_any, py_new_individual);
     }
 
     /*
@@ -307,7 +333,7 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
                         mutable_drone_paths[drone][path].erase(customer);
                         mutable_drone_paths[drone].push_back({0, customer});
 
-                        py::object py_new_individual = from_cache(truck_paths, mutable_drone_paths, "local_search", {py_individual});
+                        py::object py_new_individual = from_cache(truck_paths, mutable_drone_paths, "[local_search]", {py_individual});
 #ifdef DEBUG
                         counter++;
 #endif
@@ -537,7 +563,7 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
         }
         */
 
-        py::object py_new_individual = from_cache(new_truck_paths, new_drone_paths, "local_search", {py_individual});
+        py::object py_new_individual = from_cache(new_truck_paths, new_drone_paths, "[local_search] brute-force swap", {py_individual});
 #ifdef DEBUG
         counter++;
 #endif

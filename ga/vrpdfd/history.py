@@ -1,14 +1,13 @@
 from __future__ import annotations
 
 import textwrap
-from typing import Final, List, Literal, Optional, Set, Tuple, TYPE_CHECKING, final
+from typing import Final, Iterable, Optional, Set, Tuple, TYPE_CHECKING, final
 
 if TYPE_CHECKING:
     from .individuals import VRPDFDIndividual
 
 
 __all__ = ("HistoryRecord",)
-HistoryType = Literal["crossover", "mutation", "local_search", "initial", "educate"]
 
 
 @final
@@ -19,19 +18,18 @@ class HistoryRecord:
         "origin",
     )
     if TYPE_CHECKING:
-        message: Final[HistoryType]
+        message: Final[str]
         origin: Final[Tuple[VRPDFDIndividual, ...]]
 
-    def __init__(self, message: HistoryType, origin: Tuple[VRPDFDIndividual, ...]) -> None:
-        # When calling this method from C++, origin may be a list instead
+    def __init__(self, message: str, origin: Iterable[VRPDFDIndividual]) -> None:
         self.message = message
-        self.origin = origin
+        self.origin = tuple(origin)
 
     def display(self, chain: Optional[Set[VRPDFDIndividual]] = None) -> str:
         if chain is None:
             chain = set()
 
-        contents: List[str] = [self.message]
+        contents = [self.message]
         for individual in self.origin:
             if individual in chain:
                 contents.append(" [duplicated]")
