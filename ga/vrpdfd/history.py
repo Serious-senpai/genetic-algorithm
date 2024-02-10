@@ -9,6 +9,7 @@ if TYPE_CHECKING:
 
 
 __all__ = ("HistoryRecord",)
+PREFIX = "  "
 
 
 @final
@@ -50,17 +51,17 @@ class HistoryRecord:
 
             contents = [str(individual)]
             if history is None:
-                contents.append(" [none]")
+                contents.append(f"{PREFIX}[none]")
 
             elif individual in chain:
-                contents.append(" [duplicated]")
+                contents.append(f"{PREFIX}[duplicated]")
 
             else:
                 chain.add(individual)
 
-                contents.append(f" {history.message}")
+                contents.append(f"{PREFIX}{history.message}")
                 for origin in history.origin:
-                    contents.append(textwrap.indent(_display(origin, chain), "  "))
+                    contents.append(textwrap.indent(_display(origin, chain), PREFIX * 2))
 
             return "\n".join(contents)
 

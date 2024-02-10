@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import List, Optional, TYPE_CHECKING
 
 from ga import utils
-from ga.vrpdfd import InfeasibleSolution, ProblemConfig, VRPDFDIndividual, VRPDFDSolution
+from ga.vrpdfd import HistoryRecord, InfeasibleSolution, ProblemConfig, VRPDFDIndividual, VRPDFDSolution
 
 
 class Namespace(argparse.Namespace):
@@ -44,7 +44,7 @@ parser.add_argument("-b", "--local-search-batch", default=100, type=int, help="t
 parser.add_argument("-v", "--verbose", action="store_true", help="turn on verbose mode")
 parser.add_argument("--cache-limit", default=50000, type=int, help="set limit for individuals and TSP cache")
 parser.add_argument("--fake-tsp-solver", action="store_true", help="use fake TSP solver")
-parser.add_argument("--dump", nargs="*", default=[], type=str, help="dump the solution to a file")
+parser.add_argument("--dump", nargs="*", default=[], type=str, help="dump the solution to a file, supports *.json, *.pickle, *.history")
 parser.add_argument("--extra", type=str, help="extra data dump to file specified by --dump")
 parser.add_argument("--log", type=str, help="log each generation to a file")
 parser.add_argument("--record-history", action="store_true", help="record history of each individual")
@@ -147,6 +147,13 @@ for path in namespace.dump:
             pickle.dump(solution.encode(), pickle_file)
 
         print(f"Pickled solution to {dump_path}")
+
+    elif path.endswith(".history"):
+        with dump_path.open("w", encoding="utf-8") as history_file:
+            individual = solution.encode()
+            history_file.write(HistoryRecord.display(individual))
+
+        print(f"Saved individual history to {dump_path}")
 
     else:
         print(f"Unrecognized file extension {dump_path}")
