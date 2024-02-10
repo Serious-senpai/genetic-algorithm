@@ -183,7 +183,8 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
             new_truck_paths,
             new_drone_paths,
             format("[local_search] add absent customers %s to truck %d", str_absent.c_str(), truck),
-            py_individual);
+            py_individual,
+            false);
 #ifdef DEBUG
         counter++;
 #endif
@@ -211,7 +212,8 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
                     new_truck_paths,
                     new_drone_paths,
                     format("[local_search] add absent customers %s to path %d of drone %d", str_absent.c_str(), path, drone),
-                    py_individual);
+                    py_individual,
+                    false);
 #ifdef DEBUG
                 counter++;
 #endif
@@ -331,7 +333,8 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
                                 str(drone_paths[drone][path]).c_str(),
                                 str(mutable_drone_paths[drone][path]).c_str(),
                                 str(mutable_drone_paths[drone].back()).c_str()),
-                            py_individual);
+                            py_individual,
+                            false);
 #ifdef DEBUG
                         counter++;
 #endif
@@ -568,7 +571,8 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
             new_truck_paths,
             new_drone_paths,
             format("[local_search] brute-force swap %s %s", str(from_truck).c_str(), str(from_drone).c_str()),
-            py_individual);
+            py_individual,
+            false);
 #ifdef DEBUG
 
         counter++;
@@ -595,6 +599,12 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
         }
     }
     */
+
+    if (py_result_feasible.has_value())
+    {
+        lock_history(py_result_feasible.value());
+    }
+    lock_history(py_result_any);
 
     return std::make_pair(py_result_feasible, py_result_any);
 }

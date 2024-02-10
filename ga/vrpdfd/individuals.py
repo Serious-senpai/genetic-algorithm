@@ -3,7 +3,6 @@ from __future__ import annotations
 import itertools
 import random
 from typing import (
-    Any,
     ClassVar,
     Final,
     FrozenSet,
@@ -52,9 +51,10 @@ class VRPDFDIndividual(BaseIndividual):
         "__decoded",
         "__educated",
         "__local_searched",
+        "__history",
+        "__locked_history",
         "truck_paths",
         "drone_paths",
-        "history",
     )
     genetic_algorithm_last_improved: ClassVar[int] = 0
     cache: ClassVar[LRUCache[Tuple[Tuple[FrozenSet[int], ...], Tuple[Tuple[FrozenSet[int], ...], ...]], VRPDFDIndividual]] = LRUCache()
@@ -64,9 +64,10 @@ class VRPDFDIndividual(BaseIndividual):
         __decoded: Optional[VRPDFDSolution]
         __educated: Optional[VRPDFDIndividual]
         __local_searched: Optional[Tuple[Optional[VRPDFDIndividual], VRPDFDIndividual]]
+        __history: Optional[HistoryRecord]
+        __locked_history: bool
         truck_paths: Final[Tuple[FrozenSet[int], ...]]
         drone_paths: Final[Tuple[Tuple[FrozenSet[int], ...], ...]]
-        history: Final[Optional[HistoryRecord]]
 
     def __init__(
         self,
@@ -77,15 +78,17 @@ class VRPDFDIndividual(BaseIndividual):
         decoded: Optional[VRPDFDSolution] = None,
         local_searched: Optional[Tuple[Optional[VRPDFDIndividual], VRPDFDIndividual]] = None,
         history: Optional[HistoryRecord],
+        locked_history: bool = True,
     ) -> None:
         self.__cls = solution_cls
         self.__stuck_penalty = 1.0
         self.__decoded = decoded
         self.__educated = None
         self.__local_searched = local_searched
+        self.__history = history
+        self.__locked_history = locked_history
         self.truck_paths = truck_paths
         self.drone_paths = drone_paths
-        self.history = history
 
     @classmethod
     def from_cache(
@@ -97,15 +100,19 @@ class VRPDFDIndividual(BaseIndividual):
         decoded: Optional[VRPDFDSolution] = None,
         local_searched: Optional[Tuple[Optional[VRPDFDIndividual], VRPDFDIndividual]] = None,
         history: Optional[HistoryRecord],
+        locked_history: bool = True,
     ) -> VRPDFDIndividual:
+        config = ProblemConfig.get_config()
+        history = history if config.record_history else None
+
         tuplized_drone_paths = tuple(tuple(filter(lambda path: len(path) > 1, sorted(paths, key=tuple))) for paths in drone_paths)
         hashed = truck_paths, tuplized_drone_paths
+
         try:
+            cls.cache[hashed].history = history
             return cls.cache[hashed]
 
         except KeyError:
-            config = ProblemConfig.get_config()
-            history = history if config.record_history else None
             unique = cls(
                 solution_cls=solution_cls,
                 truck_paths=truck_paths,
@@ -113,6 +120,7 @@ class VRPDFDIndividual(BaseIndividual):
                 decoded=decoded,
                 local_searched=local_searched,
                 history=history,
+                locked_history=locked_history,
             ).decode().encode(create_new=True, history=history)  # ensure uniqueness
 
             try:
@@ -121,7 +129,20 @@ class VRPDFDIndividual(BaseIndividual):
                 result = unique
 
             cls.cache[hashed] = cls.cache[unique.truck_paths, unique.drone_paths] = result
+            result.history = history
             return result
+
+    def lock_history(self) -> None:
+        self.__locked_history = True
+
+    @property
+    def history(self) -> Optional[HistoryRecord]:
+        return self.__history
+
+    @history.setter
+    def history(self, value: Optional[HistoryRecord], /) -> None:
+        if not self.__locked_history:
+            self.__history = value
 
     @property
     def cls(self) -> Type[VRPDFDSolution]:
@@ -447,7 +468,7 @@ class VRPDFDIndividual(BaseIndividual):
     @classmethod
     def parents_selection(cls, *, population: FrozenSet[Self]) -> Tuple[Self, Self]:
         population_sorted = sorted(population, key=lambda i: i.penalized_cost)
-        first, second = weighted_random([1 + 1 / (index + 1) for index in range(len(population))], count=2)
+        first, second = weighted_random([1 + 1 / (2 * index + 1) for index in range(len(population))], count=2)
         return population_sorted[first], population_sorted[second]
 
     @classmethod
@@ -480,13 +501,10 @@ class VRPDFDIndividual(BaseIndividual):
             raise PopulationInitializationException(e) from e
 
     def __repr__(self) -> str:
-        return f"VRPDFDIndividual(truck_paths={self.truck_paths!r}, drone_paths={self.drone_paths!r})"
+        def convert(paths: Tuple[FrozenSet[int], ...]) -> List[List[int]]:
+            return [sorted(path) for path in paths]
+
+        return f"VRPDFDIndividual(truck_paths={convert(self.truck_paths)!r}, drone_paths={list(map(convert, self.drone_paths))!r}, cost={self.cost})"
 
     def __hash__(self) -> int:
         return hash((self.truck_paths, self.drone_paths))
-
-    def __eq__(self, other: Any) -> bool:
-        if isinstance(other, VRPDFDIndividual):
-            return self.truck_paths == other.truck_paths and self.drone_paths == other.drone_paths
-
-        return NotImplemented

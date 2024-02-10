@@ -152,6 +152,7 @@ for path in namespace.dump:
         with dump_path.open("w", encoding="utf-8") as history_file:
             individual = solution.encode()
             history_file.write(HistoryRecord.display(individual))
+            history_file.write("\n")
 
         print(f"Saved individual history to {dump_path}")
 

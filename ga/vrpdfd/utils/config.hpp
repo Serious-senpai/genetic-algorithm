@@ -185,17 +185,19 @@ py::object from_cache(
     const std::vector<std::set<unsigned int>> &new_truck_paths,
     const std::vector<std::vector<std::set<unsigned int>>> &new_drone_paths,
     const std::string &history_message,
-    const std::vector<py::object> &history_origin)
+    const std::vector<py::object> &history_origin,
+    const bool locked_history)
 {
-    auto py_VRPDFDSolution = py::module::import("ga.vrpdfd").attr("VRPDFDSolution"),
-         py_from_cache = py::module::import("ga.vrpdfd").attr("VRPDFDIndividual").attr("from_cache"),
-         py_HistoryRecord = py::module::import("ga.vrpdfd").attr("HistoryRecord");
+    static auto py_VRPDFDSolution = py::module::import("ga.vrpdfd").attr("VRPDFDSolution"),
+                py_from_cache = py::module::import("ga.vrpdfd").attr("VRPDFDIndividual").attr("from_cache"),
+                py_HistoryRecord = py::module::import("ga.vrpdfd").attr("HistoryRecord");
 
     auto result = py_from_cache(
         py::arg("solution_cls") = py_VRPDFDSolution,
         py::arg("truck_paths") = truck_paths_cast(new_truck_paths),
         py::arg("drone_paths") = drone_paths_cast(new_drone_paths),
-        py::arg("history") = py_HistoryRecord(history_message, history_origin));
+        py::arg("history") = py_HistoryRecord(history_message, history_origin),
+        py::arg("locked_history") = locked_history);
 
     return result;
 }
@@ -204,9 +206,10 @@ py::object from_cache(
     const std::vector<std::set<unsigned int>> &new_truck_paths,
     const std::vector<std::vector<std::set<unsigned int>>> &new_drone_paths,
     const std::string &history_message,
-    const py::object &history_origin)
+    const py::object &history_origin,
+    const bool locked_history)
 {
-    return from_cache(new_truck_paths, new_drone_paths, history_message, std::vector<py::object>{history_origin});
+    return from_cache(new_truck_paths, new_drone_paths, history_message, std::vector<py::object>{history_origin}, locked_history);
 }
 
 py::object append_drone_path(
@@ -215,7 +218,7 @@ py::object append_drone_path(
     const py::frozenset &py_new_path, const std::string &history_message,
     const std::vector<py::object> &history_origin)
 {
-    auto py_HistoryRecord = py::module::import("ga.vrpdfd").attr("HistoryRecord");
+    static auto py_HistoryRecord = py::module::import("ga.vrpdfd").attr("HistoryRecord");
     return py_individual.attr("append_drone_path")(
         drone, py_new_path,
         py::arg("history") = py_HistoryRecord(history_message, history_origin));
@@ -237,4 +240,9 @@ double drone_path_profit(const std::vector<std::pair<unsigned, volume_t>> &path)
     cost *= Customer::drone_cost_coefficient;
 
     return revenue - cost;
+}
+
+void lock_history(const py::object &py_individual)
+{
+    py_individual.attr("lock_history")();
 }
