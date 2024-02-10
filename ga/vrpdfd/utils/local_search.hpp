@@ -183,7 +183,7 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
             new_truck_paths,
             new_drone_paths,
             format("[local_search] add absent customers %s to truck %d", str_absent.c_str(), truck),
-            {py_individual});
+            py_individual);
 #ifdef DEBUG
         counter++;
 #endif
@@ -211,7 +211,7 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
                     new_truck_paths,
                     new_drone_paths,
                     format("[local_search] add absent customers %s to path %d of drone %d", str_absent.c_str(), path, drone),
-                    {py_individual});
+                    py_individual);
 #ifdef DEBUG
                 counter++;
 #endif
@@ -326,8 +326,12 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
                         py::object py_new_individual = from_cache(
                             truck_paths,
                             mutable_drone_paths,
-                            "[local_search] split path",
-                            {py_individual});
+                            format(
+                                "[local_search] split drone path %s -> %s %s",
+                                str(drone_paths[drone][path]).c_str(),
+                                str(mutable_drone_paths[drone][path]).c_str(),
+                                str(mutable_drone_paths[drone].back()).c_str()),
+                            py_individual);
 #ifdef DEBUG
                         counter++;
 #endif
@@ -503,11 +507,13 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
     for (unsigned bitmask = 1; bitmask < (1u << (truck_trade + drone_trade)); bitmask++)
     {
         auto [new_truck_paths, new_drone_paths] = copy(truck_paths, drone_paths);
+        std::vector<unsigned> from_truck, from_drone;
         for (unsigned i = 0; i < truck_trade; i++)
         {
             if (bitmask & (1u << (i + drone_trade)))
             {
                 unsigned customer = in_truck_paths_vector[i];
+                from_truck.push_back(customer);
                 for (auto &path : new_truck_paths)
                 {
                     path.erase(customer);
@@ -526,6 +532,7 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
             if (bitmask & (1u << i))
             {
                 unsigned customer = in_drone_paths_vector[i];
+                from_drone.push_back(customer);
                 for (auto &path : new_truck_paths)
                 {
                     path.insert(customer);
@@ -557,8 +564,13 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
         }
         */
 
-        py::object py_new_individual = from_cache(new_truck_paths, new_drone_paths, "[local_search] brute-force swap", {py_individual});
+        py::object py_new_individual = from_cache(
+            new_truck_paths,
+            new_drone_paths,
+            format("[local_search] brute-force swap %s %s", str(from_truck).c_str(), str(from_drone).c_str()),
+            py_individual);
 #ifdef DEBUG
+
         counter++;
 #endif
 

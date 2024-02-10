@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import textwrap
-from typing import Final, Iterable, Optional, Set, Tuple, TYPE_CHECKING, final
+from collections import Counter
+from typing import Final, Iterable, Set, Tuple, TYPE_CHECKING, final
 
 if TYPE_CHECKING:
     from .individuals import VRPDFDIndividual
@@ -25,24 +26,45 @@ class HistoryRecord:
         self.message = message
         self.origin = tuple(origin)
 
-    def display(self, chain: Optional[Set[VRPDFDIndividual]] = None) -> str:
-        if chain is None:
-            chain = set()
+    @staticmethod
+    def display(individual: VRPDFDIndividual, *, hide_unchanged: bool = True) -> str:
+        def _display(individual: VRPDFDIndividual, chain: Set[VRPDFDIndividual]) -> str:
+            history = individual.history
+            if hide_unchanged and history is not None:
+                for origin in history.origin:
+                    if frozenset(individual.truck_paths) != frozenset(origin.truck_paths):
+                        continue
 
-        contents = [self.message]
-        for individual in self.origin:
-            contents.append(f" {individual}")
-            if individual in chain:
+                    diff = False
+                    for individual_paths, origin_paths in zip(individual.drone_paths, origin.drone_paths, strict=True):
+                        individual_counter = Counter(individual_paths)
+                        origin_counter = Counter(origin_paths)
+                        if individual_counter != origin_counter:
+                            diff = True
+                            break
+
+                    if diff:
+                        continue
+
+                    return _display(origin, chain)
+
+            contents = [str(individual)]
+            if history is None:
+                contents.append(" [none]")
+
+            elif individual in chain:
                 contents.append(" [duplicated]")
+
             else:
                 chain.add(individual)
 
-                if individual.history is None:
-                    contents.append("  [None]")
-                else:
-                    contents.append(textwrap.indent(individual.history.display(chain), "  "))
+                contents.append(f" {history.message}")
+                for origin in history.origin:
+                    contents.append(textwrap.indent(_display(origin, chain), "  "))
 
-        return "\n".join(contents)
+            return "\n".join(contents)
+
+        return _display(individual, set())
 
     def __repr__(self) -> str:
         return f"<HistoryRecord message={self.message!r}>"

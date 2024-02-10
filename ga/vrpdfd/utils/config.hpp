@@ -200,6 +200,15 @@ py::object from_cache(
     return result;
 }
 
+py::object from_cache(
+    const std::vector<std::set<unsigned int>> &new_truck_paths,
+    const std::vector<std::vector<std::set<unsigned int>>> &new_drone_paths,
+    const std::string &history_message,
+    const py::object &history_origin)
+{
+    return from_cache(new_truck_paths, new_drone_paths, history_message, std::vector<py::object>{history_origin});
+}
+
 py::object append_drone_path(
     const py::object &py_individual,
     const unsigned drone,
