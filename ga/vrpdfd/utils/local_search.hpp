@@ -172,17 +172,7 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
             absent.push_back(customer);
         }
     }
-
-    std::string str_absent = "(";
-    if (!absent.empty())
-    {
-        for (unsigned i = 0; i < absent.size() - 1; i++)
-        {
-            str_absent += std::to_string(absent[i]) + ", ";
-        }
-        str_absent += std::to_string(absent.back());
-    }
-    str_absent += ")";
+    auto str_absent = str(absent);
 
     for (unsigned truck = 0; truck < trucks_count; truck++)
     {
@@ -192,7 +182,7 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
         py::object py_new_individual = from_cache(
             new_truck_paths,
             new_drone_paths,
-            "[local_search] add absent customers " + str_absent + format(" to truck %d", truck),
+            format("[local_search] add absent customers %s to truck %d", str_absent.c_str(), truck),
             {py_individual});
 #ifdef DEBUG
         counter++;
@@ -220,7 +210,7 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
                 py::object py_new_individual = from_cache(
                     new_truck_paths,
                     new_drone_paths,
-                    "[local_search] add absent customers " + str_absent + format(" to path %d of drone %d", path, drone),
+                    format("[local_search] add absent customers %s to path %d of drone %d", str_absent.c_str(), path, drone),
                     {py_individual});
 #ifdef DEBUG
                 counter++;
@@ -237,7 +227,7 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
                 py_individual,
                 drone,
                 py_new_path,
-                "[local_search] append absent customers " + str_absent + format(" to drone %d", drone),
+                format("[local_search] append absent customers %s to drone %d", str_absent.c_str(), drone),
                 {py_individual});
 #ifdef DEBUG
             counter++;
@@ -333,7 +323,11 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
                         mutable_drone_paths[drone][path].erase(customer);
                         mutable_drone_paths[drone].push_back({0, customer});
 
-                        py::object py_new_individual = from_cache(truck_paths, mutable_drone_paths, "[local_search]", {py_individual});
+                        py::object py_new_individual = from_cache(
+                            truck_paths,
+                            mutable_drone_paths,
+                            "[local_search] split path",
+                            {py_individual});
 #ifdef DEBUG
                         counter++;
 #endif

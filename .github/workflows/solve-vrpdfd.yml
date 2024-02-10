@@ -62,7 +62,9 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: vrpdfd-summary
-          path: output-*.json
+          path: |
+            output-*.json
+            output-*.pickle
 
       - name: Upload log
         if: ${{ always() }}

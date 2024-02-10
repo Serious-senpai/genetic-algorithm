@@ -256,6 +256,23 @@ public:
     }
 };
 
+template <typename T>
+std::string str(const std::vector<T> &container)
+{
+    std::string result = "[";
+    if (!container.empty())
+    {
+        for (unsigned i = 0; i < container.size() - 1; i++)
+        {
+            result += std::to_string(container[i]) + ", ";
+        }
+        result += std::to_string(container.back());
+    }
+    result += "]";
+
+    return result;
+}
+
 template <typename _ForwardIterator>
 py::tuple py_tuple(const _ForwardIterator &first, const _ForwardIterator &last)
 {
