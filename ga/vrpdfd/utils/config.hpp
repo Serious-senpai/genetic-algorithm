@@ -188,9 +188,9 @@ py::object from_cache(
     const std::vector<py::object> &history_origin,
     const bool locked_history)
 {
-    static auto py_VRPDFDSolution = py::module::import("ga.vrpdfd").attr("VRPDFDSolution"),
-                py_from_cache = py::module::import("ga.vrpdfd").attr("VRPDFDIndividual").attr("from_cache"),
-                py_HistoryRecord = py::module::import("ga.vrpdfd").attr("HistoryRecord");
+    auto py_VRPDFDSolution = py::module::import("ga.vrpdfd").attr("VRPDFDSolution"),
+         py_from_cache = py::module::import("ga.vrpdfd").attr("VRPDFDIndividual").attr("from_cache"),
+         py_HistoryRecord = py::module::import("ga.vrpdfd").attr("HistoryRecord");
 
     auto result = py_from_cache(
         py::arg("solution_cls") = py_VRPDFDSolution,
@@ -218,7 +218,7 @@ py::object append_drone_path(
     const py::frozenset &py_new_path, const std::string &history_message,
     const std::vector<py::object> &history_origin)
 {
-    static auto py_HistoryRecord = py::module::import("ga.vrpdfd").attr("HistoryRecord");
+    auto py_HistoryRecord = py::module::import("ga.vrpdfd").attr("HistoryRecord");
     return py_individual.attr("append_drone_path")(
         drone, py_new_path,
         py::arg("history") = py_HistoryRecord(history_message, history_origin));
