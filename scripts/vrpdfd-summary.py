@@ -190,7 +190,7 @@ summary_dir.mkdir(parents=True, exist_ok=True)
 with open(summary_dir / "vrpdfd-summary.csv", "w") as csvfile:
     csvfile.write(",".join(field_names) + "\n")
     for file in sorted(os.listdir(summary_dir)):
-        if file.startswith("output-"):
+        if file.startswith("output-") and file.endswith(".json"):
             with open(summary_dir / file, "r", encoding="utf-8") as f:
                 data: SolutionJSON = json.load(f)
 
