@@ -62,16 +62,16 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: vrpdfd-summary
-          path: |
-            output-*.json
-            output-*.pickle
+          path: output-*.json
 
-      - name: Upload log
+      - name: Upload logs and pickled results
         if: ${{ always() }}
         uses: actions/upload-artifact@v3
         with:
           name: log-${{ matrix.problem }}
-          path: log-*.csv
+          path: |
+            log-*.csv
+            output-*.pickle
 
   summary:
     name: Summarize solutions
