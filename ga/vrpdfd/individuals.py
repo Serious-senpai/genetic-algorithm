@@ -452,10 +452,10 @@ class VRPDFDIndividual(BaseIndividual):
             population.update(population_sorted[:original_size])
 
         if config.logger is not None:
-            config.logger.write(f"Generation #{generation + 1},Result,{result.cost}\n#,Cost,Penalized cost,Fine coefficient,Feasible,Individual\n")
+            config.logger.write(f"Generation #{generation + 1},Result,{result.cost}\n#,Cost,Penalized cost,Fine coefficient,Feasible,Individual,Individual REPR\n")
             config.logger.write(
                 "\n".join(
-                    f"{index + 1},{i.cost},{i.penalized_cost},{i.decode().fine_coefficient},{int(i.feasible())},\"{i}\""
+                    f"{index + 1},{i.cost},{i.penalized_cost},{i.decode().fine_coefficient},{int(i.feasible())},\"{i}\",\"{i!r}\""
                     for index, i in enumerate(sorted(population, key=lambda i: i.penalized_cost))
                 )
             )

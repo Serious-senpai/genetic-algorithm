@@ -2,6 +2,7 @@ import argparse
 import json
 import pickle
 import random
+import sys
 import time
 import traceback
 from pathlib import Path
@@ -143,18 +144,24 @@ for path in namespace.dump:
         print(f"Saved solution as JSON to {dump_path}")
 
     elif path.endswith(".pkl"):
-        with dump_path.open("wb") as pickle_file:
-            pickle.dump(solution.encode(), pickle_file)
+        sys.setrecursionlimit(100000)
+        try:
+            with dump_path.open("wb") as pickle_file:
+                pickle.dump(solution.encode(), pickle_file)
 
-        print(f"Pickled solution to {dump_path}")
+        except RecursionError:
+            traceback.print_exc()
+
+        else:
+            print(f"Pickled solution to {dump_path}")
 
     elif path.endswith(".history"):
         with dump_path.open("w", encoding="utf-8") as history_file:
             individual = solution.encode()
-            history_file.write(HistoryRecord.display(individual))
-            history_file.write("\n")
+            size = history_file.write(HistoryRecord.display(individual))
+            size += history_file.write("\n")
 
-        print(f"Saved individual history to {dump_path}")
+        print(f"Saved individual history to {dump_path} ({size / 1024:.1f} KB)")
 
     else:
         print(f"Unrecognized file extension {dump_path}")

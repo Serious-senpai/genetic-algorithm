@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import textwrap
-from collections import Counter
 from typing import Final, Iterable, Set, Tuple, TYPE_CHECKING, final
 
 if TYPE_CHECKING:
