@@ -243,7 +243,6 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
         }
     }
 
-    /*
     // FEATURE REQUEST #4.1 Push customers from truck paths to new drone paths
     for (auto customer : in_truck_paths)
     {
@@ -255,7 +254,12 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
             {
                 new_drone_paths[drone].push_back({0, customer});
 
-                py::object py_new_individual = from_cache(new_truck_paths, new_drone_paths);
+                py::object py_new_individual = from_cache(
+                    new_truck_paths,
+                    new_drone_paths,
+                    format("[local_search] push customer %d from truck to new drone path %d", customer, drone),
+                    py_individual,
+                    false);
 #ifdef DEBUG
                 counter++;
 #endif
@@ -276,7 +280,6 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
             }
         }
     }
-    */
 
     // Remove elements in both sets
     std::set<unsigned> in_both;
