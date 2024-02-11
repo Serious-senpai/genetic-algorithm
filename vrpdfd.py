@@ -44,7 +44,7 @@ parser.add_argument("-b", "--local-search-batch", default=100, type=int, help="t
 parser.add_argument("-v", "--verbose", action="store_true", help="turn on verbose mode")
 parser.add_argument("--cache-limit", default=50000, type=int, help="set limit for individuals and TSP cache")
 parser.add_argument("--fake-tsp-solver", action="store_true", help="use fake TSP solver")
-parser.add_argument("--dump", nargs="*", default=[], type=str, help="dump the solution to a file, supports *.json, *.pickle, *.history")
+parser.add_argument("--dump", nargs="*", default=[], type=str, help="dump the solution to a file, supports *.json, *.pkl, *.history")
 parser.add_argument("--extra", type=str, help="extra data dump to file specified by --dump")
 parser.add_argument("--log", type=str, help="log each generation to a file")
 parser.add_argument("--record-history", action="store_true", help="record history of each individual")
@@ -142,7 +142,7 @@ for path in namespace.dump:
 
         print(f"Saved solution as JSON to {dump_path}")
 
-    elif path.endswith(".pickle"):
+    elif path.endswith(".pkl"):
         with dump_path.open("wb") as pickle_file:
             pickle.dump(solution.encode(), pickle_file)
 
