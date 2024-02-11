@@ -77,7 +77,7 @@ class VRPDFDIndividual(BaseIndividual):
         drone_paths: Tuple[Tuple[FrozenSet[int], ...], ...],
         decoded: Optional[VRPDFDSolution] = None,
         local_searched: Optional[Tuple[Optional[VRPDFDIndividual], VRPDFDIndividual]] = None,
-        history: Optional[HistoryRecord],
+        history: Optional[HistoryRecord] = None,
         locked_history: bool = True,
     ) -> None:
         self.__cls = solution_cls
@@ -439,12 +439,13 @@ class VRPDFDIndividual(BaseIndividual):
                 individuals = tqdm(individuals, desc=f"Local search (#{generation + 1})", ascii=" █", colour="red")
 
             for individual in individuals:
-                population.update(
-                    [
-                        individual.local_search(prioritize_feasible=True),
-                        individual.local_search(prioritize_feasible=False),
-                    ],
-                )
+                # Testing in progress
+                for states in itertools.product((True, False), repeat=2):
+                    current = individual
+                    for state in states:
+                        current = current.local_search(prioritize_feasible=state)
+
+                    population.add(current)
 
             population_sorted = sorted(population, key=lambda i: i.penalized_cost)
             population.clear()
@@ -500,11 +501,14 @@ class VRPDFDIndividual(BaseIndividual):
         except BaseException as e:
             raise PopulationInitializationException(e) from e
 
-    def __repr__(self) -> str:
+    def __str__(self) -> str:
         def convert(paths: Tuple[FrozenSet[int], ...]) -> List[List[int]]:
             return [sorted(path) for path in paths]
 
         return f"VRPDFDIndividual(truck_paths={convert(self.truck_paths)!r}, drone_paths={list(map(convert, self.drone_paths))!r}, cost={self.cost})"
+
+    def __repr__(self) -> str:
+        return f"VRPDFDIndividual(solution_cls=VRPDFDSolution, truck_paths={self.truck_paths!r}, drone_paths={self.drone_paths!r})"
 
     def __hash__(self) -> int:
         return hash((self.truck_paths, self.drone_paths))

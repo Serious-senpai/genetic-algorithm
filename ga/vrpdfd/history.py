@@ -33,21 +33,8 @@ class HistoryRecord:
             history = individual.history
             if hide_unchanged and history is not None:
                 for origin in history.origin:
-                    if frozenset(individual.truck_paths) != frozenset(origin.truck_paths):
-                        continue
-
-                    diff = False
-                    for individual_paths, origin_paths in zip(individual.drone_paths, origin.drone_paths, strict=True):
-                        individual_counter = Counter(individual_paths)
-                        origin_counter = Counter(origin_paths)
-                        if individual_counter != origin_counter:
-                            diff = True
-                            break
-
-                    if diff:
-                        continue
-
-                    return _display(origin, chain)
+                    if origin == individual:  # Similar cost, 99% having the same config for random data, ignore that 1% :)
+                        return _display(origin, chain)
 
             contents = [str(individual)]
             if history is None:
