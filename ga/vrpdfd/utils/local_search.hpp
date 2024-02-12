@@ -2,8 +2,8 @@
 
 #include "config.hpp"
 
-const unsigned TRUCK_TRADE_LIMIT = 5u;
-const unsigned DRONE_TRADE_LIMIT = 5u;
+const unsigned TRUCK_TRADE_LIMIT = 4u;
+const unsigned DRONE_TRADE_LIMIT = 4u;
 
 void strip_customers(std::set<unsigned> &path)
 {
