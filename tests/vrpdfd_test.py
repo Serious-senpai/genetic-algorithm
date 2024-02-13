@@ -32,7 +32,6 @@ def test_decode_6_5_1() -> None:
                 frozenset([0, 3, 6]),
             ),
         ),
-        history=None,
     ).decode()
 
     check_solution(solution, expected=-25847.199999999997)
@@ -57,7 +56,6 @@ def test_decode_6_5_4() -> None:
                 frozenset([0, 6]),
             ),
         ),
-        history=None,
     ).decode()
 
     check_solution(solution, expected=-18352.8)
@@ -83,7 +81,6 @@ def test_decode_6_10_1() -> None:
                 frozenset([0, 3]),
             ),
         ),
-        history=None,
     ).decode()
 
     check_solution(solution, expected=-8418.2)
@@ -107,7 +104,6 @@ def test_decode_6_10_2() -> None:
                 frozenset([0, 2]),
             ),
         ),
-        history=None,
     ).decode()
 
     check_solution(solution, expected=-5366.0)
@@ -130,7 +126,6 @@ def test_decode_6_20_3() -> None:
                 frozenset([0, 3]),
             ),
         ),
-        history=None,
     ).decode()
 
     check_solution(solution, expected=-4431.5999999999985)
@@ -154,7 +149,6 @@ def test_decode_10_5_3() -> None:
                 frozenset([0, 7, 8]),
             ),
         ),
-        history=None,
     ).decode()
 
     check_solution(solution, expected=-15428.55)
@@ -178,7 +172,6 @@ def test_decode_10_20_1() -> None:
                 frozenset([0, 7]),
             ),
         ),
-        history=None,
     ).decode()
 
     check_solution(solution, expected=371.0)
@@ -204,7 +197,6 @@ def test_decode_12_20_4() -> None:
                 frozenset([0, 5]),
             ),
         ),
-        history=None,
     ).decode()
 
     check_solution(solution, expected=4610.4)
@@ -231,7 +223,6 @@ def test_decode_20_20_3() -> None:
                 frozenset([0, 16, 20]),
             ),
         ),
-        history=None,
     ).decode()
 
     check_solution(solution, expected=1070.4500000000007)

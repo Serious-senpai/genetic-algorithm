@@ -48,10 +48,9 @@ jobs:
             echo "---------- RUN #$i ----------"
             timeout --signal=INT 1200 \
             python vrpdfd.py ${{ matrix.problem }} \
-            --dump "output-${{ matrix.problem }}-$i.json" "output-${{ matrix.problem }}-$i.pkl" "output-${{ matrix.problem }}-$i.history" \
+            --dump "output-${{ matrix.problem }}-$i.json" "output-${{ matrix.problem }}-$i.pkl" \
             --log "log-${{ matrix.problem }}-$i.csv" \
-            --extra "run #$i" \
-            --record-history || true
+            --extra "run #$i" || true
           done
 
 # It is also possible to run the algorithm 10 times in parallel (by delegating to 10 child processes and add `wait` at the end),
@@ -72,7 +71,6 @@ jobs:
           path: |
             log-*.csv
             output-*.pkl
-            output-*.history
 
   summary:
     name: Summarize solutions

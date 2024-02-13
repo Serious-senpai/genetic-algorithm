@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import List, Optional, TYPE_CHECKING
 
 from ga import utils
-from ga.vrpdfd import HistoryRecord, InfeasibleSolution, ProblemConfig, VRPDFDIndividual, VRPDFDSolution
+from ga.vrpdfd import InfeasibleSolution, ProblemConfig, VRPDFDIndividual, VRPDFDSolution
 
 
 class Namespace(argparse.Namespace):
@@ -29,7 +29,6 @@ class Namespace(argparse.Namespace):
         dump: List[str]
         extra: Optional[str]
         log: Optional[str]
-        record_history: bool
 
 
 parser = argparse.ArgumentParser(description="Genetic algorithm for VRPDFD problem", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -45,10 +44,9 @@ parser.add_argument("-b", "--local-search-batch", default=100, type=int, help="t
 parser.add_argument("-v", "--verbose", action="store_true", help="turn on verbose mode")
 parser.add_argument("--cache-limit", default=50000, type=int, help="set limit for individuals and TSP cache")
 parser.add_argument("--fake-tsp-solver", action="store_true", help="use fake TSP solver")
-parser.add_argument("--dump", nargs="*", default=[], type=str, help="dump the solution to a file, supports *.json, *.pkl, *.history")
+parser.add_argument("--dump", nargs="*", default=[], type=str, help="dump the solution to a file, supports *.json and *.pkl")
 parser.add_argument("--extra", type=str, help="extra data dump to file specified by --dump")
 parser.add_argument("--log", type=str, help="log each generation to a file")
-parser.add_argument("--record-history", action="store_true", help="record history of each individual")
 
 
 namespace = Namespace()
@@ -69,7 +67,6 @@ config.fine_coefficient_increase_rate = namespace.fine_coefficient_increase_rate
 config.reset_after = namespace.reset_after
 config.stuck_penalty_increase_rate = namespace.stuck_penalty_increase_rate
 config.local_search_batch = namespace.local_search_batch
-config.record_history = namespace.record_history
 VRPDFDIndividual.cache.max_size = config.cache_limit = namespace.cache_limit
 if namespace.log is not None:
     config.logger = open(namespace.log, "w", encoding="utf-8")
@@ -154,14 +151,6 @@ for path in namespace.dump:
 
         else:
             print(f"Pickled solution to {dump_path}")
-
-    elif path.endswith(".history"):
-        with dump_path.open("w", encoding="utf-8") as history_file:
-            individual = solution.encode()
-            size = history_file.write(HistoryRecord.display(individual))
-            size += history_file.write("\n")
-
-        print(f"Saved individual history to {dump_path} ({size / 1024:.1f} KB)")
 
     else:
         print(f"Unrecognized file extension {dump_path}")

@@ -172,19 +172,13 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
             absent.push_back(customer);
         }
     }
-    auto str_absent = str(absent);
 
     for (unsigned truck = 0; truck < trucks_count; truck++)
     {
         auto [new_truck_paths, new_drone_paths] = copy(truck_paths, drone_paths);
         new_truck_paths[truck].insert(absent.begin(), absent.end());
 
-        py::object py_new_individual = from_cache(
-            new_truck_paths,
-            new_drone_paths,
-            format("[local_search] add absent customers %s to truck %d", str_absent.c_str(), truck),
-            py_individual,
-            false);
+        py::object py_new_individual = from_cache(new_truck_paths, new_drone_paths);
 #ifdef DEBUG
         counter++;
 #endif
@@ -208,12 +202,7 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
                 auto [new_truck_paths, new_drone_paths] = copy(truck_paths, drone_paths);
                 new_drone_paths[drone][path].insert(absent.begin(), absent.end());
 
-                py::object py_new_individual = from_cache(
-                    new_truck_paths,
-                    new_drone_paths,
-                    format("[local_search] add absent customers %s to path %d of drone %d", str_absent.c_str(), path, drone),
-                    py_individual,
-                    false);
+                py::object py_new_individual = from_cache(new_truck_paths, new_drone_paths);
 #ifdef DEBUG
                 counter++;
 #endif
@@ -225,12 +214,7 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
                 py_result_any = std::min(py_result_any, py_new_individual);
             }
 
-            py::object py_new_individual = append_drone_path(
-                py_individual,
-                drone,
-                py_new_path,
-                format("[local_search] append absent customers %s to drone %d", str_absent.c_str(), drone),
-                {py_individual});
+            py::object py_new_individual = append_drone_path(py_individual, drone, py_new_path);
 #ifdef DEBUG
             counter++;
 #endif
@@ -254,12 +238,7 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
             {
                 new_drone_paths[drone].push_back({0, customer});
 
-                py::object py_new_individual = from_cache(
-                    new_truck_paths,
-                    new_drone_paths,
-                    format("[local_search] push customer %d from truck to new drone path %d", customer, drone),
-                    py_individual,
-                    false);
+                py::object py_new_individual = from_cache(new_truck_paths, new_drone_paths);
 #ifdef DEBUG
                 counter++;
 #endif
@@ -328,16 +307,7 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
                         mutable_drone_paths[drone][path].erase(customer);
                         mutable_drone_paths[drone].push_back({0, customer});
 
-                        py::object py_new_individual = from_cache(
-                            truck_paths,
-                            mutable_drone_paths,
-                            format(
-                                "[local_search] split drone path %s -> %s %s",
-                                str(drone_paths[drone][path]).c_str(),
-                                str(mutable_drone_paths[drone][path]).c_str(),
-                                str(mutable_drone_paths[drone].back()).c_str()),
-                            py_individual,
-                            false);
+                        py::object py_new_individual = from_cache(truck_paths, mutable_drone_paths);
 #ifdef DEBUG
                         counter++;
 #endif
@@ -372,15 +342,7 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
                         // Temporary remove customer from path
                         mutable_drone_paths[drone][path].erase(customer);
 
-                        py::object py_new_individual = from_cache(
-                            truck_paths,
-                            mutable_drone_paths,
-                            format(
-                                "[local_search] remove customer %d from drone path (%d, %d) -> %s",
-                                customer, drone, path,
-                                str(mutable_drone_paths[drone][path]).c_str()),
-                            py_individual,
-                            false);
+                        py::object py_new_individual = from_cache(truck_paths, mutable_drone_paths);
 #ifdef DEBUG
                         counter++;
 #endif
@@ -612,12 +574,7 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
         }
         */
 
-        py::object py_new_individual = from_cache(
-            new_truck_paths,
-            new_drone_paths,
-            format("[local_search] brute-force swap %s %s", str(from_truck).c_str(), str(from_drone).c_str()),
-            py_individual,
-            false);
+        py::object py_new_individual = from_cache(new_truck_paths, new_drone_paths);
 #ifdef DEBUG
 
         counter++;
@@ -644,12 +601,6 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
         }
     }
     */
-
-    if (py_result_feasible.has_value())
-    {
-        lock_history(py_result_feasible.value());
-    }
-    lock_history(py_result_any);
 
     return std::make_pair(py_result_feasible, py_result_any);
 }
