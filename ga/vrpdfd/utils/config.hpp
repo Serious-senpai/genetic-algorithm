@@ -20,8 +20,10 @@ struct Customer
 {
     const volume_t low, high, w;
     const double x, y;
-    static volume_t total_low, total_high;
-    static double truck_distance_limit, drone_distance_limit;
+    static volume_t total_low, total_high,
+        truck_capacity, drone_capacity;
+    static double truck_distance_limit, drone_distance_limit,
+        truck_cost_coefficient, drone_cost_coefficient; // TODO: Refactor these
     static std::vector<Customer> customers;
     static std::vector<std::vector<double>> distances;
     static std::vector<std::vector<unsigned>> nearests;
@@ -34,8 +36,9 @@ struct Customer
     }
 };
 
-volume_t Customer::total_low = 0, Customer::total_high = 0;
-double Customer::truck_distance_limit = 0.0, Customer::drone_distance_limit = 0.0;
+volume_t Customer::total_low, Customer::total_high, Customer::truck_capacity, Customer::drone_capacity;
+double Customer::truck_distance_limit, Customer::drone_distance_limit,
+    Customer::truck_cost_coefficient, Customer::drone_cost_coefficient;
 std::vector<Customer> Customer::customers;
 std::vector<std::vector<double>> Customer::distances;
 std::vector<std::vector<unsigned>> Customer::nearests;
@@ -47,12 +50,21 @@ void set_customers(
     const std::vector<double> &x,
     const std::vector<double> &y,
     const double truck_distance_limit,
-    const double drone_distance_limit)
+    const double drone_distance_limit,
+    const double truck_capacity,
+    const double drone_capacity,
+    const double truck_cost_coefficient,
+    const double drone_cost_coefficient)
 {
     unsigned size = low.size();
     if (size != high.size() || size != w.size() || size != x.size() || size != y.size())
     {
         throw std::runtime_error("low, high, w, x and y must have the same size");
+    }
+
+    if (low[0] != 0 || high[0] != 0 || w[0] != 0)
+    {
+        throw std::runtime_error("The first customer must be the depot");
     }
 
     Customer::customers.clear();
@@ -93,6 +105,10 @@ void set_customers(
 
     Customer::truck_distance_limit = truck_distance_limit;
     Customer::drone_distance_limit = drone_distance_limit;
+    Customer::truck_capacity = truck_capacity;
+    Customer::drone_capacity = drone_capacity;
+    Customer::truck_cost_coefficient = truck_cost_coefficient;
+    Customer::drone_cost_coefficient = drone_cost_coefficient;
 }
 
 template <typename _Container>
@@ -106,6 +122,17 @@ individual get_paths(const py::object &py_individual)
 {
     auto truck_paths = py::cast<std::vector<std::set<unsigned>>>(py_individual.attr("truck_paths"));
     auto drone_paths = py::cast<std::vector<std::vector<std::set<unsigned>>>>(py_individual.attr("drone_paths"));
+
+    return std::make_pair(truck_paths, drone_paths);
+}
+
+std::pair<
+    std::vector<std::vector<std::pair<unsigned int, volume_t>>>,
+    std::vector<std::vector<std::vector<std::pair<unsigned int, volume_t>>>>>
+get_decoded_paths(const py::object &py_solution)
+{
+    auto truck_paths = py::cast<std::vector<std::vector<std::pair<unsigned, volume_t>>>>(py_solution.attr("truck_paths"));
+    auto drone_paths = py::cast<std::vector<std::vector<std::vector<std::pair<unsigned, volume_t>>>>>(py_solution.attr("drone_paths"));
 
     return std::make_pair(truck_paths, drone_paths);
 }
@@ -167,4 +194,30 @@ py::object from_cache(
         py::arg("drone_paths") = drone_paths_cast(new_drone_paths));
 
     return result;
+}
+
+py::object append_drone_path(
+    const py::object &py_individual,
+    const unsigned drone,
+    const py::frozenset &py_new_path)
+{
+    return py_individual.attr("append_drone_path")(drone, py_new_path);
+}
+
+double drone_path_profit(const std::vector<std::pair<unsigned, volume_t>> &path)
+{
+    double revenue = 0.0;
+    for (auto &[customer, volume] : path)
+    {
+        revenue += Customer::customers[customer].w * volume;
+    }
+
+    double cost = 0.0;
+    for (unsigned i = 0; i < path.size() - 1; i++)
+    {
+        cost += Customer::distances[path[i].first][path[i + 1].first];
+    }
+    cost *= Customer::drone_cost_coefficient;
+
+    return revenue - cost;
 }

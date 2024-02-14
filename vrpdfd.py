@@ -1,10 +1,12 @@
 import argparse
 import json
+import pickle
 import random
+import sys
 import time
 import traceback
 from pathlib import Path
-from typing import Optional, TYPE_CHECKING
+from typing import List, Optional, TYPE_CHECKING
 
 from ga import utils
 from ga.vrpdfd import InfeasibleSolution, ProblemConfig, VRPDFDIndividual, VRPDFDSolution
@@ -24,7 +26,7 @@ class Namespace(argparse.Namespace):
         verbose: bool
         cache_limit: int
         fake_tsp_solver: bool
-        dump: Optional[str]
+        dump: List[str]
         extra: Optional[str]
         log: Optional[str]
 
@@ -33,7 +35,7 @@ parser = argparse.ArgumentParser(description="Genetic algorithm for VRPDFD probl
 parser.add_argument("problem", type=str, help="the problem name (e.g. \"6.5.1\", \"200.10.1\", ...)")
 parser.add_argument("-i", "--iterations", default=200, type=int, help="the number of generations")
 parser.add_argument("-s", "--size", default=200, type=int, help="the population size")
-parser.add_argument("-m", "--mutation-rate", default=0.6, type=float, help="the mutation rate")
+parser.add_argument("-m", "--mutation-rate", default=0.8, type=float, help="the mutation rate")
 parser.add_argument("-f", "--initial-fine-coefficient", default=1000.0, type=float, help="the initial fine coefficient")
 parser.add_argument("-r", "--fine-coefficient-increase-rate", default=10.0, type=float, help="the fine coefficient increase rate")
 parser.add_argument("-a", "--reset-after", default=15, type=int, help="the number of non-improving generations before applying stuck penalty and local search")
@@ -42,7 +44,7 @@ parser.add_argument("-b", "--local-search-batch", default=100, type=int, help="t
 parser.add_argument("-v", "--verbose", action="store_true", help="turn on verbose mode")
 parser.add_argument("--cache-limit", default=50000, type=int, help="set limit for individuals and TSP cache")
 parser.add_argument("--fake-tsp-solver", action="store_true", help="use fake TSP solver")
-parser.add_argument("--dump", type=str, help="dump the solution to a file")
+parser.add_argument("--dump", nargs="*", default=[], type=str, help="dump the solution to a file, supports *.json and *.pkl")
 parser.add_argument("--extra", type=str, help="extra data dump to file specified by --dump")
 parser.add_argument("--log", type=str, help="log each generation to a file")
 
@@ -102,36 +104,53 @@ else:
     feasible = True
 
 
-if namespace.dump is not None:
-    dump_path = Path(namespace.dump)
+for path in namespace.dump:
+    dump_path = Path(path)
     dump_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(namespace.dump, "w", encoding="utf-8") as file:
-        data = {
-            "problem": namespace.problem,
-            "generations": namespace.iterations,
-            "population_size": namespace.size,
-            "mutation_rate": namespace.mutation_rate,
-            "initial_fine_coefficient": namespace.initial_fine_coefficient,
-            "fine_coefficient_increase_rate": namespace.fine_coefficient_increase_rate,
-            "reset_after": namespace.reset_after,
-            "stuck_penalty_increase_rate": namespace.stuck_penalty_increase_rate,
-            "local_search_batch": namespace.local_search_batch,
-            "solution": {
-                "profit": -solution.cost,
-                "feasible": feasible,
-                "truck_paths": solution.truck_paths,
-                "drone_paths": solution.drone_paths,
-            },
-            "time": total_time,
-            "fake_tsp_solver": namespace.fake_tsp_solver,
-            "last_improved": VRPDFDIndividual.genetic_algorithm_last_improved,
-            "extra": namespace.extra,
-            "cache_info": {
-                "limit": namespace.cache_limit,
-                "individual": VRPDFDIndividual.cache.to_json(),
-                "tsp": config.tsp_cache.to_json(),
-            }
-        }
-        json.dump(data, file)
 
-    print(f"Saved solution to {namespace.dump!r}")
+    if path.endswith(".json"):
+        with dump_path.open("w", encoding="utf-8") as json_file:
+            data = {
+                "problem": namespace.problem,
+                "generations": namespace.iterations,
+                "population_size": namespace.size,
+                "mutation_rate": namespace.mutation_rate,
+                "initial_fine_coefficient": namespace.initial_fine_coefficient,
+                "fine_coefficient_increase_rate": namespace.fine_coefficient_increase_rate,
+                "reset_after": namespace.reset_after,
+                "stuck_penalty_increase_rate": namespace.stuck_penalty_increase_rate,
+                "local_search_batch": namespace.local_search_batch,
+                "solution": {
+                    "profit": -solution.cost,
+                    "feasible": feasible,
+                    "truck_paths": solution.truck_paths,
+                    "drone_paths": solution.drone_paths,
+                },
+                "time": total_time,
+                "fake_tsp_solver": namespace.fake_tsp_solver,
+                "last_improved": VRPDFDIndividual.genetic_algorithm_last_improved,
+                "extra": namespace.extra,
+                "cache_info": {
+                    "limit": namespace.cache_limit,
+                    "individual": VRPDFDIndividual.cache.to_json(),
+                    "tsp": config.tsp_cache.to_json(),
+                },
+            }
+            json.dump(data, json_file)
+
+        print(f"Saved solution as JSON to {dump_path}")
+
+    elif path.endswith(".pkl"):
+        sys.setrecursionlimit(100000)
+        try:
+            with dump_path.open("wb") as pickle_file:
+                pickle.dump(solution.encode(), pickle_file)
+
+        except RecursionError:
+            traceback.print_exc()
+
+        else:
+            print(f"Pickled solution to {dump_path}")
+
+    else:
+        print(f"Unrecognized file extension {dump_path}")

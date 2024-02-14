@@ -256,6 +256,34 @@ public:
     }
 };
 
+std::string str(const unsigned value)
+{
+    return std::to_string(value);
+}
+
+template <typename T>
+std::string str(const std::vector<T> &container)
+{
+    std::string result = "[";
+    if (!container.empty())
+    {
+        for (unsigned i = 0; i < container.size() - 1; i++)
+        {
+            result += str(container[i]) + ", ";
+        }
+        result += str(container.back());
+    }
+    result += "]";
+
+    return result;
+}
+
+template <typename T>
+std::string str(const std::set<T> &container)
+{
+    return str(std::vector<T>(container.begin(), container.end()));
+}
+
 template <typename _ForwardIterator>
 py::tuple py_tuple(const _ForwardIterator &first, const _ForwardIterator &last)
 {

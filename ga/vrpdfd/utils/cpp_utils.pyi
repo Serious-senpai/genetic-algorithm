@@ -21,6 +21,10 @@ def set_customers(
     y: Sequence[float],
     truck_distance_limit: float,
     drone_distance_limit: float,
+    truck_capacity: int,
+    drone_capacity: int,
+    truck_cost_coefficient: float,
+    drone_cost_coefficient: float,
 ) -> None: ...
 
 

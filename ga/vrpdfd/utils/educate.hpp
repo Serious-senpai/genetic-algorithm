@@ -10,8 +10,8 @@ py::object educate(const py::object &py_individual)
 
     /*
     const auto [truck_paths, drone_paths] = get_paths(py_individual);
-    const auto py_decoded = py_individual.attr("decode")();
     const bool feasibility = feasible(py_individual);
+    const auto py_decoded = py_individual.attr("decode")();
     // unused: auto truck_paths = py::cast<std::vector<std::vector<std::pair<unsigned, volume_t>>>>(py_decoded.attr("truck_paths"));
     const auto encoded_drone_paths = py::cast<std::vector<std::vector<std::vector<std::pair<unsigned, volume_t>>>>>(py_decoded.attr("drone_paths"));
 
