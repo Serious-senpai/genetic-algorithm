@@ -56,7 +56,6 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
              drones_count = drone_paths.size();
 
 #ifdef DEBUG
-    unsigned counter = 0;
     std::cout << "Local search for " << trucks_count << " truck(s) and " << drones_count << " drone(s)" << std::endl;
 #endif
 
@@ -76,9 +75,6 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
         }
 
         auto py_new_individual = from_cache(new_truck_paths, new_drone_paths);
-#ifdef DEBUG
-        counter++;
-#endif
 
         if (feasible(py_new_individual))
         {
@@ -107,7 +103,6 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
         }
     }
 
-    /*
     // FEATURE REQUEST #1. Replicate drone paths with the highest profit
     for (unsigned drone = 0; drone < drones_count; drone++)
     {
@@ -147,9 +142,6 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
             {
                 available -= Customer::drone_capacity;
                 py::object py_new_individual = append_drone_path(py_individual, drone, py_new_path);
-#ifdef DEBUG
-                counter++;
-#endif
 
                 if (feasible(py_new_individual))
                 {
@@ -161,7 +153,6 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
             break;
         }
     }
-    */
 
     // Attempt to add absent customers
     std::vector<unsigned> absent;
@@ -179,9 +170,6 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
         new_truck_paths[truck].insert(absent.begin(), absent.end());
 
         py::object py_new_individual = from_cache(new_truck_paths, new_drone_paths);
-#ifdef DEBUG
-        counter++;
-#endif
 
         if (feasible(py_new_individual))
         {
@@ -203,9 +191,6 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
                 new_drone_paths[drone][path].insert(absent.begin(), absent.end());
 
                 py::object py_new_individual = from_cache(new_truck_paths, new_drone_paths);
-#ifdef DEBUG
-                counter++;
-#endif
 
                 if (feasible(py_new_individual))
                 {
@@ -215,9 +200,6 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
             }
 
             py::object py_new_individual = append_drone_path(py_individual, drone, py_new_path);
-#ifdef DEBUG
-            counter++;
-#endif
 
             if (feasible(py_new_individual))
             {
@@ -232,29 +214,26 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
     {
         for (unsigned drone = 0; drone < drones_count; drone++)
         {
-            auto [new_truck_paths, new_drone_paths] = copy(truck_paths, drone_paths);
-            bool improved = true;
-            while (improved)
+            auto [_, new_drone_paths] = copy(truck_paths, drone_paths);
+
+            new_drone_paths[drone].push_back({0, customer});
+            py::object py_new_individual = from_cache(truck_paths, new_drone_paths);
+            if (feasible(py_new_individual))
             {
+                py_result_feasible = std::min(py_result_feasible.value_or(py_new_individual), py_new_individual);
+            }
+            py_result_any = std::min(py_result_any, py_new_individual);
+
+            new_drone_paths[drone].push_back({0, customer});
+            py::object py_new_new_individual = from_cache(truck_paths, new_drone_paths);
+
+            while (py_new_new_individual < py_new_individual && feasible(py_new_new_individual))
+            {
+                py_new_individual = py_new_new_individual;
                 new_drone_paths[drone].push_back({0, customer});
+                py_new_new_individual = from_cache(truck_paths, new_drone_paths);
 
-                py::object py_new_individual = from_cache(new_truck_paths, new_drone_paths);
-#ifdef DEBUG
-                counter++;
-#endif
-
-                improved = false;
-                if (feasible(py_new_individual))
-                {
-                    if (py_result_feasible.has_value())
-                    {
-                        improved = py_new_individual < py_result_feasible;
-                    }
-
-                    py_result_feasible = std::min(py_result_feasible.value_or(py_new_individual), py_new_individual);
-                }
-
-                improved |= py_new_individual < py_result_any;
+                py_result_feasible = std::min(py_result_feasible.value_or(py_new_individual), py_new_individual); // Feasibility guaranteed
                 py_result_any = std::min(py_result_any, py_new_individual);
             }
         }
@@ -308,9 +287,6 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
                         mutable_drone_paths[drone].push_back({0, customer});
 
                         py::object py_new_individual = from_cache(truck_paths, mutable_drone_paths);
-#ifdef DEBUG
-                        counter++;
-#endif
 
                         if (feasible(py_new_individual))
                         {
@@ -343,9 +319,6 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
                         mutable_drone_paths[drone][path].erase(customer);
 
                         py::object py_new_individual = from_cache(truck_paths, mutable_drone_paths);
-#ifdef DEBUG
-                        counter++;
-#endif
 
                         if (feasible(py_new_individual))
                         {
@@ -501,9 +474,6 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
         }
 
         py::object py_new_individual = from_cache(new_truck_paths, new_drone_paths);
-#ifdef DEBUG
-        counter++;
-#endif
 
         if (feasible(py_new_individual))
         {
@@ -575,10 +545,6 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
         */
 
         py::object py_new_individual = from_cache(new_truck_paths, new_drone_paths);
-#ifdef DEBUG
-
-        counter++;
-#endif
 
         if (feasible(py_new_individual))
         {
@@ -586,10 +552,6 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
         }
         py_result_any = std::min(py_result_any, py_new_individual);
     }
-
-#ifdef DEBUG
-    std::cout << "Explored " << counter << " neighbors" << std::endl;
-#endif
 
     /*
     if (py_result_feasible.has_value())

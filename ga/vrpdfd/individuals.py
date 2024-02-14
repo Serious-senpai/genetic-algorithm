@@ -328,7 +328,6 @@ class VRPDFDIndividual(BaseIndividual):
         return self.__local_searched is not None
 
     def local_search(self, *, prioritize_feasible: bool = False) -> VRPDFDIndividual:
-        """Just like educate(), but more expensive"""
         if self.__local_searched is None:
             self.__local_searched = local_search(self)
 
