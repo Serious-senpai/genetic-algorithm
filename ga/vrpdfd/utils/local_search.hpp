@@ -103,6 +103,7 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
         }
     }
 
+    /*
     // FEATURE REQUEST #1. Replicate drone paths with the highest profit
     for (unsigned drone = 0; drone < drones_count; drone++)
     {
@@ -153,6 +154,7 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
             break;
         }
     }
+    */
 
     // Attempt to add absent customers
     std::vector<unsigned> absent;
