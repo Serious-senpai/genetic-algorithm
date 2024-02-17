@@ -56,14 +56,20 @@ jobs:
 # It is also possible to run the algorithm 10 times in parallel (by delegating to 10 child processes and add `wait` at the end),
 # but it will affect the computation time
 
-      - name: Upload artifacts
+      - name: Upload solutions
         if: ${{ always() }}
         uses: actions/upload-artifact@v4
         with:
-          name: output-${{ matrix.problem }}
+          name: solution-${{ matrix.problem }}
+          path: output-*.json
+
+      - name: Upload logs and pickled results
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: log-${{ matrix.problem }}
           path: |
             log-*.csv
-            output-*.json
             output-*.pkl
 
   summary:
@@ -91,7 +97,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: vrpdfd-summary/
-          pattern: output-*
+          pattern: solution-*
           merge-multiple: true
 
       - name: Summarize solutions
@@ -103,5 +109,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: summary
-          path: |
-            vrpdfd-summary/vrpdfd-summary.csv
+          path: vrpdfd-summary/vrpdfd-summary.csv
