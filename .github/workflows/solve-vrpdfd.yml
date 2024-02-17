@@ -58,14 +58,14 @@ jobs:
 
       - name: Upload solutions
         if: ${{ always() }}
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: vrpdfd-summary
           path: output-*.json
 
       - name: Upload logs and pickled results
         if: ${{ always() }}
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: log-${{ matrix.problem }}
           path: |
@@ -105,7 +105,7 @@ jobs:
           python scripts/vrpdfd-summary.py
 
       - name: Upload summary as artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: summary
           path: |
