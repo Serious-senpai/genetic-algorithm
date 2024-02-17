@@ -137,15 +137,6 @@ get_decoded_paths(const py::object &py_solution)
     return std::make_pair(truck_paths, drone_paths);
 }
 
-individual copy(
-    const std::vector<std::set<unsigned int>> &truck_paths,
-    const std::vector<std::vector<std::set<unsigned int>>> &drone_paths)
-{
-    std::vector<std::set<unsigned int>> new_truck_paths = truck_paths;
-    std::vector<std::vector<std::set<unsigned int>>> new_drone_paths = drone_paths;
-    return std::make_pair(new_truck_paths, new_drone_paths);
-}
-
 bool feasible(const py::object &py_individual)
 {
     return py::cast<bool>(py_individual.attr("feasible")());

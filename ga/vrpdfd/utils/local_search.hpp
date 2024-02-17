@@ -5,22 +5,6 @@
 const unsigned TRUCK_TRADE_LIMIT = 4u;
 const unsigned DRONE_TRADE_LIMIT = 4u;
 
-void strip_customers(std::set<unsigned> &path)
-{
-    auto iter = path.begin();
-    while (iter != path.end())
-    {
-        if (*iter != 0 && Customer::customers[*iter].low == 0)
-        {
-            iter = path.erase(iter);
-        }
-        else
-        {
-            iter++;
-        }
-    }
-}
-
 std::pair<std::optional<py::object>, py::object> local_search(const py::object &py_individual)
 {
     const auto [truck_paths, drone_paths] = get_paths(py_individual);
@@ -166,18 +150,27 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
         }
     }
 
-    for (unsigned truck = 0; truck < trucks_count; truck++)
     {
-        auto [new_truck_paths, new_drone_paths] = copy(truck_paths, drone_paths);
-        new_truck_paths[truck].insert(absent.begin(), absent.end());
-
-        py::object py_new_individual = from_cache(new_truck_paths, new_drone_paths);
-
-        if (feasible(py_new_individual))
+        auto mutable_truck_paths = truck_paths;
+        for (unsigned truck = 0; truck < trucks_count; truck++)
         {
-            py_result_feasible = std::min(py_result_feasible.value_or(py_new_individual), py_new_individual);
+            // Temporary modify the individual
+            mutable_truck_paths[truck].insert(absent.begin(), absent.end());
+
+            py::object py_new_individual = from_cache(mutable_truck_paths, drone_paths);
+
+            if (feasible(py_new_individual))
+            {
+                py_result_feasible = std::min(py_result_feasible.value_or(py_new_individual), py_new_individual);
+            }
+            py_result_any = std::min(py_result_any, py_new_individual);
+
+            // Restore the individual
+            for (auto c : absent)
+            {
+                mutable_truck_paths[truck].erase(c);
+            }
         }
-        py_result_any = std::min(py_result_any, py_new_individual);
     }
 
     {
@@ -185,20 +178,27 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
         new_path.push_back(0);
 
         auto py_new_path = py_frozenset(new_path.begin(), new_path.end());
+        auto mutable_drone_paths = drone_paths;
         for (unsigned drone = 0; drone < drones_count; drone++)
         {
             for (unsigned path = 0; path < drone_paths[drone].size(); path++)
             {
-                auto [new_truck_paths, new_drone_paths] = copy(truck_paths, drone_paths);
-                new_drone_paths[drone][path].insert(absent.begin(), absent.end());
+                // Temporary modify the individual
+                mutable_drone_paths[drone][path].insert(absent.begin(), absent.end());
 
-                py::object py_new_individual = from_cache(new_truck_paths, new_drone_paths);
+                py::object py_new_individual = from_cache(truck_paths, mutable_drone_paths);
 
                 if (feasible(py_new_individual))
                 {
                     py_result_feasible = std::min(py_result_feasible.value_or(py_new_individual), py_new_individual);
                 }
                 py_result_any = std::min(py_result_any, py_new_individual);
+
+                // Restore the individual
+                for (auto c : absent)
+                {
+                    mutable_drone_paths[drone][path].erase(c);
+                }
             }
 
             py::object py_new_individual = append_drone_path(py_individual, drone, py_new_path);
@@ -216,7 +216,7 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
     {
         for (unsigned drone = 0; drone < drones_count; drone++)
         {
-            auto [_, new_drone_paths] = copy(truck_paths, drone_paths);
+            auto new_drone_paths = drone_paths;
 
             new_drone_paths[drone].push_back({0, customer});
             py::object py_new_individual = from_cache(truck_paths, new_drone_paths);
@@ -488,7 +488,8 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
     // Brute-force swap
     for (unsigned bitmask = 1; bitmask < (1u << (truck_trade + drone_trade)); bitmask++)
     {
-        auto [new_truck_paths, new_drone_paths] = copy(truck_paths, drone_paths);
+        auto new_truck_paths = truck_paths;
+        auto new_drone_paths = drone_paths;
         std::vector<unsigned> from_truck, from_drone;
         for (unsigned i = 0; i < truck_trade; i++)
         {
