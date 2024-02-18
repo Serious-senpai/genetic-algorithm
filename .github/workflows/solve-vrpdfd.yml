@@ -58,14 +58,14 @@ jobs:
 
       - name: Upload solutions
         if: ${{ always() }}
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
-          name: vrpdfd-summary
+          name: solution-${{ matrix.problem }}
           path: output-*.json
 
       - name: Upload logs and pickled results
         if: ${{ always() }}
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: log-${{ matrix.problem }}
           path: |
@@ -94,10 +94,11 @@ jobs:
         run: scripts/build.sh
 
       - name: Download solutions
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
-          name: vrpdfd-summary
           path: vrpdfd-summary/
+          pattern: solution-*
+          merge-multiple: true
 
       - name: Summarize solutions
         run: |
@@ -105,8 +106,7 @@ jobs:
           python scripts/vrpdfd-summary.py
 
       - name: Upload summary as artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: summary
-          path: |
-            vrpdfd-summary/*.csv
+          path: vrpdfd-summary/vrpdfd-summary.csv
