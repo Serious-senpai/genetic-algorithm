@@ -248,9 +248,15 @@ class VRPDFDSolution(SingleObjectiveSolution[VRPDFDIndividual]):
 
     def bump_fine_coefficient(self) -> None:
         config = ProblemConfig.get_config()
-        assert config.fine_coefficient_increase_rate is not None
+        assert (
+            config.fine_coefficient_increase_rate is not None
+            and config.fine_coefficient_limit is not None
+            and config.initial_fine_coefficient is not None
+        )
         self.__fine_coefficient *= config.fine_coefficient_increase_rate
-        self.__fine_coefficient = min(self.__fine_coefficient, 10 ** 9)
+
+        if self.__fine_coefficient > config.fine_coefficient_limit:
+            self.__fine_coefficient = config.initial_fine_coefficient
 
     def encode(self, *, create_new: bool = False) -> VRPDFDIndividual:
         factory = VRPDFDIndividual if create_new else VRPDFDIndividual.from_cache
