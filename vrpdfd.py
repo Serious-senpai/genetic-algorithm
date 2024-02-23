@@ -19,7 +19,7 @@ class Namespace(argparse.Namespace):
         size: int
         mutation_rate: float
         initial_fine_coefficient: float
-        fine_coefficient_increase_rate: float
+        fine_coefficient_sensitivity: float
         reset_after: int
         stuck_penalty_increase_rate: float
         local_search_batch: int
@@ -36,8 +36,8 @@ parser.add_argument("problem", type=str, help="the problem name (e.g. \"6.5.1\",
 parser.add_argument("-i", "--iterations", default=200, type=int, help="the number of generations")
 parser.add_argument("-s", "--size", default=200, type=int, help="the population size")
 parser.add_argument("-m", "--mutation-rate", default=0.8, type=float, help="the mutation rate")
-parser.add_argument("-f", "--initial-fine-coefficient", default=1000.0, type=float, help="the initial fine coefficient")
-parser.add_argument("-r", "--fine-coefficient-increase-rate", default=10.0, type=float, help="the fine coefficient increase rate")
+parser.add_argument("-f", "--initial-fine-coefficient", default=10000.0, type=float, help="the initial fine coefficient")
+parser.add_argument("-r", "--fine-coefficient-sensitivity", default=0.5, type=float, help="the fine coefficient sensitivity")
 parser.add_argument("-a", "--reset-after", default=15, type=int, help="the number of non-improving generations before applying stuck penalty and local search")
 parser.add_argument("-p", "--stuck-penalty-increase-rate", default=10.0, type=float, help="the stuck penalty increase rate")
 parser.add_argument("-b", "--local-search-batch", default=100, type=int, help="the batch size for local search")
@@ -62,14 +62,29 @@ if namespace.fake_tsp_solver:
 config = ProblemConfig.get_config(namespace.problem)
 ProblemConfig.context = namespace.problem
 config.mutation_rate = namespace.mutation_rate
-config.initial_fine_coefficient = namespace.initial_fine_coefficient
-config.fine_coefficient_increase_rate = namespace.fine_coefficient_increase_rate
+VRPDFDSolution.fine_coefficient = (namespace.initial_fine_coefficient, namespace.initial_fine_coefficient)
+config.fine_coefficient_sensitivity = namespace.fine_coefficient_sensitivity
 config.reset_after = namespace.reset_after
 config.stuck_penalty_increase_rate = namespace.stuck_penalty_increase_rate
 config.local_search_batch = namespace.local_search_batch
 VRPDFDIndividual.cache.max_size = config.cache_limit = namespace.cache_limit
 if namespace.log is not None:
     config.logger = open(namespace.log, "w", encoding="utf-8")
+    config.logger.write(
+        ",".join(
+            (
+                "Generation",
+                "Current result",
+                "Population best",
+                "Population worst",
+                "Population average",
+                "Feasible count",
+                "Time violation coefficient",
+                "Weight violation coefficient",
+            ),
+        ),
+    )
+    config.logger.write("\n")
 
 
 random.seed(time.time())
@@ -116,7 +131,7 @@ for path in namespace.dump:
                 "population_size": namespace.size,
                 "mutation_rate": namespace.mutation_rate,
                 "initial_fine_coefficient": namespace.initial_fine_coefficient,
-                "fine_coefficient_increase_rate": namespace.fine_coefficient_increase_rate,
+                "fine_coefficient_sensitivity": namespace.fine_coefficient_sensitivity,
                 "reset_after": namespace.reset_after,
                 "stuck_penalty_increase_rate": namespace.stuck_penalty_increase_rate,
                 "local_search_batch": namespace.local_search_batch,
@@ -154,3 +169,8 @@ for path in namespace.dump:
 
     else:
         print(f"Unrecognized file extension {dump_path}")
+
+
+if config.logger is not None:
+    config.logger.close()
+    print(f"Saved log to {namespace.log}")

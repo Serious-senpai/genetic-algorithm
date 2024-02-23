@@ -61,8 +61,7 @@ class ProblemConfig:
         # Algorithm config
         "__cache_limit",
         "mutation_rate",
-        "initial_fine_coefficient",
-        "fine_coefficient_increase_rate",
+        "fine_coefficient_sensitivity",
         "reset_after",
         "stuck_penalty_increase_rate",
         "local_search_batch",
@@ -88,8 +87,7 @@ class ProblemConfig:
         # Algorithm config
         __cache_limit: Optional[int]
         mutation_rate: Optional[float]
-        initial_fine_coefficient: Optional[float]
-        fine_coefficient_increase_rate: Optional[float]
+        fine_coefficient_sensitivity: Optional[float]
         reset_after: Optional[int]
         stuck_penalty_increase_rate: Optional[float]
         local_search_batch: Optional[int]
@@ -100,8 +98,7 @@ class ProblemConfig:
         self.__tsp_cache = LRUCache()
         self.__cache_limit = None
         self.mutation_rate = None
-        self.initial_fine_coefficient = None
-        self.fine_coefficient_increase_rate = None
+        self.fine_coefficient_sensitivity = None
         self.reset_after = None
         self.stuck_penalty_increase_rate = None
         self.local_search_batch = None
@@ -227,5 +224,4 @@ class ProblemConfig:
     def debug_setup(cls, problem: str, /) -> ProblemConfig:
         config = cls.get_config(problem)
         ProblemConfig.context = problem
-        config.initial_fine_coefficient = 1000.0
         return config

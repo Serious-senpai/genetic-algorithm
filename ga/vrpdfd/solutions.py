@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import itertools
-from typing import Final, List, Optional, Sequence, Tuple, TYPE_CHECKING, final
+from typing import ClassVar, Final, List, Optional, Sequence, Tuple, TYPE_CHECKING, final
 
 from matplotlib import axes, pyplot
 
@@ -27,11 +27,11 @@ class VRPDFDSolution(SingleObjectiveSolution[VRPDFDIndividual]):
         "__drone_distances",
         "__revenue",
         "__cost",
-        "__fine",
-        "__fine_coefficient",
+        "__violation",
         "truck_paths",
         "drone_paths",
     )
+    fine_coefficient: ClassVar[Tuple[float, float]] = (0, 0)
     if TYPE_CHECKING:
         __hash: Optional[int]
         __encoded: Optional[VRPDFDIndividual]
@@ -41,8 +41,7 @@ class VRPDFDSolution(SingleObjectiveSolution[VRPDFDIndividual]):
         __drone_distances: Optional[Tuple[Tuple[float, ...], ...]]
         __revenue: Optional[int]
         __cost: Optional[float]
-        __fine: Optional[float]
-        __fine_coefficient: float
+        __violation: Optional[Tuple[float, float]]
         truck_paths: Final[Tuple[Tuple[Tuple[int, int], ...], ...]]
         drone_paths: Final[Tuple[Tuple[Tuple[Tuple[int, int], ...], ...], ...]]
 
@@ -57,9 +56,8 @@ class VRPDFDSolution(SingleObjectiveSolution[VRPDFDIndividual]):
         drone_distances: Optional[Tuple[Tuple[float, ...], ...]] = None,
         revenue: Optional[int] = None,
         cost: Optional[float] = None,
-        fine: Optional[float] = None,
+        violation: Optional[Tuple[float, float]] = None,
     ) -> None:
-        config = ProblemConfig.get_config()
         self.__hash = None
         self.__encoded = None
 
@@ -71,10 +69,7 @@ class VRPDFDSolution(SingleObjectiveSolution[VRPDFDIndividual]):
         self.__drone_distances = drone_distances
         self.__revenue = revenue
         self.__cost = cost
-        self.__fine = fine
-
-        assert config.initial_fine_coefficient is not None
-        self.__fine_coefficient = config.initial_fine_coefficient
+        self.__violation = violation
 
     def assert_feasible(self) -> None:
         """Raise InfeasibleSolution if solution is infeasible"""
@@ -126,8 +121,8 @@ class VRPDFDSolution(SingleObjectiveSolution[VRPDFDIndividual]):
             if total < customer.low or total > customer.high:
                 errors.append(f"Customer {index} has weight {total} outside [{customer.low}, {customer.high}]")
 
-        if self.fine > 0.0:
-            errors.append(f"Total fine = {self.fine_coefficient} * {self.fine}")
+        if max(self.violation) > 0.0:
+            errors.append(f"Total violation = {self.violation}")
 
         if len(errors) > 0:
             raise InfeasibleSolution("Solution is infeasible\n" + "\n".join(errors))
@@ -208,19 +203,22 @@ class VRPDFDSolution(SingleObjectiveSolution[VRPDFDIndividual]):
             # We want to maximize profit i.e. minimize cost = -profit
             self.__cost = self.truck_cost + self.drone_cost - self.revenue
 
-        return self.__cost + self.__fine_coefficient * self.fine
+        return self.__cost + sum(coeff * vio for coeff, vio in zip(self.fine_coefficient, self.violation, strict=True))
 
     @property
-    def fine(self) -> float:
-        if self.__fine is None:
-            # Fine for exceeding time limit
+    def violation(self) -> Tuple[float, float]:
+        if self.__violation is None:
             config = ProblemConfig.get_config()
-            result = (
-                sum(positive_max(self.calculate_total_weight(path) / config.truck.capacity - 1) for path in self.truck_paths)
-                + sum(positive_max(self.calculate_total_weight(path) / config.drone.capacity - 1) for paths in self.drone_paths for path in paths)
-                + sum(positive_max(distance / config.truck.speed / config.time_limit - 1) for distance in self.truck_distances)
+
+            time_violation = (
+                sum(positive_max(distance / config.truck.speed / config.time_limit - 1) for distance in self.truck_distances)
                 + sum(positive_max(distance / config.drone.speed / config.drone.time_limit - 1) for distance in itertools.chain(*self.drone_distances))
                 + sum(positive_max(sum(distances) / config.drone.speed / config.time_limit - 1) for distances in self.drone_distances)
+            )
+
+            weight_violation = (
+                sum(positive_max(self.calculate_total_weight(path) / config.truck.capacity - 1) for path in self.truck_paths)
+                + sum(positive_max(self.calculate_total_weight(path) / config.drone.capacity - 1) for paths in self.drone_paths for path in paths)
             )
 
             total_weight = [0.0] * len(config.customers)
@@ -230,27 +228,20 @@ class VRPDFDSolution(SingleObjectiveSolution[VRPDFDIndividual]):
 
             for index, customer in enumerate(config.customers):
                 if index != 0:
-                    result += (
+                    weight_violation += (
                         positive_max(customer.low - total_weight[index])
                         + positive_max(total_weight[index] - customer.high)
                     ) / customer.high
 
-            if isclose(result, 0.0):
-                result = 0.0
+            if isclose(time_violation, 0.0):
+                time_violation = 0.0
 
-            self.__fine = result
+            if isclose(weight_violation, 0.0):
+                weight_violation = 0.0
 
-        return self.__fine
+            self.__violation = (time_violation, weight_violation)
 
-    @property
-    def fine_coefficient(self) -> float:
-        return self.__fine_coefficient
-
-    def bump_fine_coefficient(self) -> None:
-        config = ProblemConfig.get_config()
-        assert config.fine_coefficient_increase_rate is not None
-        self.__fine_coefficient *= config.fine_coefficient_increase_rate
-        self.__fine_coefficient = min(self.__fine_coefficient, 10 ** 9)
+        return self.__violation
 
     def encode(self, *, create_new: bool = False) -> VRPDFDIndividual:
         factory = VRPDFDIndividual if create_new else VRPDFDIndividual.from_cache

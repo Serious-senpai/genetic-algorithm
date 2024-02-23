@@ -181,7 +181,7 @@ class VRPDFDIndividual(BaseIndividual):
 
     def feasible(self) -> bool:
         decoded = self.decode()
-        return decoded.fine == 0.0
+        return max(decoded.violation) == 0.0
 
     @property
     def cost(self) -> float:
@@ -348,10 +348,22 @@ class VRPDFDIndividual(BaseIndividual):
         verbose: bool,
     ) -> None:
         cls.genetic_algorithm_last_improved = last_improved
-        for individual in population:
-            individual.decode().bump_fine_coefficient()
-
         config = ProblemConfig.get_config()
+
+        # Shift fine coefficients
+        decoded = tuple(individual.decode() for individual in population)
+        violation_ratio = (1 + sum(s.violation[0] for s in decoded)) / (1 + sum(s.violation[1] for s in decoded))
+
+        assert config.fine_coefficient_sensitivity is not None
+        current_ratio = result.cls.fine_coefficient[0] / result.cls.fine_coefficient[1]
+        new_ratio = current_ratio + config.fine_coefficient_sensitivity * (violation_ratio - current_ratio)
+
+        total = sum(result.cls.fine_coefficient)
+        result.cls.fine_coefficient = (
+            total * new_ratio / (1 + new_ratio),
+            total / (1 + new_ratio),
+        )
+
         if (
             config.reset_after is not None
             and generation != last_improved
@@ -405,12 +417,27 @@ class VRPDFDIndividual(BaseIndividual):
             population.update(population_sorted[:original_size])
 
         if config.logger is not None:
-            config.logger.write(f"Generation #{generation + 1},Result,{result.cost}\n#,Cost,Penalized cost,Fine coefficient,Feasible,Individual,Individual REPR\n")
+            best = min(population)
+            worst = max(population)
+            average_cost = sum(individual.cost for individual in population) / len(population)
+            feasible_count = len(list(filter(lambda i: i.feasible(), population)))
+
             config.logger.write(
-                "\n".join(
-                    f"{index + 1},{i.cost},{i.penalized_cost},{i.decode().fine_coefficient},{int(i.feasible())},\"{i}\",\"{i!r}\""
-                    for index, i in enumerate(sorted(population, key=lambda i: i.penalized_cost))
-                )
+                ",".join(
+                    map(
+                        str,
+                        (
+                            generation + 1,
+                            result.cost,
+                            best.cost,
+                            worst.cost,
+                            average_cost,
+                            feasible_count,
+                            result.cls.fine_coefficient[0],
+                            result.cls.fine_coefficient[1],
+                        ),
+                    ),
+                ),
             )
             config.logger.write("\n")
 

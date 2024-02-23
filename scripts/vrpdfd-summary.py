@@ -29,7 +29,7 @@ class SolutionJSON(TypedDict):
     population_size: int
     mutation_rate: float
     initial_fine_coefficient: float
-    fine_coefficient_increase_rate: float
+    fine_coefficient_sensitivity: float
     reset_after: int
     stuck_penalty_increase_rate: float
     local_search_batch: int
@@ -166,7 +166,7 @@ field_names = (
     "Population size",
     "Mutation rate",
     "Initial fine coefficient",
-    "Fine coefficient increase rate",
+    "Fine coefficient sensitivity",
     "Reset after",
     "Stuck penalty increase rate",
     "Local search batch",
@@ -200,7 +200,7 @@ with open(summary_dir / "vrpdfd-summary.csv", "w") as csvfile:
                 data["population_size"],
                 data["mutation_rate"],
                 data["initial_fine_coefficient"],
-                data["fine_coefficient_increase_rate"],
+                data["fine_coefficient_sensitivity"],
                 data["reset_after"],
                 data["stuck_penalty_increase_rate"],
                 data["local_search_batch"],
@@ -242,7 +242,6 @@ with open(summary_dir / "vrpdfd-summary.csv", "w") as csvfile:
                     milp_data: MILPSolutionJSON = json.load(f)
 
                 assert milp_data["data_set"] == problem_name
-                ProblemConfig.get_config(problem_name).initial_fine_coefficient = 10 ** 3
                 ProblemConfig.context = problem_name
 
                 milp_solution = read_milp_solution(milp_data)
