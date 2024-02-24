@@ -48,7 +48,7 @@ jobs:
             echo "---------- RUN #$i ----------"
             timeout --signal=INT 1200 \
             python vrpdfd.py ${{ matrix.problem }} \
-            --dump "output-${{ matrix.problem }}-$i.json" "output-${{ matrix.problem }}-$i.pkl" "output-${{ matrix.problem }}-$i.png" \
+            --dump "output-${{ matrix.problem }}-$i.json" "pickle-${{ matrix.problem }}-$i.pkl" "plot-${{ matrix.problem }}-$i.png" \
             --log "log-${{ matrix.problem }}-$i.csv" \
             --extra "run #$i" || true
           done
@@ -70,8 +70,8 @@ jobs:
           name: log-${{ matrix.problem }}
           path: |
             log-*.csv
-            output-*.pkl
-            output-*.png
+            pickle-*.pkl
+            plot-*.png
 
   summary:
     name: Summarize solutions

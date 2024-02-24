@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import itertools
 import random
+from math import ceil
 from typing import (
     ClassVar,
     Final,
@@ -350,6 +351,31 @@ class VRPDFDIndividual(BaseIndividual):
         cls.genetic_algorithm_last_improved = last_improved
         config = ProblemConfig.get_config()
 
+        if config.logger is not None:
+            best = min(population)
+            worst = max(population)
+            average_cost = sum(individual.cost for individual in population) / len(population)
+            feasible_count = len(list(filter(lambda i: i.feasible(), population)))
+
+            config.logger.write(
+                ",".join(
+                    map(
+                        str,
+                        (
+                            generation + 1,
+                            result.cost,
+                            best.cost,
+                            worst.cost,
+                            average_cost,
+                            feasible_count,
+                            result.cls.fine_coefficient[0],
+                            result.cls.fine_coefficient[1],
+                        ),
+                    ),
+                ),
+            )
+            config.logger.write("\n")
+
         # Shift fine coefficients
         decoded = tuple(individual.decode() for individual in population)
         violation_ratio = (1 + sum(s.violation[0] for s in decoded)) / (1 + sum(s.violation[1] for s in decoded))
@@ -417,31 +443,6 @@ class VRPDFDIndividual(BaseIndividual):
             population.clear()
             population.update(population_sorted[:original_size])
 
-        if config.logger is not None:
-            best = min(population)
-            worst = max(population)
-            average_cost = sum(individual.cost for individual in population) / len(population)
-            feasible_count = len(list(filter(lambda i: i.feasible(), population)))
-
-            config.logger.write(
-                ",".join(
-                    map(
-                        str,
-                        (
-                            generation + 1,
-                            result.cost,
-                            best.cost,
-                            worst.cost,
-                            average_cost,
-                            feasible_count,
-                            result.cls.fine_coefficient[0],
-                            result.cls.fine_coefficient[1],
-                        ),
-                    ),
-                ),
-            )
-            config.logger.write("\n")
-
     @classmethod
     def selection(cls, *, population: FrozenSet[Self], size: int) -> Set[Self]:
         population_sorted = sorted(population, key=lambda i: i.penalized_cost)
@@ -469,12 +470,39 @@ class VRPDFDIndividual(BaseIndividual):
                     )
                 )
 
+            distances_to_port = [config.distances[0][customer] for customer in range(len(config.customers))]
+            customers_sorted = sorted(range(1, len(config.customers)), key=distances_to_port.__getitem__)
+            nearest = customers_sorted[:len(customers_sorted) // 2]
+            furthest = customers_sorted[len(customers_sorted) // 2:]
+
+            required_drone_paths = {customer: ceil(config.customers[customer].low / config.drone.capacity) for customer in nearest}
+            truck_paths = frozenset([0, *furthest])
+            all_drone_paths = [frozenset([0, customer]) for customer in nearest for _ in range(required_drone_paths[customer])]
+
+            while len(results) < size:
+                drone_paths: List[List[FrozenSet[int]]] = [[] for _ in range(config.drones_count)]
+                for drone_path in all_drone_paths:
+                    drone = random.randint(0, config.drones_count - 1)
+                    drone_paths[drone].append(drone_path)
+
+                before = len(results)
+
+                results.add(
+                    cls.from_cache(
+                        solution_cls=solution_cls,
+                        truck_paths=tuple(truck_paths for _ in range(config.trucks_count)),
+                        drone_paths=drone_paths,
+                    )
+                )
+
+                after = len(results)
+                if before == after:
+                    break
+
             while len(results) < size:
                 array = list(results)
                 base = random.choice(array)
-                base = base.mutate()
-
-                results.add(base)
+                results.add(base.mutate())
 
             return results
 
