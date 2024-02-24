@@ -29,6 +29,7 @@ class SolutionJSON(TypedDict):
     population_size: int
     mutation_rate: float
     initial_fine_coefficient: float
+    fine_coefficient_increment: float
     fine_coefficient_sensitivity: float
     reset_after: int
     stuck_penalty_increase_rate: float
@@ -166,6 +167,7 @@ field_names = (
     "Population size",
     "Mutation rate",
     "Initial fine coefficient",
+    "Fine coefficient increment",
     "Fine coefficient sensitivity",
     "Reset after",
     "Stuck penalty increase rate",
@@ -200,6 +202,7 @@ with open(summary_dir / "vrpdfd-summary.csv", "w") as csvfile:
                 data["population_size"],
                 data["mutation_rate"],
                 data["initial_fine_coefficient"],
+                data["fine_coefficient_increment"],
                 data["fine_coefficient_sensitivity"],
                 data["reset_after"],
                 data["stuck_penalty_increase_rate"],

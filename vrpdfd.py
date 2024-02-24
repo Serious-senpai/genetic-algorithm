@@ -19,6 +19,7 @@ class Namespace(argparse.Namespace):
         size: int
         mutation_rate: float
         initial_fine_coefficient: float
+        fine_coefficient_increment: float
         fine_coefficient_sensitivity: float
         reset_after: int
         stuck_penalty_increase_rate: float
@@ -34,17 +35,18 @@ class Namespace(argparse.Namespace):
 parser = argparse.ArgumentParser(description="Genetic algorithm for VRPDFD problem", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument("problem", type=str, help="the problem name (e.g. \"6.5.1\", \"200.10.1\", ...)")
 parser.add_argument("-i", "--iterations", default=200, type=int, help="the number of generations")
-parser.add_argument("-s", "--size", default=200, type=int, help="the population size")
-parser.add_argument("-m", "--mutation-rate", default=0.8, type=float, help="the mutation rate")
-parser.add_argument("-f", "--initial-fine-coefficient", default=10000.0, type=float, help="the initial fine coefficient")
-parser.add_argument("-r", "--fine-coefficient-sensitivity", default=0.5, type=float, help="the fine coefficient sensitivity")
-parser.add_argument("-a", "--reset-after", default=15, type=int, help="the number of non-improving generations before applying stuck penalty and local search")
-parser.add_argument("-p", "--stuck-penalty-increase-rate", default=10.0, type=float, help="the stuck penalty increase rate")
-parser.add_argument("-b", "--local-search-batch", default=100, type=int, help="the batch size for local search")
+parser.add_argument("--size", default=200, type=int, help="the population size")
+parser.add_argument("--mutation-rate", default=0.8, type=float, help="the mutation rate")
+parser.add_argument("--initial-fine-coefficient", default=100.0, type=float, help="the initial fine coefficients")
+parser.add_argument("--fine-coefficient-increment", default=0.0, type=float, help="the increment of fine coefficients sum")
+parser.add_argument("--fine-coefficient-sensitivity", default=0.5, type=float, help="the fine coefficient sensitivity")
+parser.add_argument("--reset-after", default=15, type=int, help="the number of non-improving generations before applying stuck penalty and local search")
+parser.add_argument("--stuck-penalty-increase-rate", default=10.0, type=float, help="the stuck penalty increase rate")
+parser.add_argument("--local-search-batch", default=100, type=int, help="the batch size for local search")
 parser.add_argument("-v", "--verbose", action="store_true", help="turn on verbose mode")
 parser.add_argument("--cache-limit", default=50000, type=int, help="set limit for individuals and TSP cache")
 parser.add_argument("--fake-tsp-solver", action="store_true", help="use fake TSP solver")
-parser.add_argument("--dump", nargs="*", default=[], type=str, help="dump the solution to a file, supports *.json and *.pkl")
+parser.add_argument("--dump", nargs="*", default=[], type=str, help="dump the solution to a file(s), supports *.json, *.pkl and *.png")
 parser.add_argument("--extra", type=str, help="extra data dump to file specified by --dump")
 parser.add_argument("--log", type=str, help="log each generation to a file")
 
@@ -63,13 +65,17 @@ config = ProblemConfig.get_config(namespace.problem)
 ProblemConfig.context = namespace.problem
 config.mutation_rate = namespace.mutation_rate
 VRPDFDSolution.fine_coefficient = (namespace.initial_fine_coefficient, namespace.initial_fine_coefficient)
-config.fine_coefficient_sensitivity = namespace.fine_coefficient_sensitivity
+VRPDFDSolution.fine_coefficient_increment = namespace.fine_coefficient_increment
+VRPDFDSolution.fine_coefficient_sensitivity = namespace.fine_coefficient_sensitivity
 config.reset_after = namespace.reset_after
 config.stuck_penalty_increase_rate = namespace.stuck_penalty_increase_rate
 config.local_search_batch = namespace.local_search_batch
 VRPDFDIndividual.cache.max_size = config.cache_limit = namespace.cache_limit
 if namespace.log is not None:
-    config.logger = open(namespace.log, "w", encoding="utf-8")
+    log_path = Path(namespace.log)
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+
+    config.logger = log_path.open("w", encoding="utf-8")
     config.logger.write(
         ",".join(
             (
@@ -131,6 +137,7 @@ for path in namespace.dump:
                 "population_size": namespace.size,
                 "mutation_rate": namespace.mutation_rate,
                 "initial_fine_coefficient": namespace.initial_fine_coefficient,
+                "fine_coefficient_increment": namespace.fine_coefficient_increment,
                 "fine_coefficient_sensitivity": namespace.fine_coefficient_sensitivity,
                 "reset_after": namespace.reset_after,
                 "stuck_penalty_increase_rate": namespace.stuck_penalty_increase_rate,
@@ -166,6 +173,10 @@ for path in namespace.dump:
 
         else:
             print(f"Pickled solution to {dump_path}")
+
+    elif path.endswith(".png"):
+        solution.plot(path)
+        print(f"Saved solution plot to {dump_path}")
 
     else:
         print(f"Unrecognized file extension {dump_path}")

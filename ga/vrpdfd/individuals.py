@@ -354,12 +354,13 @@ class VRPDFDIndividual(BaseIndividual):
         decoded = tuple(individual.decode() for individual in population)
         violation_ratio = (1 + sum(s.violation[0] for s in decoded)) / (1 + sum(s.violation[1] for s in decoded))
 
-        assert config.fine_coefficient_sensitivity is not None
-        current_ratio = result.cls.fine_coefficient[0] / result.cls.fine_coefficient[1]
-        new_ratio = current_ratio + config.fine_coefficient_sensitivity * (violation_ratio - current_ratio)
+        VRPDFDSolution = result.cls
 
-        total = sum(result.cls.fine_coefficient)
-        result.cls.fine_coefficient = (
+        current_ratio = VRPDFDSolution.fine_coefficient[0] / VRPDFDSolution.fine_coefficient[1]
+        new_ratio = current_ratio + VRPDFDSolution.fine_coefficient_sensitivity * (violation_ratio - current_ratio)
+
+        total = sum(VRPDFDSolution.fine_coefficient) + VRPDFDSolution.fine_coefficient_increment
+        VRPDFDSolution.fine_coefficient = (
             total * new_ratio / (1 + new_ratio),
             total / (1 + new_ratio),
         )

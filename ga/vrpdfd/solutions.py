@@ -32,6 +32,8 @@ class VRPDFDSolution(SingleObjectiveSolution[VRPDFDIndividual]):
         "drone_paths",
     )
     fine_coefficient: ClassVar[Tuple[float, float]] = (0, 0)
+    fine_coefficient_increment: ClassVar[float] = 0
+    fine_coefficient_sensitivity: ClassVar[float] = 0
     if TYPE_CHECKING:
         __hash: Optional[int]
         __encoded: Optional[VRPDFDIndividual]
@@ -260,7 +262,7 @@ class VRPDFDSolution(SingleObjectiveSolution[VRPDFDIndividual]):
 
         return self.__encoded
 
-    def plot(self) -> None:
+    def plot(self, file_name: Optional[str] = None) -> None:
         _, ax = pyplot.subplots()
         assert isinstance(ax, axes.Axes)
 
@@ -290,6 +292,7 @@ class VRPDFDSolution(SingleObjectiveSolution[VRPDFDIndividual]):
                 angles="xy",
                 scale_units="xy",
                 scale=1,
+                width=0.004,
             )
 
         for paths in self.drone_paths:
@@ -317,6 +320,7 @@ class VRPDFDSolution(SingleObjectiveSolution[VRPDFDIndividual]):
                 angles="xy",
                 scale_units="xy",
                 scale=1,
+                width=0.004,
             )
 
         ax.scatter((0,), (0,), c="black", label="Depot")
@@ -329,12 +333,17 @@ class VRPDFDSolution(SingleObjectiveSolution[VRPDFDIndividual]):
 
         ax.annotate("0", (0, 0))
         for index in range(1, len(config.customers)):
-            ax.annotate(str(index), config.customers[index].location)
+            ax.annotate(f"{index} (w={config.customers[index].w})", config.customers[index].location)
 
         ax.grid(True)
 
         pyplot.legend()
-        pyplot.show()
+
+        if file_name is None:
+            pyplot.show()
+        else:
+            pyplot.savefig(file_name)
+
         pyplot.close()
 
     def __hash__(self) -> int:
