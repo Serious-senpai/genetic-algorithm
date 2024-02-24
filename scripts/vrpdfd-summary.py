@@ -242,7 +242,7 @@ with open(summary_dir / "vrpdfd-summary.csv", "w") as csvfile:
                     milp_data: MILPSolutionJSON = json.load(f)
 
                 assert milp_data["data_set"] == problem_name
-                ProblemConfig.context = problem_name
+                ProblemConfig.debug_setup(problem_name)
 
                 milp_solution = read_milp_solution(milp_data)
 
