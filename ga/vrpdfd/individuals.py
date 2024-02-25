@@ -196,7 +196,7 @@ class VRPDFDIndividual(BaseIndividual):
     def bump_stuck_penalty(self) -> None:
         config = ProblemConfig.get_config()
         self.__stuck_penalty *= config.stuck_penalty_increase_rate or 1.0
-        self.__stuck_penalty = min(self.__stuck_penalty, 10**9)
+        self.__stuck_penalty = min(self.__stuck_penalty, 10 ** 9)
 
     def decode(self) -> VRPDFDSolution:
         if self.__decoded is None:
@@ -433,7 +433,7 @@ class VRPDFDIndividual(BaseIndividual):
                 individuals = tqdm(individuals, desc=f"Local search (#{generation + 1})", ascii=" █", colour="red")
 
             for individual in individuals:
-                # Testing in progress
+                # 2-layer local search
                 for states in itertools.product((True, False), repeat=2):
                     current = individual
                     for state in states:
@@ -481,13 +481,11 @@ class VRPDFDIndividual(BaseIndividual):
             truck_paths = frozenset([0, *furthest])
             all_drone_paths = [frozenset([0, customer]) for customer in nearest for _ in range(required_drone_paths[customer])]
 
-            while len(results) < size:
+            for _ in range(20):
                 drone_paths: List[List[FrozenSet[int]]] = [[] for _ in range(config.drones_count)]
                 for drone_path in all_drone_paths:
                     drone = random.randint(0, config.drones_count - 1)
                     drone_paths[drone].append(drone_path)
-
-                before = len(results)
 
                 results.add(
                     cls.from_cache(
@@ -497,8 +495,7 @@ class VRPDFDIndividual(BaseIndividual):
                     )
                 )
 
-                after = len(results)
-                if before == after:
+                if len(results) == size:
                     break
 
             while len(results) < size:
