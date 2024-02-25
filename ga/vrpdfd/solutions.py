@@ -31,6 +31,7 @@ class VRPDFDSolution(SingleObjectiveSolution[VRPDFDIndividual]):
         "truck_paths",
         "drone_paths",
     )
+    initial_fine_coefficient: ClassVar[float] = 0
     fine_coefficient: ClassVar[Tuple[float, float]] = (0, 0)
     fine_coefficient_increment: ClassVar[float] = 0
     fine_coefficient_sensitivity: ClassVar[float] = 0

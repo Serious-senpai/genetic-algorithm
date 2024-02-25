@@ -385,11 +385,13 @@ class VRPDFDIndividual(BaseIndividual):
         current_ratio = VRPDFDSolution.fine_coefficient[0] / VRPDFDSolution.fine_coefficient[1]
         new_ratio = current_ratio + VRPDFDSolution.fine_coefficient_sensitivity * (violation_ratio - current_ratio)
 
-        total = sum(VRPDFDSolution.fine_coefficient) + VRPDFDSolution.fine_coefficient_increment
+        total = sum(VRPDFDSolution.fine_coefficient) * VRPDFDSolution.fine_coefficient_increment
         VRPDFDSolution.fine_coefficient = (
             total * new_ratio / (1 + new_ratio),
             total / (1 + new_ratio),
         )
+        if max(VRPDFDSolution.fine_coefficient) > 10**9:
+            VRPDFDSolution.fine_coefficient = (VRPDFDSolution.initial_fine_coefficient, VRPDFDSolution.initial_fine_coefficient)
 
         if (
             config.reset_after is not None

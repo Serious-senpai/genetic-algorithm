@@ -37,8 +37,8 @@ parser.add_argument("problem", type=str, help="the problem name (e.g. \"6.5.1\",
 parser.add_argument("-i", "--iterations", default=200, type=int, help="the number of generations")
 parser.add_argument("--size", default=200, type=int, help="the population size")
 parser.add_argument("--mutation-rate", default=0.8, type=float, help="the mutation rate")
-parser.add_argument("--initial-fine-coefficient", default=100.0, type=float, help="the initial fine coefficients")
-parser.add_argument("--fine-coefficient-increment", default=0.0, type=float, help="the increment of fine coefficients sum")
+parser.add_argument("--initial-fine-coefficient", default=1000.0, type=float, help="the initial fine coefficients")
+parser.add_argument("--fine-coefficient-increment", default=10.0, type=float, help="the increase rate of fine coefficients sum")
 parser.add_argument("--fine-coefficient-sensitivity", default=0.5, type=float, help="the fine coefficient sensitivity")
 parser.add_argument("--reset-after", default=15, type=int, help="the number of non-improving generations before applying stuck penalty and local search")
 parser.add_argument("--stuck-penalty-increase-rate", default=10.0, type=float, help="the stuck penalty increase rate")
@@ -64,6 +64,7 @@ if namespace.fake_tsp_solver:
 config = ProblemConfig.get_config(namespace.problem)
 ProblemConfig.context = namespace.problem
 config.mutation_rate = namespace.mutation_rate
+VRPDFDSolution.initial_fine_coefficient = namespace.initial_fine_coefficient
 VRPDFDSolution.fine_coefficient = (namespace.initial_fine_coefficient, namespace.initial_fine_coefficient)
 VRPDFDSolution.fine_coefficient_increment = namespace.fine_coefficient_increment
 VRPDFDSolution.fine_coefficient_sensitivity = namespace.fine_coefficient_sensitivity
