@@ -4,8 +4,9 @@ from ..individuals import VRPDFDIndividual
 
 
 __all__ = (
-    "set_customers",
-    "set_tsp_cache_size",
+    "setup",
+    "setup_path_cache",
+    "path_cache_info",
     "path_order",
     "decode",
     "educate",
@@ -14,7 +15,7 @@ __all__ = (
 )
 
 
-def set_customers(
+def setup(
     low: Sequence[int],
     high: Sequence[int],
     w: Sequence[int],
@@ -29,15 +30,14 @@ def set_customers(
 ) -> None: ...
 
 
-def set_tsp_cache_size(size: int) -> None: ...
+def setup_path_cache(capacity: int) -> None: ...
+def path_cache_info() -> Dict[str, int]: ...
 def path_order(path: AbstractSet[int]) -> Tuple[float, List[int]]: ...
 
 
 def decode(
     truck_paths: Sequence[AbstractSet[int]],
     drone_paths: Sequence[Sequence[AbstractSet[int]]],
-    truck_capacity: int,
-    drone_capacity: int,
 ) -> Tuple[
     List[Dict[int, int]],
     List[List[Dict[int, int]]],

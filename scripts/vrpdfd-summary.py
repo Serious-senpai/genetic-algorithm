@@ -4,54 +4,54 @@ import re
 from collections import defaultdict
 from pathlib import Path
 from traceback import print_exc
-from typing import Any, Dict, DefaultDict, List, Optional, Tuple, TypedDict, TYPE_CHECKING
+from typing import Any, Dict, DefaultDict, List, Optional, Tuple, TypedDict
 
-from ga.utils import isclose
+from ga.utils import LRUCacheInfo, isclose
 from ga.vrpdfd import ProblemConfig, VRPDFDSolution
-if TYPE_CHECKING:
-    from ga.utils import LRUCacheInfo
 
 
-if TYPE_CHECKING:
-    class SolutionInfo(TypedDict):
-        profit: float
-        feasible: bool
-        truck_paths: List[List[Tuple[int, float]]]
-        drone_paths: List[List[List[Tuple[int, float]]]]
+class SolutionInfo(TypedDict):
+    profit: float
+    feasible: bool
+    truck_paths: List[List[Tuple[int, float]]]
+    drone_paths: List[List[List[Tuple[int, float]]]]
 
-    class CacheInfo(TypedDict):
-        limit: int
-        individual: LRUCacheInfo
-        tsp: LRUCacheInfo
 
-    class SolutionJSON(TypedDict):
-        problem: str
-        generations: int
-        population_size: int
-        mutation_rate: float
-        initial_fine_coefficient: float
-        fine_coefficient_increment: float
-        fine_coefficient_sensitivity: float
-        reset_after: int
-        stuck_penalty_increase_rate: float
-        local_search_batch: int
-        solution: SolutionInfo
-        time: str
-        fake_tsp_solver: bool
-        last_improved: int
-        extra: Optional[str]
-        cache_info: CacheInfo
+class CacheInfo(TypedDict):
+    limit: int
+    individual: LRUCacheInfo
+    tsp: LRUCacheInfo
 
-    class MILPSolutionJSON(TypedDict):
-        # We only annotate the fields in need here
-        data_set: str
-        status: str
-        solve_time: float
-        obj_value: float
-        truck: Dict[str, float]
-        drone: Dict[str, float]
-        cusWeightByDrone: Dict[str, float]
-        cusWeightByTruck: Dict[str, float]
+
+class SolutionJSON(TypedDict):
+    problem: str
+    generations: int
+    population_size: int
+    mutation_rate: float
+    initial_fine_coefficient: float
+    fine_coefficient_increment: float
+    fine_coefficient_sensitivity: float
+    reset_after: int
+    stuck_penalty_increase_rate: float
+    local_search_batch: int
+    solution: SolutionInfo
+    time: str
+    fake_tsp_solver: bool
+    last_improved: int
+    extra: Optional[str]
+    cache_info: CacheInfo
+
+
+class MILPSolutionJSON(TypedDict):
+    # We only annotate the fields in need here
+    data_set: str
+    status: str
+    solve_time: float
+    obj_value: float
+    truck: Dict[str, float]
+    drone: Dict[str, float]
+    cusWeightByDrone: Dict[str, float]
+    cusWeightByTruck: Dict[str, float]
 
 
 def wrap_double_quotes(text: Any) -> str:
@@ -245,7 +245,7 @@ with open(summary_dir / "vrpdfd-summary.csv", "w") as csvfile:
                     milp_data: MILPSolutionJSON = json.load(f)
 
                 assert milp_data["data_set"] == problem_name
-                ProblemConfig.debug_setup(problem_name)
+                ProblemConfig.quick_setup(problem_name)
 
                 milp_solution = read_milp_solution(milp_data)
 

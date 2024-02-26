@@ -1,15 +1,20 @@
 from __future__ import annotations
 
 import math
-from typing import Any, Iterable, Sequence, TypeVar, Union, overload
+from typing import Any, Iterable, Optional, Sequence, TypeVar, TypedDict, Union, overload
 
 from .cpp_utils import weighted_random
 
 
-__all__ = ("isclose", "positive_max", "value", "weighted_random_choice", "weird_round")
+__all__ = ("LRUCacheInfo", "isclose", "positive_max", "value", "weighted_random_choice", "weird_round")
 _T = TypeVar("_T")
-_K = TypeVar("_K")
-_V = TypeVar("_V")
+
+
+class LRUCacheInfo(TypedDict):
+    max_size: Optional[int]
+    hit: int
+    miss: int
+    cached: int
 
 
 @overload

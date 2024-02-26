@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from typing import AbstractSet, Generic, List, Optional, Sequence, Set, Tuple, TypedDict, TypeVar
+from typing import AbstractSet, Generic, Hashable, List, Optional, Sequence, Set, Tuple, TypeVar
+
+from .py_utils import LRUCacheInfo
 
 
 __all__ = (
@@ -8,15 +10,12 @@ __all__ = (
     "fake_tsp_solver",
     "flows_with_demands",
     "jaccard_distance",
-    "LRUCacheInfo",
     "LRUCache",
     "maximum_flow",
     "smallest_circle",
     "tsp_solver",
     "weighted_random",
 )
-KT = TypeVar("KT")
-VT = TypeVar("VT")
 
 
 def crowding_distance_sort(sets: Sequence[Sequence[AbstractSet[int]]], *, k: int = 2) -> List[int]: ...
@@ -44,11 +43,8 @@ def flows_with_demands(
 def jaccard_distance(first: AbstractSet[int], second: AbstractSet[int]) -> float: ...
 
 
-class LRUCacheInfo(TypedDict):
-    max_size: Optional[int]
-    hit: int
-    miss: int
-    cached: int
+KT = TypeVar("KT", bound=Hashable)
+VT = TypeVar("VT")
 
 
 class LRUCache(Generic[KT, VT]):

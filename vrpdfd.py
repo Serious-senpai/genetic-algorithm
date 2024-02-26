@@ -9,8 +9,7 @@ from pathlib import Path
 from typing import List, Optional, TYPE_CHECKING
 
 from ga import utils
-from ga.vrpdfd import InfeasibleSolution, ProblemConfig, VRPDFDIndividual, VRPDFDSolution
-from ga.vrpdfd.utils import set_tsp_cache_size
+from ga.vrpdfd import InfeasibleSolution, ProblemConfig, VRPDFDIndividual, VRPDFDSolution, path_cache_info, setup_path_cache
 
 
 class Namespace(argparse.Namespace):
@@ -74,7 +73,7 @@ config.stuck_penalty_increase_rate = namespace.stuck_penalty_increase_rate
 config.local_search_batch = namespace.local_search_batch
 
 VRPDFDIndividual.cache.capacity = namespace.cache_limit
-set_tsp_cache_size(namespace.cache_limit)
+setup_path_cache(namespace.cache_limit)
 
 if namespace.log is not None:
     log_path = Path(namespace.log)
@@ -160,7 +159,7 @@ for path in namespace.dump:
                 "cache_info": {
                     "limit": namespace.cache_limit,
                     "individual": VRPDFDIndividual.cache.to_json(),
-                    # "tsp": config.tsp_cache.to_json(),
+                    "tsp": path_cache_info(),
                 },
             }
             json.dump(data, json_file)

@@ -205,8 +205,6 @@ class VRPDFDIndividual(BaseIndividual):
             truck_paths_mapping, drone_paths_mapping = decode(
                 self.truck_paths,
                 self.drone_paths,
-                truck_capacity=config.truck.capacity,
-                drone_capacity=config.drone.capacity,
             )
 
             truck_paths: List[List[Tuple[int, int]]] = []

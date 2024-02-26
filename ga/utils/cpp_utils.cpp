@@ -59,9 +59,9 @@ PYBIND11_MODULE(cpp_utils, m)
         .def_readonly("hit", &py_lru_cache::hit)
         .def_readonly("miss", &py_lru_cache::miss)
         .def_readonly("cached", &py_lru_cache::cached)
-        .def(py::init<unsigned>())
-        .def("get", &py_lru_cache::get)
-        .def("set", &py_lru_cache::set)
+        .def(py::init<unsigned>(), py::arg("capacity"))
+        .def("get", &py_lru_cache::get, py::arg("key"))
+        .def("set", &py_lru_cache::set, py::arg("key"), py::arg("value"))
         .def("to_json", &py_lru_cache::to_json)
         .def(
             "__getitem__",
@@ -74,19 +74,22 @@ PYBIND11_MODULE(cpp_utils, m)
                 }
 
                 throw py::key_error(py::cast<std::string>(py::repr(key)));
-            })
+            },
+            py::arg("key"))
         .def(
             "__setitem__",
             [](py_lru_cache &self, const py::object &key, const py::object &value)
             {
                 self.set(key, value);
-            })
+            },
+            py::arg("key"), py::arg("value"))
         .def(
             "__contains__",
             [](py_lru_cache &self, const py::object &key)
             {
                 return self.get(key).has_value();
-            });
+            },
+            py::arg("key"));
 
     m.def(
         "maximum_flow", &maximum_flow,

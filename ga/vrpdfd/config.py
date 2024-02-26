@@ -10,7 +10,7 @@ from os import path
 from typing import ClassVar, Dict, Final, FrozenSet, List, Optional, Tuple, TYPE_CHECKING, final
 
 from .errors import ConfigImportException
-from .utils import path_order, set_customers
+from .utils import path_order, setup
 from ..utils import weird_round
 
 
@@ -147,7 +147,7 @@ class ProblemConfig:
 
                 self.distances = tuple(map(tuple, distances))
 
-                set_customers(
+                setup(
                     [customer.low for customer in customers],
                     [customer.high for customer in customers],
                     [customer.w for customer in customers],
@@ -185,7 +185,7 @@ class ProblemConfig:
         return path_order(path)
 
     @classmethod
-    def debug_setup(cls, problem: str, /) -> ProblemConfig:
+    def quick_setup(cls, problem: str, /) -> ProblemConfig:
         config = cls.get_config(problem)
         ProblemConfig.context = problem
         return config

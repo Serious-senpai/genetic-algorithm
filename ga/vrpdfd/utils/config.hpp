@@ -23,27 +23,36 @@ struct Customer
     const volume_t low, high, w;
     const double x, y;
     const std::pair<double, double> location;
-    static volume_t total_low, total_high,
-        truck_capacity, drone_capacity;
-    static double truck_distance_limit, drone_distance_limit,
-        truck_cost_coefficient, drone_cost_coefficient; // TODO: Refactor these
+    static volume_t total_low, total_high;
     static std::vector<Customer> customers;
     static std::vector<std::vector<double>> distances;
     static std::vector<std::vector<unsigned>> nearests;
-    static lru_cache<std::set<unsigned>, std::pair<double, std::vector<unsigned>>> path_order_cache;
 
-    Customer(volume_t low, volume_t high, volume_t w, double x, double y) : low(low), high(high), w(w), x(x), y(y), location(std::make_pair(x, y)) {}
+    Customer(volume_t low, volume_t high, volume_t w, double x, double y)
+        : low(low), high(high), w(w), x(x), y(y),
+          location(std::make_pair(x, y)) {}
 };
 
-volume_t Customer::total_low, Customer::total_high, Customer::truck_capacity, Customer::drone_capacity;
-double Customer::truck_distance_limit, Customer::drone_distance_limit,
-    Customer::truck_cost_coefficient, Customer::drone_cost_coefficient;
+struct Vehicle
+{
+    const volume_t capacity;
+    const double distance_limit, cost_coefficient;
+    static Vehicle *truck, *drone;
+
+    Vehicle(volume_t capacity, double distance_limit, double cost_coefficient)
+        : capacity(capacity),
+          distance_limit(distance_limit),
+          cost_coefficient(cost_coefficient) {}
+};
+
+volume_t Customer::total_low, Customer::total_high;
 std::vector<Customer> Customer::customers;
 std::vector<std::vector<double>> Customer::distances;
 std::vector<std::vector<unsigned>> Customer::nearests;
-lru_cache<std::set<unsigned>, std::pair<double, std::vector<unsigned>>> Customer::path_order_cache(100000);
 
-void set_customers(
+Vehicle *Vehicle::truck, *Vehicle::drone;
+
+void setup(
     const std::vector<volume_t> &low,
     const std::vector<volume_t> &high,
     const std::vector<volume_t> &w,
@@ -103,24 +112,26 @@ void set_customers(
         Customer::nearests.push_back(all);
     }
 
-    Customer::path_order_cache.clear();
-
-    Customer::truck_distance_limit = truck_distance_limit;
-    Customer::drone_distance_limit = drone_distance_limit;
-    Customer::truck_capacity = truck_capacity;
-    Customer::drone_capacity = drone_capacity;
-    Customer::truck_cost_coefficient = truck_cost_coefficient;
-    Customer::drone_cost_coefficient = drone_cost_coefficient;
+    Vehicle::truck = new Vehicle(truck_capacity, truck_distance_limit, truck_cost_coefficient);
+    Vehicle::drone = new Vehicle(drone_capacity, drone_distance_limit, drone_cost_coefficient);
 }
 
-void set_tsp_cache_size(const unsigned size)
+lru_cache<std::set<unsigned>, std::pair<double, std::vector<unsigned>>> path_order_cache(100000);
+
+void setup_path_cache(unsigned capacity)
 {
-    Customer::path_order_cache.capacity = size;
+    path_order_cache.clear();
+    path_order_cache.capacity = capacity;
+}
+
+std::map<std::string, unsigned> path_cache_info()
+{
+    return path_order_cache.to_json();
 }
 
 std::pair<double, std::vector<unsigned>> path_order(const std::set<unsigned> &path)
 {
-    auto cached = Customer::path_order_cache.get(path);
+    auto cached = path_order_cache.get(path);
     if (cached.has_value())
     {
         return cached.value();
@@ -141,7 +152,7 @@ std::pair<double, std::vector<unsigned>> path_order(const std::set<unsigned> &pa
     }
 
     result.second = result_path;
-    Customer::path_order_cache.set(path, result);
+    path_order_cache.set(path, result);
 
     return result;
 }
@@ -236,7 +247,7 @@ double drone_path_profit(const std::vector<std::pair<unsigned, volume_t>> &path)
     {
         cost += Customer::distances[path[i].first][path[i + 1].first];
     }
-    cost *= Customer::drone_cost_coefficient;
+    cost *= Vehicle::drone->cost_coefficient;
 
     return revenue - cost;
 }

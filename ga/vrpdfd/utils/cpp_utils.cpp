@@ -9,15 +9,18 @@ namespace py = pybind11;
 PYBIND11_MODULE(cpp_utils, m)
 {
     m.def(
-        "set_customers", &set_customers,
+        "setup", &setup,
         py::arg("low"), py::arg("high"), py::arg("w"), py::arg("x"), py::arg("y"),
         py::arg("truck_distance_limit"), py::arg("drone_distance_limit"),
         py::arg("truck_capacity"), py::arg("drone_capacity"),
         py::arg("truck_cost_coefficient"), py::arg("drone_cost_coefficient"),
         py::call_guard<py::gil_scoped_release>());
     m.def(
-        "set_tsp_cache_size", &set_tsp_cache_size,
-        py::arg("size"),
+        "setup_path_cache", &setup_path_cache,
+        py::arg("capacity"),
+        py::call_guard<py::gil_scoped_release>());
+    m.def(
+        "path_cache_info", &path_cache_info,
         py::call_guard<py::gil_scoped_release>());
     m.def(
         "path_order", &path_order,
@@ -25,7 +28,7 @@ PYBIND11_MODULE(cpp_utils, m)
         py::call_guard<py::gil_scoped_release>());
     m.def(
         "decode", &decode,
-        py::arg("truck_paths"), py::arg("drone_paths"), py::arg("truck_capacity"), py::arg("drone_capacity"),
+        py::arg("truck_paths"), py::arg("drone_paths"),
         py::call_guard<py::gil_scoped_release>());
     m.def(
         "educate", &educate,

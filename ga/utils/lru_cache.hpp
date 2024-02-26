@@ -7,15 +7,17 @@
 #include <type_traits>
 #include <unordered_map>
 
-// https://stackoverflow.com/a/51915825
-template <typename T, typename = std::void_t<>>
-struct is_std_hashable : std::false_type
-{
-};
+namespace std
+{ // https://stackoverflow.com/a/51915825
+    template <typename T, typename = std::void_t<>>
+    struct is_hashable : std::false_type
+    {
+    };
 
-template <typename T>
-struct is_std_hashable<T, std::void_t<decltype(std::declval<std::hash<T>>()(std::declval<T>()))>> : std::true_type
-{
+    template <typename T>
+    struct is_hashable<T, std::void_t<decltype(std::declval<std::hash<T>>()(std::declval<T>()))>> : std::true_type
+    {
+    };
 };
 
 template <typename K, typename V>
@@ -24,7 +26,7 @@ class lru_cache
 private:
     std::list<std::pair<K, V>> items_list;
     typename std::conditional<
-        is_std_hashable<K>::value,
+        std::is_hashable<K>::value,
         std::unordered_map<K, typename std::list<std::pair<K, V>>::iterator>,
         std::map<K, typename std::list<std::pair<K, V>>::iterator>>::type items_map;
 
