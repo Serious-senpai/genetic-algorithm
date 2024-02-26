@@ -7,11 +7,11 @@ import json
 from dataclasses import dataclass
 from math import sqrt
 from os import path
-from typing import ClassVar, Dict, Final, FrozenSet, Optional, Tuple, TYPE_CHECKING, final
+from typing import ClassVar, Dict, Final, FrozenSet, List, Optional, Tuple, TYPE_CHECKING, final
 
 from .errors import ConfigImportException
-from .utils import set_customers
-from ..utils import LRUCache, tsp_solver, weird_round
+from .utils import path_order, set_customers
+from ..utils import weird_round
 
 
 __all__ = (
@@ -44,8 +44,6 @@ class Vehicle:
 class ProblemConfig:
 
     __slots__ = (
-        "__tsp_cache",
-
         "problem",
         "trucks_count",
         "drones_count",
@@ -59,7 +57,6 @@ class ProblemConfig:
         "time_limit",
 
         # Algorithm config
-        "__cache_limit",
         "mutation_rate",
         "reset_after",
         "stuck_penalty_increase_rate",
@@ -69,8 +66,6 @@ class ProblemConfig:
     __cache__: ClassVar[Dict[str, ProblemConfig]] = {}
     context: ClassVar[str] = "None"
     if TYPE_CHECKING:
-        __tsp_cache: Final[LRUCache[FrozenSet[int], Tuple[float, Tuple[int, ...]]]]
-
         problem: Final[str]
         trucks_count: Final[int]
         drones_count: Final[int]
@@ -84,7 +79,6 @@ class ProblemConfig:
         time_limit: Final[float]
 
         # Algorithm config
-        __cache_limit: Optional[int]
         mutation_rate: Optional[float]
         reset_after: Optional[int]
         stuck_penalty_increase_rate: Optional[float]
@@ -93,8 +87,6 @@ class ProblemConfig:
 
     def __init__(self, problem: str, /) -> None:
         self.problem = problem = problem.removesuffix(".csv")
-        self.__tsp_cache = LRUCache()
-        self.__cache_limit = None
         self.mutation_rate = None
         self.reset_after = None
         self.stuck_penalty_increase_rate = None
@@ -173,19 +165,6 @@ class ProblemConfig:
             raise ConfigImportException(error) from error
 
     @property
-    def tsp_cache(self) -> LRUCache[FrozenSet[int], Tuple[float, Tuple[int, ...]]]:
-        return self.__tsp_cache
-
-    @property
-    def cache_limit(self) -> Optional[int]:
-        return self.__cache_limit
-
-    @cache_limit.setter
-    def cache_limit(self, value: Optional[int]) -> None:
-        self.__cache_limit = value
-        self.__tsp_cache.max_size = value
-
-    @property
     def customers_count(self) -> int:
         """Return the number of customers excluding the deport"""
         return len(self.customers) - 1
@@ -202,20 +181,8 @@ class ProblemConfig:
             cls.__cache__[problem] = config = cls(problem)
             return config
 
-    def path_order(self, path: FrozenSet[int]) -> Tuple[float, Tuple[int, ...]]:
-        try:
-            return self.__tsp_cache[path]
-
-        except KeyError:
-            customers = tuple(path)
-            depot_index = customers.index(0)
-            distance, path_index = tsp_solver([self.customers[i].location for i in customers], first=depot_index)
-
-            ordered = list(map(customers.__getitem__, path_index))
-            ordered.append(0)
-
-            self.__tsp_cache[path] = result = distance, tuple(ordered)
-            return result
+    def path_order(self, path: FrozenSet[int]) -> Tuple[float, List[int]]:
+        return path_order(path)
 
     @classmethod
     def debug_setup(cls, problem: str, /) -> ProblemConfig:

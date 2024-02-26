@@ -14,7 +14,7 @@ double pow_2(const double x)
 std::pair<double, std::vector<unsigned>> fake_tsp_solver(
     const std::vector<std::pair<double, double>> &cities,
     const unsigned first = 0,
-    const std::optional<std::vector<unsigned>> &heuristic_hint = std::optional<std::vector<unsigned>>())
+    const std::optional<std::vector<unsigned>> &heuristic_hint = std::nullopt)
 {
     unsigned n = cities.size();
 

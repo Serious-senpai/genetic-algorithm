@@ -16,6 +16,14 @@ PYBIND11_MODULE(cpp_utils, m)
         py::arg("truck_cost_coefficient"), py::arg("drone_cost_coefficient"),
         py::call_guard<py::gil_scoped_release>());
     m.def(
+        "set_tsp_cache_size", &set_tsp_cache_size,
+        py::arg("size"),
+        py::call_guard<py::gil_scoped_release>());
+    m.def(
+        "path_order", &path_order,
+        py::arg("path"),
+        py::call_guard<py::gil_scoped_release>());
+    m.def(
         "decode", &decode,
         py::arg("truck_paths"), py::arg("drone_paths"), py::arg("truck_capacity"), py::arg("drone_capacity"),
         py::call_guard<py::gil_scoped_release>());

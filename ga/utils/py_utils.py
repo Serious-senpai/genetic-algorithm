@@ -1,70 +1,15 @@
 from __future__ import annotations
 
 import math
-from collections import OrderedDict
-from typing import Any, Iterable, Optional, Sequence, TypedDict, TypeVar, Union, TYPE_CHECKING, overload
+from typing import Any, Iterable, Sequence, TypeVar, Union, overload
 
 from .cpp_utils import weighted_random
 
 
-__all__ = ("LRUCacheInfo", "LRUCache", "isclose", "positive_max", "value", "weighted_random_choice", "weird_round")
+__all__ = ("isclose", "positive_max", "value", "weighted_random_choice", "weird_round")
 _T = TypeVar("_T")
 _K = TypeVar("_K")
 _V = TypeVar("_V")
-
-
-class LRUCacheInfo(TypedDict):
-    max_size: Optional[int]
-    hit: int
-    miss: int
-    cached: int
-
-
-class LRUCache(OrderedDict[_K, _V]):
-
-    __slots__ = ("max_size", "hit", "miss", "cached")
-    if TYPE_CHECKING:
-        max_size: Optional[int]
-        hit: int
-        miss: int
-        cached: int
-
-    def __init__(self, max_size: Optional[int] = None, /) -> None:
-        self.max_size = max_size
-        self.hit = 0
-        self.miss = 0
-        self.cached = 0
-
-    def __getitem__(self, __key: _K) -> _V:
-        try:
-            value = super().__getitem__(__key)
-            self.hit += 1
-        except KeyError:
-            self.miss += 1
-            raise
-
-        try:
-            self.move_to_end(__key)
-        except KeyError:
-            pass
-
-        return value
-
-    def __setitem__(self, __key: _K, __value: _V) -> None:
-        if self.max_size is not None:
-            while self.__len__() >= self.max_size:
-                self.popitem(last=False)
-
-        self.cached += 1
-        return super().__setitem__(__key, __value)
-
-    def to_json(self) -> LRUCacheInfo:
-        return {
-            "max_size": self.max_size,
-            "hit": self.hit,
-            "miss": self.miss,
-            "cached": self.cached,
-        }
 
 
 @overload

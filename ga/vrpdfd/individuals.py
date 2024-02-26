@@ -55,7 +55,7 @@ class VRPDFDIndividual(BaseIndividual):
         "drone_paths",
     )
     genetic_algorithm_last_improved: ClassVar[int] = 0
-    cache: ClassVar[LRUCache[Tuple[Tuple[FrozenSet[int], ...], Tuple[Tuple[FrozenSet[int], ...], ...]], VRPDFDIndividual]] = LRUCache()
+    cache: ClassVar[LRUCache[Tuple[Tuple[FrozenSet[int], ...], Tuple[Tuple[FrozenSet[int], ...], ...]], VRPDFDIndividual]] = LRUCache(10000)
     if TYPE_CHECKING:
         __cls: Final[Type[VRPDFDSolution]]
         __stuck_penalty: float
@@ -479,9 +479,12 @@ class VRPDFDIndividual(BaseIndividual):
 
             required_drone_paths = {customer: ceil(config.customers[customer].low / config.drone.capacity) for customer in nearest}
             truck_paths = frozenset([0, *furthest])
-            all_drone_paths = [frozenset([0, customer]) for customer in nearest for _ in range(required_drone_paths[customer])]
+            all_drone_paths = [frozenset([0, customer]) for customer in nearest for _ in range(1 + required_drone_paths[customer])]
 
             for _ in range(20):
+                if len(results) == size:
+                    break
+
                 drone_paths: List[List[FrozenSet[int]]] = [[] for _ in range(config.drones_count)]
                 for drone_path in all_drone_paths:
                     drone = random.randint(0, config.drones_count - 1)
@@ -495,13 +498,24 @@ class VRPDFDIndividual(BaseIndividual):
                     )
                 )
 
-                if len(results) == size:
-                    break
+            def merge_drone_paths(original: VRPDFDIndividual) -> VRPDFDIndividual:
+                paths = original.flatten()
+
+                drone_paths = paths[config.trucks_count:]
+                try:
+                    first, second = weighted_random([config.distances[0][sorted(path)[-1]] for path in drone_paths], count=2)
+                except ValueError:
+                    return original.mutate()
+
+                drone_paths[first] = drone_paths[first].union(drone_paths[second])
+                drone_paths[second] = frozenset([0])
+
+                return original.reconstruct(paths[:config.trucks_count] + drone_paths)
 
             while len(results) < size:
                 array = list(results)
                 base = random.choice(array)
-                results.add(base.mutate())
+                results.add(merge_drone_paths(base))
 
             return results
 

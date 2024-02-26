@@ -1,11 +1,12 @@
-from typing import AbstractSet, Dict, FrozenSet, List, Optional, Sequence, Set, Tuple, Type
+from typing import AbstractSet, Dict, List, Optional, Sequence, Set, Tuple
 
 from ..individuals import VRPDFDIndividual
-from ..solutions import VRPDFDSolution
 
 
 __all__ = (
     "set_customers",
+    "set_tsp_cache_size",
+    "path_order",
     "decode",
     "educate",
     "local_search",
@@ -26,6 +27,10 @@ def set_customers(
     truck_cost_coefficient: float,
     drone_cost_coefficient: float,
 ) -> None: ...
+
+
+def set_tsp_cache_size(size: int) -> None: ...
+def path_order(path: AbstractSet[int]) -> Tuple[float, List[int]]: ...
 
 
 def decode(
