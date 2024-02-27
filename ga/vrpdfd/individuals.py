@@ -374,31 +374,15 @@ class VRPDFDIndividual(BaseIndividual):
             )
             config.logger.write("\n")
 
-        # Shift fine coefficients
-        decoded = tuple(individual.decode() for individual in population)
-        violation_ratio = (1 + sum(s.violation[0] for s in decoded)) / (1 + sum(s.violation[1] for s in decoded))
-
-        VRPDFDSolution = result.cls
-
-        current_ratio = VRPDFDSolution.fine_coefficient[0] / VRPDFDSolution.fine_coefficient[1]
-        new_ratio = current_ratio + VRPDFDSolution.fine_coefficient_sensitivity * (violation_ratio - current_ratio)
-
-        total = sum(VRPDFDSolution.fine_coefficient) * VRPDFDSolution.fine_coefficient_increment
-        VRPDFDSolution.fine_coefficient = (
-            total * new_ratio / (1 + new_ratio),
-            total / (1 + new_ratio),
-        )
-        if max(VRPDFDSolution.fine_coefficient) > 10**9:
-            VRPDFDSolution.fine_coefficient = (VRPDFDSolution.initial_fine_coefficient, VRPDFDSolution.initial_fine_coefficient)
-
         if (
             config.reset_after is not None
             and generation != last_improved
             and (generation - last_improved) % config.reset_after == 0
         ):
             if config.logger is not None:
-                config.logger.write("Increasing stuck penalty and applying local search\n")
+                config.logger.write("\"Increasing stuck penalty, applying local search and tuning fine coefficients\"\n")
 
+            result.cls.tune_fine_coefficients(population)
             for individual in population:
                 individual.bump_stuck_penalty()
 
@@ -514,6 +498,9 @@ class VRPDFDIndividual(BaseIndividual):
                 array = list(results)
                 base = random.choice(array)
                 results.add(merge_drone_paths(base))
+
+            # Set initial fine coefficients
+            solution_cls.tune_fine_coefficients(results)
 
             return results
 

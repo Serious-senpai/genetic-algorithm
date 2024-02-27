@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import itertools
-from typing import ClassVar, Final, List, Optional, Sequence, Tuple, TYPE_CHECKING, final
+from typing import ClassVar, Final, Iterable, List, Optional, Sequence, Tuple, TYPE_CHECKING, final
 
 from matplotlib import axes, pyplot
 
@@ -31,10 +31,7 @@ class VRPDFDSolution(SingleObjectiveSolution[VRPDFDIndividual]):
         "truck_paths",
         "drone_paths",
     )
-    initial_fine_coefficient: ClassVar[float] = 0
     fine_coefficient: ClassVar[Tuple[float, float]] = (0, 0)
-    fine_coefficient_increment: ClassVar[float] = 0
-    fine_coefficient_sensitivity: ClassVar[float] = 0
     if TYPE_CHECKING:
         __hash: Optional[int]
         __encoded: Optional[VRPDFDIndividual]
@@ -346,6 +343,27 @@ class VRPDFDSolution(SingleObjectiveSolution[VRPDFDIndividual]):
             pyplot.savefig(file_name)
 
         pyplot.close()
+
+    @classmethod
+    def tune_fine_coefficients(cls, population: Iterable[VRPDFDIndividual]) -> None:
+        decoded = set(individual.decode() for individual in population)
+        violations = (
+            sum(s.violation[0] for s in decoded),
+            sum(s.violation[1] for s in decoded),
+        )
+
+        best = min(decoded)
+        worst = max(decoded)
+        base = worst.cost - best.cost
+
+        cls.fine_coefficient = (
+            base * violations[0] / (violations[0] ** 2 + violations[1] ** 2),
+            base * violations[1] / (violations[0] ** 2 + violations[1] ** 2),
+        )
+
+        config = ProblemConfig.get_config()
+        if config.logger is not None:
+            config.logger.write(f"\"base = {base}, violations = {violations}, fine_coefficient = {cls.fine_coefficient}\"\n")
 
     def __hash__(self) -> int:
         if self.__hash is None:
