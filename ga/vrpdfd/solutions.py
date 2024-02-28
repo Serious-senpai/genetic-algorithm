@@ -348,8 +348,8 @@ class VRPDFDSolution(SingleObjectiveSolution[VRPDFDIndividual]):
     def tune_fine_coefficients(cls, population: Iterable[VRPDFDIndividual]) -> None:
         decoded = set(individual.decode() for individual in population)
         violations = (
-            sum(s.violation[0] for s in decoded),
-            sum(s.violation[1] for s in decoded),
+            sum(s.violation[0] for s in decoded) / len(decoded),
+            sum(s.violation[1] for s in decoded) / len(decoded),
         )
 
         best = min(decoded)
