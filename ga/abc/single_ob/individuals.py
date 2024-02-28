@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import FrozenSet, List, Set, Type, TypeVar, Union, TYPE_CHECKING, final
 
+from colorama import Fore, Style
 from matplotlib import pyplot
 from tqdm import tqdm
 if TYPE_CHECKING:
@@ -161,7 +162,9 @@ class SingleObjectiveIndividual(BaseIndividual[_ST], BaseCostComparison):
             try:
                 current_result = result
                 if isinstance(iterations, tqdm):
-                    display = f"GA ({result.cost:.2f})"
+                    prefix = Fore.GREEN if result.feasible() else Fore.RED
+                    suffix = Style.RESET_ALL
+                    display = f"GA ({prefix}{result.cost:.2f}{suffix})"
                     iterations.set_description_str(display)
 
                 cls.before_generation_hook(
