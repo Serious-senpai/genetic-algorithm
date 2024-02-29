@@ -338,6 +338,18 @@ class VRPDFDIndividual(BaseIndividual):
             return any
 
     @classmethod
+    def before_generation_hook(
+        cls,
+        *,
+        generation: int,
+        last_improved: int,
+        result: VRPDFDIndividual,
+        population: Set[VRPDFDIndividual],
+        verbose: bool,
+    ) -> None:
+        result.cls.tune_fine_coefficients(population)
+
+    @classmethod
     def after_generation_hook(
         cls,
         *,
@@ -357,6 +369,12 @@ class VRPDFDIndividual(BaseIndividual):
             average_cost = sum(individual.cost for individual in population) / len(population)
             feasible_count = len(list(filter(lambda i: i.feasible(), population)))
 
+            decoded = set(individual.decode() for individual in population)
+            violations = (
+                sum(s.violation[0] for s in decoded) / len(decoded),
+                sum(s.violation[1] for s in decoded) / len(decoded),
+            )
+
             config.logger.write(
                 ",".join(
                     map(
@@ -368,8 +386,8 @@ class VRPDFDIndividual(BaseIndividual):
                             worst.cost,
                             average_cost,
                             feasible_count,
-                            result.cls.fine_coefficient[0],
-                            result.cls.fine_coefficient[1],
+                            *result.cls.fine_coefficient,
+                            *violations,
                         ),
                     ),
                 ),
@@ -382,9 +400,8 @@ class VRPDFDIndividual(BaseIndividual):
             and (generation - last_improved) % config.reset_after == 0
         ):
             if config.logger is not None:
-                config.logger.write("\"Increasing stuck penalty, applying local search and tuning fine coefficients\"\n")
+                config.logger.write("\"Increasing stuck penalty and applying local search\"\n")
 
-            result.cls.tune_fine_coefficients(population)
             for individual in population:
                 individual.bump_stuck_penalty()
 
@@ -500,9 +517,6 @@ class VRPDFDIndividual(BaseIndividual):
                 array = list(results)
                 base = random.choice(array)
                 results.add(merge_drone_paths(base))
-
-            # Set initial fine coefficients
-            solution_cls.tune_fine_coefficients(results)
 
             return results
 

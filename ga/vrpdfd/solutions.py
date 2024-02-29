@@ -366,10 +366,6 @@ class VRPDFDSolution(SingleObjectiveSolution[VRPDFDIndividual]):
                 base * violations[1] / (violations[0] ** 2 + violations[1] ** 2),
             )
 
-        config = ProblemConfig.get_config()
-        if config.logger is not None:
-            config.logger.write(f"\"base = {base}, violations = {violations}, fine_coefficient = {cls.fine_coefficient}\"\n")
-
     def __hash__(self) -> int:
         if self.__hash is None:
             self.__hash = hash((frozenset(self.truck_paths), frozenset(map(frozenset, self.drone_paths))))

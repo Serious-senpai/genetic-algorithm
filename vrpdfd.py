@@ -81,6 +81,8 @@ if namespace.log is not None:
                 "Feasible count",
                 "Time violation coefficient",
                 "Weight violation coefficient",
+                "Average time violation",
+                "Average weight violation",
             ),
         ),
     )
