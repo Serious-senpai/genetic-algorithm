@@ -55,6 +55,7 @@ class VRPDFDIndividual(BaseIndividual):
         "drone_paths",
     )
     genetic_algorithm_last_improved: ClassVar[int] = 0
+    genetic_algorithm_result: ClassVar[Optional[VRPDFDIndividual]] = None
     cache: ClassVar[LRUCache[Tuple[Tuple[FrozenSet[int], ...], Tuple[Tuple[FrozenSet[int], ...], ...]], VRPDFDIndividual]] = LRUCache(10000)
     if TYPE_CHECKING:
         __cls: Final[Type[VRPDFDSolution]]
@@ -347,6 +348,7 @@ class VRPDFDIndividual(BaseIndividual):
         verbose: bool,
     ) -> None:
         cls.genetic_algorithm_last_improved = last_improved
+        cls.genetic_algorithm_result = result
         config = ProblemConfig.get_config()
 
         if config.logger is not None:

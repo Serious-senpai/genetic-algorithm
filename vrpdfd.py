@@ -91,88 +91,89 @@ random.seed(time.time())
 
 
 start = time.perf_counter()
-solution = VRPDFDIndividual.genetic_algorithm(
-    generations_count=namespace.iterations,
-    population_size=namespace.size,
-    population_expansion_limit=2 * namespace.size,
-    solution_cls=VRPDFDSolution,
-    verbose=namespace.verbose,
-).decode()
-total_time = time.perf_counter() - start
-
-
-if solution is None:
-    message = "No feasible solution found"
-    raise ValueError(message)
-
-
-additional = " (including pyplot interactive duration)" if namespace.verbose else ""
-print(f"Got solution with profit = {-solution.cost} after {total_time:.4f}s{additional}:\n{solution}")
-
-
 try:
-    solution.assert_feasible()
-except InfeasibleSolution:
-    traceback.print_exc()
-    feasible = False
-else:
-    feasible = True
+    solution = VRPDFDIndividual.genetic_algorithm(
+        generations_count=namespace.iterations,
+        population_size=namespace.size,
+        population_expansion_limit=2 * namespace.size,
+        solution_cls=VRPDFDSolution,
+        verbose=namespace.verbose,
+    ).decode()
 
+except BaseException:
+    if VRPDFDIndividual.genetic_algorithm_result is None:
+        raise RuntimeError("No feasible solution was found")
 
-for path in namespace.dump:
-    dump_path = Path(path)
-    dump_path.parent.mkdir(parents=True, exist_ok=True)
+    solution = VRPDFDIndividual.genetic_algorithm_result.decode()
+    raise
 
-    if path.endswith(".json"):
-        with dump_path.open("w", encoding="utf-8") as json_file:
-            data = {
-                "problem": namespace.problem,
-                "generations": namespace.iterations,
-                "population_size": namespace.size,
-                "mutation_rate": namespace.mutation_rate,
-                "reset_after": namespace.reset_after,
-                "stuck_penalty_increase_rate": namespace.stuck_penalty_increase_rate,
-                "local_search_batch": namespace.local_search_batch,
-                "solution": {
-                    "profit": -solution.cost,
-                    "feasible": feasible,
-                    "truck_paths": solution.truck_paths,
-                    "drone_paths": solution.drone_paths,
-                },
-                "time": total_time,
-                "fake_tsp_solver": namespace.fake_tsp_solver,
-                "last_improved": VRPDFDIndividual.genetic_algorithm_last_improved,
-                "extra": namespace.extra,
-                "cache_info": {
-                    "limit": namespace.cache_limit,
-                    "individual": VRPDFDIndividual.cache.to_json(),
-                    "tsp": path_cache_info(),
-                },
-            }
-            json.dump(data, json_file)
+finally:
+    total_time = time.perf_counter() - start
 
-        print(f"Saved solution as JSON to {dump_path}")
+    additional = " (including pyplot interactive duration)" if namespace.verbose else ""
+    print(f"Got solution with profit = {-solution.cost} after {total_time:.4f}s{additional}:\n{solution}")
 
-    elif path.endswith(".pkl"):
-        sys.setrecursionlimit(100000)
-        try:
-            with dump_path.open("wb") as pickle_file:
-                pickle.dump(solution.encode(), pickle_file)
+    try:
+        solution.assert_feasible()
+    except InfeasibleSolution:
+        traceback.print_exc()
+        feasible = False
+    else:
+        feasible = True
 
-        except RecursionError:
-            traceback.print_exc()
+    for path in namespace.dump:
+        dump_path = Path(path)
+        dump_path.parent.mkdir(parents=True, exist_ok=True)
+
+        if path.endswith(".json"):
+            with dump_path.open("w", encoding="utf-8") as json_file:
+                data = {
+                    "problem": namespace.problem,
+                    "generations": namespace.iterations,
+                    "population_size": namespace.size,
+                    "mutation_rate": namespace.mutation_rate,
+                    "reset_after": namespace.reset_after,
+                    "stuck_penalty_increase_rate": namespace.stuck_penalty_increase_rate,
+                    "local_search_batch": namespace.local_search_batch,
+                    "solution": {
+                        "profit": -solution.cost,
+                        "feasible": feasible,
+                        "truck_paths": solution.truck_paths,
+                        "drone_paths": solution.drone_paths,
+                    },
+                    "time": total_time,
+                    "fake_tsp_solver": namespace.fake_tsp_solver,
+                    "last_improved": VRPDFDIndividual.genetic_algorithm_last_improved,
+                    "extra": namespace.extra,
+                    "cache_info": {
+                        "limit": namespace.cache_limit,
+                        "individual": VRPDFDIndividual.cache.to_json(),
+                        "tsp": path_cache_info(),
+                    },
+                }
+                json.dump(data, json_file)
+
+            print(f"Saved solution as JSON to {dump_path}")
+
+        elif path.endswith(".pkl"):
+            sys.setrecursionlimit(100000)
+            try:
+                with dump_path.open("wb") as pickle_file:
+                    pickle.dump(solution.encode(), pickle_file)
+
+            except RecursionError:
+                traceback.print_exc()
+
+            else:
+                print(f"Pickled solution to {dump_path}")
+
+        elif path.endswith(".png"):
+            solution.plot(path)
+            print(f"Saved solution plot to {dump_path}")
 
         else:
-            print(f"Pickled solution to {dump_path}")
+            print(f"Unrecognized file extension {dump_path}")
 
-    elif path.endswith(".png"):
-        solution.plot(path)
-        print(f"Saved solution plot to {dump_path}")
-
-    else:
-        print(f"Unrecognized file extension {dump_path}")
-
-
-if config.logger is not None:
-    config.logger.close()
-    print(f"Saved log to {namespace.log}")
+    if config.logger is not None:
+        config.logger.close()
+        print(f"Saved log to {namespace.log}")
