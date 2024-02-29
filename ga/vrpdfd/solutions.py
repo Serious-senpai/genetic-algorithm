@@ -354,7 +354,8 @@ class VRPDFDSolution(SingleObjectiveSolution[VRPDFDIndividual]):
 
         best = min(decoded)
         worst = max(decoded)
-        base = worst.cost - best.cost
+        # Note: VRPDFDSolution.cost does NOT include stuck penalty
+        base = max(worst.cost - best.cost, abs(worst.cost + best.cost))
 
         if max(violations) == 0:
             # The entire population is feasible
