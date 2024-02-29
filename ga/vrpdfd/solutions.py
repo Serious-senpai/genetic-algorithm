@@ -358,7 +358,7 @@ class VRPDFDSolution(SingleObjectiveSolution[VRPDFDIndividual]):
 
         if max(violations) == 0:
             # The entire population is feasible
-            cls.fine_coefficient = (0, 0)
+            cls.fine_coefficient = (base, base)
 
         else:
             cls.fine_coefficient = (
