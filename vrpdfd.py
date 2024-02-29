@@ -92,23 +92,24 @@ random.seed(time.time())
 
 start = time.perf_counter()
 try:
-    solution = VRPDFDIndividual.genetic_algorithm(
+    individual = VRPDFDIndividual.genetic_algorithm(
         generations_count=namespace.iterations,
         population_size=namespace.size,
         population_expansion_limit=2 * namespace.size,
         solution_cls=VRPDFDSolution,
         verbose=namespace.verbose,
-    ).decode()
-
-except BaseException:
-    if VRPDFDIndividual.genetic_algorithm_result is None:
-        raise RuntimeError("No feasible solution was found")
-
-    solution = VRPDFDIndividual.genetic_algorithm_result.decode()
-    raise
+    )
 
 finally:
     total_time = time.perf_counter() - start
+
+    try:
+        solution = individual.decode()  # type: ignore  # pyright is so dumb
+    except NameError:
+        if VRPDFDIndividual.genetic_algorithm_result is None:
+            raise RuntimeError("No feasible solution was found")
+
+        solution = VRPDFDIndividual.genetic_algorithm_result.decode()
 
     additional = " (including pyplot interactive duration)" if namespace.verbose else ""
     print(f"Got solution with profit = {-solution.cost} after {total_time:.4f}s{additional}:\n{solution}")

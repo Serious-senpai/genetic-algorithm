@@ -356,10 +356,15 @@ class VRPDFDSolution(SingleObjectiveSolution[VRPDFDIndividual]):
         worst = max(decoded)
         base = worst.cost - best.cost
 
-        cls.fine_coefficient = (
-            base * violations[0] / (violations[0] ** 2 + violations[1] ** 2),
-            base * violations[1] / (violations[0] ** 2 + violations[1] ** 2),
-        )
+        if max(violations) == 0:
+            # The entire population is feasible
+            cls.fine_coefficient = (0, 0)
+
+        else:
+            cls.fine_coefficient = (
+                base * violations[0] / (violations[0] ** 2 + violations[1] ** 2),
+                base * violations[1] / (violations[0] ** 2 + violations[1] ** 2),
+            )
 
         config = ProblemConfig.get_config()
         if config.logger is not None:
