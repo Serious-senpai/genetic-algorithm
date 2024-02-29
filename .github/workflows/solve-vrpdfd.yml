@@ -43,7 +43,7 @@ jobs:
 
       - name: Run optimizer
         run: |
-          exitcode = 0
+          exitcode=0
           for i in $(seq 0 9)
           do
             echo "---------- RUN #$i ----------"
@@ -55,7 +55,7 @@ jobs:
             --extra "run #$i"
 
             if [ "$?" -ne 0 ]; then
-              exitcode = 1
+              exitcode=1
             fi
 
           done
