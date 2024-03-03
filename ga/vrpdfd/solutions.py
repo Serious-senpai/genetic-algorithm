@@ -8,6 +8,7 @@ from matplotlib import axes, pyplot
 from .config import ProblemConfig
 from .errors import InfeasibleSolution
 from .individuals import VRPDFDIndividual
+from .types import SolutionInfo
 from ..abc import SingleObjectiveSolution
 from ..utils import isclose, positive_max
 
@@ -260,6 +261,9 @@ class VRPDFDSolution(SingleObjectiveSolution[VRPDFDIndividual]):
 
         return self.__encoded
 
+    def feasible(self) -> bool:
+        return max(self.violation) == 0
+
     def plot(self, file_name: Optional[str] = None) -> None:
         _, ax = pyplot.subplots()
         assert isinstance(ax, axes.Axes)
@@ -343,6 +347,14 @@ class VRPDFDSolution(SingleObjectiveSolution[VRPDFDIndividual]):
             pyplot.savefig(file_name)
 
         pyplot.close()
+
+    def to_json(self) -> SolutionInfo:
+        return {
+            "profit": -self.cost,
+            "feasible": self.feasible(),
+            "truck_paths": self.truck_paths,
+            "drone_paths": self.drone_paths,
+        }
 
     @classmethod
     def tune_fine_coefficients(cls, population: Iterable[VRPDFDIndividual]) -> None:

@@ -4,51 +4,10 @@ import re
 from collections import defaultdict
 from pathlib import Path
 from traceback import print_exc
-from typing import Any, Dict, DefaultDict, List, Optional, Tuple, TypedDict
+from typing import Any, Dict, DefaultDict, List, Tuple
 
-from ga.utils import LRUCacheInfo, isclose
-from ga.vrpdfd import ProblemConfig, VRPDFDSolution
-
-
-class SolutionInfo(TypedDict):
-    profit: float
-    feasible: bool
-    truck_paths: List[List[Tuple[int, float]]]
-    drone_paths: List[List[List[Tuple[int, float]]]]
-
-
-class CacheInfo(TypedDict):
-    limit: int
-    individual: LRUCacheInfo
-    tsp: LRUCacheInfo
-
-
-class SolutionJSON(TypedDict):
-    problem: str
-    generations: int
-    population_size: int
-    mutation_rate: float
-    reset_after: int
-    stuck_penalty_increase_rate: float
-    local_search_batch: int
-    solution: SolutionInfo
-    time: str
-    fake_tsp_solver: bool
-    last_improved: int
-    extra: Optional[str]
-    cache_info: CacheInfo
-
-
-class MILPSolutionJSON(TypedDict):
-    # We only annotate the fields in need here
-    data_set: str
-    status: str
-    solve_time: float
-    obj_value: float
-    truck: Dict[str, float]
-    drone: Dict[str, float]
-    cusWeightByDrone: Dict[str, float]
-    cusWeightByTruck: Dict[str, float]
+from ga.utils import isclose
+from ga.vrpdfd import MILPSolutionJSON, ProblemConfig, SolutionJSON, VRPDFDSolution
 
 
 def wrap_double_quotes(text: Any) -> str:

@@ -183,7 +183,7 @@ class VRPDFDIndividual(BaseIndividual):
 
     def feasible(self) -> bool:
         decoded = self.decode()
-        return max(decoded.violation) == 0.0
+        return decoded.feasible()
 
     @property
     def cost(self) -> float:

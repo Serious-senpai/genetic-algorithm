@@ -138,12 +138,7 @@ finally:
                     "reset_after": namespace.reset_after,
                     "stuck_penalty_increase_rate": namespace.stuck_penalty_increase_rate,
                     "local_search_batch": namespace.local_search_batch,
-                    "solution": {
-                        "profit": -solution.cost,
-                        "feasible": feasible,
-                        "truck_paths": solution.truck_paths,
-                        "drone_paths": solution.drone_paths,
-                    },
+                    "solution": solution.to_json(),
                     "time": total_time,
                     "fake_tsp_solver": namespace.fake_tsp_solver,
                     "last_improved": VRPDFDIndividual.genetic_algorithm_last_improved,
