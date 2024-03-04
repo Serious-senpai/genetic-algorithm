@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import itertools
 import random
+from collections import deque
 from math import ceil
 from typing import (
     ClassVar,
@@ -449,7 +450,17 @@ class VRPDFDIndividual(BaseIndividual):
     @classmethod
     def selection(cls, *, population: FrozenSet[Self], size: int) -> Set[Self]:
         population_sorted = sorted(population, key=lambda i: i.penalized_cost)
-        return set(population_sorted[:size])
+
+        feasible = list(filter(lambda i: i.feasible(), population_sorted))
+        infeasible = deque(filter(lambda i: not i.feasible(), population_sorted))
+
+        while len(feasible) > size // 2:
+            feasible.pop()
+
+        while len(feasible) < size:
+            feasible.append(infeasible.popleft())
+
+        return set(feasible)
 
     @classmethod
     def parents_selection(cls, *, population: FrozenSet[Self]) -> Tuple[Self, Self]:
