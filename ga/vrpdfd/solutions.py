@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 import itertools
-from typing import Final, List, Optional, Sequence, Tuple, TYPE_CHECKING, final
+from typing import ClassVar, Final, Iterable, List, Optional, Sequence, Tuple, TYPE_CHECKING, final
 
 from matplotlib import axes, pyplot
 
 from .config import ProblemConfig
 from .errors import InfeasibleSolution
 from .individuals import VRPDFDIndividual
+from .types import SolutionInfo
 from ..abc import SingleObjectiveSolution
 from ..utils import isclose, positive_max
 
@@ -27,11 +28,11 @@ class VRPDFDSolution(SingleObjectiveSolution[VRPDFDIndividual]):
         "__drone_distances",
         "__revenue",
         "__cost",
-        "__fine",
-        "__fine_coefficient",
+        "__violation",
         "truck_paths",
         "drone_paths",
     )
+    fine_coefficient: ClassVar[Tuple[float, float]] = (0, 0)
     if TYPE_CHECKING:
         __hash: Optional[int]
         __encoded: Optional[VRPDFDIndividual]
@@ -41,8 +42,7 @@ class VRPDFDSolution(SingleObjectiveSolution[VRPDFDIndividual]):
         __drone_distances: Optional[Tuple[Tuple[float, ...], ...]]
         __revenue: Optional[int]
         __cost: Optional[float]
-        __fine: Optional[float]
-        __fine_coefficient: float
+        __violation: Optional[Tuple[float, float]]
         truck_paths: Final[Tuple[Tuple[Tuple[int, int], ...], ...]]
         drone_paths: Final[Tuple[Tuple[Tuple[Tuple[int, int], ...], ...], ...]]
 
@@ -57,9 +57,8 @@ class VRPDFDSolution(SingleObjectiveSolution[VRPDFDIndividual]):
         drone_distances: Optional[Tuple[Tuple[float, ...], ...]] = None,
         revenue: Optional[int] = None,
         cost: Optional[float] = None,
-        fine: Optional[float] = None,
+        violation: Optional[Tuple[float, float]] = None,
     ) -> None:
-        config = ProblemConfig.get_config()
         self.__hash = None
         self.__encoded = None
 
@@ -71,10 +70,7 @@ class VRPDFDSolution(SingleObjectiveSolution[VRPDFDIndividual]):
         self.__drone_distances = drone_distances
         self.__revenue = revenue
         self.__cost = cost
-        self.__fine = fine
-
-        assert config.initial_fine_coefficient is not None
-        self.__fine_coefficient = config.initial_fine_coefficient
+        self.__violation = violation
 
     def assert_feasible(self) -> None:
         """Raise InfeasibleSolution if solution is infeasible"""
@@ -126,8 +122,8 @@ class VRPDFDSolution(SingleObjectiveSolution[VRPDFDIndividual]):
             if total < customer.low or total > customer.high:
                 errors.append(f"Customer {index} has weight {total} outside [{customer.low}, {customer.high}]")
 
-        if self.fine > 0.0:
-            errors.append(f"Total fine = {self.fine_coefficient} * {self.fine}")
+        if max(self.violation) > 0.0:
+            errors.append(f"Total violation = {self.violation}")
 
         if len(errors) > 0:
             raise InfeasibleSolution("Solution is infeasible\n" + "\n".join(errors))
@@ -208,19 +204,22 @@ class VRPDFDSolution(SingleObjectiveSolution[VRPDFDIndividual]):
             # We want to maximize profit i.e. minimize cost = -profit
             self.__cost = self.truck_cost + self.drone_cost - self.revenue
 
-        return self.__cost + self.__fine_coefficient * self.fine
+        return self.__cost + sum(coeff * vio for coeff, vio in zip(self.fine_coefficient, self.violation, strict=True))
 
     @property
-    def fine(self) -> float:
-        if self.__fine is None:
-            # Fine for exceeding time limit
+    def violation(self) -> Tuple[float, float]:
+        if self.__violation is None:
             config = ProblemConfig.get_config()
-            result = (
-                sum(positive_max(self.calculate_total_weight(path) / config.truck.capacity - 1) for path in self.truck_paths)
-                + sum(positive_max(self.calculate_total_weight(path) / config.drone.capacity - 1) for paths in self.drone_paths for path in paths)
-                + sum(positive_max(distance / config.truck.speed / config.time_limit - 1) for distance in self.truck_distances)
+
+            time_violation = (
+                sum(positive_max(distance / config.truck.speed / config.time_limit - 1) for distance in self.truck_distances)
                 + sum(positive_max(distance / config.drone.speed / config.drone.time_limit - 1) for distance in itertools.chain(*self.drone_distances))
                 + sum(positive_max(sum(distances) / config.drone.speed / config.time_limit - 1) for distances in self.drone_distances)
+            )
+
+            weight_violation = (
+                sum(positive_max(self.calculate_total_weight(path) / config.truck.capacity - 1) for path in self.truck_paths)
+                + sum(positive_max(self.calculate_total_weight(path) / config.drone.capacity - 1) for paths in self.drone_paths for path in paths)
             )
 
             total_weight = [0.0] * len(config.customers)
@@ -230,27 +229,20 @@ class VRPDFDSolution(SingleObjectiveSolution[VRPDFDIndividual]):
 
             for index, customer in enumerate(config.customers):
                 if index != 0:
-                    result += (
+                    weight_violation += (
                         positive_max(customer.low - total_weight[index])
                         + positive_max(total_weight[index] - customer.high)
                     ) / customer.high
 
-            if isclose(result, 0.0):
-                result = 0.0
+            if isclose(time_violation, 0.0):
+                time_violation = 0.0
 
-            self.__fine = result
+            if isclose(weight_violation, 0.0):
+                weight_violation = 0.0
 
-        return self.__fine
+            self.__violation = (time_violation, weight_violation)
 
-    @property
-    def fine_coefficient(self) -> float:
-        return self.__fine_coefficient
-
-    def bump_fine_coefficient(self) -> None:
-        config = ProblemConfig.get_config()
-        assert config.fine_coefficient_increase_rate is not None
-        self.__fine_coefficient *= config.fine_coefficient_increase_rate
-        self.__fine_coefficient = min(self.__fine_coefficient, 10 ** 9)
+        return self.__violation
 
     def encode(self, *, create_new: bool = False) -> VRPDFDIndividual:
         factory = VRPDFDIndividual if create_new else VRPDFDIndividual.from_cache
@@ -269,7 +261,10 @@ class VRPDFDSolution(SingleObjectiveSolution[VRPDFDIndividual]):
 
         return self.__encoded
 
-    def plot(self) -> None:
+    def feasible(self) -> bool:
+        return max(self.violation) == 0
+
+    def plot(self, file_name: Optional[str] = None) -> None:
         _, ax = pyplot.subplots()
         assert isinstance(ax, axes.Axes)
 
@@ -299,6 +294,7 @@ class VRPDFDSolution(SingleObjectiveSolution[VRPDFDIndividual]):
                 angles="xy",
                 scale_units="xy",
                 scale=1,
+                width=0.004,
             )
 
         for paths in self.drone_paths:
@@ -326,6 +322,7 @@ class VRPDFDSolution(SingleObjectiveSolution[VRPDFDIndividual]):
                 angles="xy",
                 scale_units="xy",
                 scale=1,
+                width=0.004,
             )
 
         ax.scatter((0,), (0,), c="black", label="Depot")
@@ -338,13 +335,49 @@ class VRPDFDSolution(SingleObjectiveSolution[VRPDFDIndividual]):
 
         ax.annotate("0", (0, 0))
         for index in range(1, len(config.customers)):
-            ax.annotate(str(index), config.customers[index].location)
+            ax.annotate(f"{index} (w={config.customers[index].w})", config.customers[index].location)
 
         ax.grid(True)
 
         pyplot.legend()
-        pyplot.show()
+
+        if file_name is None:
+            pyplot.show()
+        else:
+            pyplot.savefig(file_name)
+
         pyplot.close()
+
+    def to_json(self) -> SolutionInfo:
+        return {
+            "profit": -self.cost,
+            "feasible": self.feasible(),
+            "truck_paths": self.truck_paths,
+            "drone_paths": self.drone_paths,
+        }
+
+    @classmethod
+    def tune_fine_coefficients(cls, population: Iterable[VRPDFDIndividual]) -> None:
+        decoded = set(individual.decode() for individual in population)
+        violations = (
+            sum(s.violation[0] for s in decoded) / len(decoded),
+            sum(s.violation[1] for s in decoded) / len(decoded),
+        )
+
+        best = min(decoded)
+        worst = max(decoded)
+        # Note: VRPDFDSolution.cost does NOT include stuck penalty
+        base = max(worst.cost - best.cost, abs(worst.cost + best.cost))
+
+        if max(violations) == 0:
+            # The entire population is feasible
+            cls.fine_coefficient = (base, base)
+
+        else:
+            cls.fine_coefficient = (
+                base * violations[0] / (violations[0] ** 2 + violations[1] ** 2),
+                base * violations[1] / (violations[0] ** 2 + violations[1] ** 2),
+            )
 
     def __hash__(self) -> int:
         if self.__hash is None:

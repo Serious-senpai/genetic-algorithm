@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import itertools
 import random
+from collections import deque
 from math import ceil
 from typing import (
     ClassVar,
@@ -55,7 +56,8 @@ class VRPDFDIndividual(BaseIndividual):
         "drone_paths",
     )
     genetic_algorithm_last_improved: ClassVar[int] = 0
-    cache: ClassVar[LRUCache[Tuple[Tuple[FrozenSet[int], ...], Tuple[Tuple[FrozenSet[int], ...], ...]], VRPDFDIndividual]] = LRUCache()
+    genetic_algorithm_result: ClassVar[Optional[VRPDFDIndividual]] = None
+    cache: ClassVar[LRUCache[Tuple[Tuple[FrozenSet[int], ...], Tuple[Tuple[FrozenSet[int], ...], ...]], VRPDFDIndividual]] = LRUCache(10000)
     if TYPE_CHECKING:
         __cls: Final[Type[VRPDFDSolution]]
         __stuck_penalty: float
@@ -182,7 +184,7 @@ class VRPDFDIndividual(BaseIndividual):
 
     def feasible(self) -> bool:
         decoded = self.decode()
-        return decoded.fine == 0.0
+        return decoded.feasible()
 
     @property
     def cost(self) -> float:
@@ -196,7 +198,7 @@ class VRPDFDIndividual(BaseIndividual):
     def bump_stuck_penalty(self) -> None:
         config = ProblemConfig.get_config()
         self.__stuck_penalty *= config.stuck_penalty_increase_rate or 1.0
-        self.__stuck_penalty = min(self.__stuck_penalty, 10**9)
+        self.__stuck_penalty = min(self.__stuck_penalty, 10 ** 9)
 
     def decode(self) -> VRPDFDSolution:
         if self.__decoded is None:
@@ -205,8 +207,6 @@ class VRPDFDIndividual(BaseIndividual):
             truck_paths_mapping, drone_paths_mapping = decode(
                 self.truck_paths,
                 self.drone_paths,
-                truck_capacity=config.truck.capacity,
-                drone_capacity=config.drone.capacity,
             )
 
             truck_paths: List[List[Tuple[int, int]]] = []
@@ -339,6 +339,18 @@ class VRPDFDIndividual(BaseIndividual):
             return any
 
     @classmethod
+    def before_generation_hook(
+        cls,
+        *,
+        generation: int,
+        last_improved: int,
+        result: VRPDFDIndividual,
+        population: Set[VRPDFDIndividual],
+        verbose: bool,
+    ) -> None:
+        result.cls.tune_fine_coefficients(population)
+
+    @classmethod
     def after_generation_hook(
         cls,
         *,
@@ -349,17 +361,47 @@ class VRPDFDIndividual(BaseIndividual):
         verbose: bool,
     ) -> None:
         cls.genetic_algorithm_last_improved = last_improved
-        for individual in population:
-            individual.decode().bump_fine_coefficient()
-
+        cls.genetic_algorithm_result = result
         config = ProblemConfig.get_config()
+
+        if config.logger is not None:
+            best = min(population)
+            worst = max(population)
+            average_cost = sum(individual.cost for individual in population) / len(population)
+            feasible_count = len(list(filter(lambda i: i.feasible(), population)))
+
+            decoded = set(individual.decode() for individual in population)
+            violations = (
+                sum(s.violation[0] for s in decoded) / len(decoded),
+                sum(s.violation[1] for s in decoded) / len(decoded),
+            )
+
+            config.logger.write(
+                ",".join(
+                    map(
+                        str,
+                        (
+                            generation + 1,
+                            result.cost,
+                            best.cost,
+                            worst.cost,
+                            average_cost,
+                            feasible_count,
+                            *result.cls.fine_coefficient,
+                            *violations,
+                        ),
+                    ),
+                ),
+            )
+            config.logger.write("\n")
+
         if (
             config.reset_after is not None
             and generation != last_improved
             and (generation - last_improved) % config.reset_after == 0
         ):
             if config.logger is not None:
-                config.logger.write("Increasing stuck penalty and applying local search\n")
+                config.logger.write("\"Increasing stuck penalty and applying local search\"\n")
 
             for individual in population:
                 individual.bump_stuck_penalty()
@@ -393,7 +435,7 @@ class VRPDFDIndividual(BaseIndividual):
                 individuals = tqdm(individuals, desc=f"Local search (#{generation + 1})", ascii=" █", colour="red")
 
             for individual in individuals:
-                # Testing in progress
+                # 2-layer local search
                 for states in itertools.product((True, False), repeat=2):
                     current = individual
                     for state in states:
@@ -405,20 +447,20 @@ class VRPDFDIndividual(BaseIndividual):
             population.clear()
             population.update(population_sorted[:original_size])
 
-        if config.logger is not None:
-            config.logger.write(f"Generation #{generation + 1},Result,{result.cost}\n#,Cost,Penalized cost,Fine coefficient,Feasible,Individual,Individual REPR\n")
-            config.logger.write(
-                "\n".join(
-                    f"{index + 1},{i.cost},{i.penalized_cost},{i.decode().fine_coefficient},{int(i.feasible())},\"{i}\",\"{i!r}\""
-                    for index, i in enumerate(sorted(population, key=lambda i: i.penalized_cost))
-                )
-            )
-            config.logger.write("\n")
-
     @classmethod
     def selection(cls, *, population: FrozenSet[Self], size: int) -> Set[Self]:
         population_sorted = sorted(population, key=lambda i: i.penalized_cost)
-        return set(population_sorted[:size])
+
+        feasible = list(filter(lambda i: i.feasible(), population_sorted))
+        infeasible = deque(filter(lambda i: not i.feasible(), population_sorted))
+
+        while len(feasible) > size // 2:
+            feasible.pop()
+
+        while len(feasible) < size:
+            feasible.append(infeasible.popleft())
+
+        return set(feasible)
 
     @classmethod
     def parents_selection(cls, *, population: FrozenSet[Self]) -> Tuple[Self, Self]:
@@ -449,15 +491,16 @@ class VRPDFDIndividual(BaseIndividual):
 
             required_drone_paths = {customer: ceil(config.customers[customer].low / config.drone.capacity) for customer in nearest}
             truck_paths = frozenset([0, *furthest])
-            all_drone_paths = [frozenset([0, customer]) for customer in nearest for _ in range(required_drone_paths[customer])]
+            all_drone_paths = [frozenset([0, customer]) for customer in nearest for _ in range(1 + required_drone_paths[customer])]
 
-            while len(results) < size:
+            for _ in range(20):
+                if len(results) == size:
+                    break
+
                 drone_paths: List[List[FrozenSet[int]]] = [[] for _ in range(config.drones_count)]
                 for drone_path in all_drone_paths:
                     drone = random.randint(0, config.drones_count - 1)
                     drone_paths[drone].append(drone_path)
-
-                before = len(results)
 
                 results.add(
                     cls.from_cache(
@@ -467,14 +510,24 @@ class VRPDFDIndividual(BaseIndividual):
                     )
                 )
 
-                after = len(results)
-                if before == after:
-                    break
+            def merge_drone_paths(original: VRPDFDIndividual) -> VRPDFDIndividual:
+                paths = original.flatten()
+
+                drone_paths = paths[config.trucks_count:]
+                try:
+                    first, second = weighted_random([config.distances[0][sorted(path)[-1]] for path in drone_paths], count=2)
+                except ValueError:
+                    return original.mutate()
+
+                drone_paths[first] = drone_paths[first].union(drone_paths[second])
+                drone_paths[second] = frozenset([0])
+
+                return original.reconstruct(paths[:config.trucks_count] + drone_paths)
 
             while len(results) < size:
                 array = list(results)
                 base = random.choice(array)
-                results.add(base.mutate())
+                results.add(merge_drone_paths(base))
 
             return results
 

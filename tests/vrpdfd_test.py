@@ -14,8 +14,7 @@ def check_solution(solution: Optional[vrpdfd.VRPDFDSolution], *, expected: Optio
 
 
 def test_decode_6_5_1() -> None:
-    vrpdfd.ProblemConfig.get_config("6.5.1").initial_fine_coefficient = 10 ** 3
-    vrpdfd.ProblemConfig.context = "6.5.1"
+    vrpdfd.ProblemConfig.quick_setup("6.5.1")
     solution = vrpdfd.VRPDFDIndividual(
         solution_cls=vrpdfd.VRPDFDSolution,
         truck_paths=(frozenset([0, 5, 1, 6]),),
@@ -41,8 +40,7 @@ def test_decode_6_5_1() -> None:
 
 
 def test_decode_6_5_4() -> None:
-    vrpdfd.ProblemConfig.get_config("6.5.4").initial_fine_coefficient = 10 ** 3
-    vrpdfd.ProblemConfig.context = "6.5.4"
+    vrpdfd.ProblemConfig.quick_setup("6.5.4")
     solution = vrpdfd.VRPDFDIndividual(
         solution_cls=vrpdfd.VRPDFDSolution,
         truck_paths=(frozenset([0, 5, 3, 2]),),
@@ -65,8 +63,7 @@ def test_decode_6_5_4() -> None:
 
 
 def test_decode_6_10_1() -> None:
-    vrpdfd.ProblemConfig.get_config("6.10.1").initial_fine_coefficient = 10 ** 3
-    vrpdfd.ProblemConfig.context = "6.10.1"
+    vrpdfd.ProblemConfig.quick_setup("6.10.1")
     solution = vrpdfd.VRPDFDIndividual(
         solution_cls=vrpdfd.VRPDFDSolution,
         truck_paths=(frozenset([0, 1, 2, 4, 5]),),
@@ -90,8 +87,7 @@ def test_decode_6_10_1() -> None:
 
 
 def test_decode_6_10_2() -> None:
-    vrpdfd.ProblemConfig.get_config("6.10.2").initial_fine_coefficient = 10 ** 3
-    vrpdfd.ProblemConfig.context = "6.10.2"
+    vrpdfd.ProblemConfig.quick_setup("6.10.2")
     solution = vrpdfd.VRPDFDIndividual(
         solution_cls=vrpdfd.VRPDFDSolution,
         truck_paths=(frozenset([0, 1, 2, 3, 4, 5]),),
@@ -113,8 +109,7 @@ def test_decode_6_10_2() -> None:
 
 
 def test_decode_6_20_3() -> None:
-    vrpdfd.ProblemConfig.get_config("6.20.3").initial_fine_coefficient = 10 ** 3
-    vrpdfd.ProblemConfig.context = "6.20.3"
+    vrpdfd.ProblemConfig.quick_setup("6.20.3")
     solution = vrpdfd.VRPDFDIndividual(
         solution_cls=vrpdfd.VRPDFDSolution,
         truck_paths=(frozenset([0, 1, 4, 5, 6]),),
@@ -135,8 +130,7 @@ def test_decode_6_20_3() -> None:
 
 
 def test_decode_10_5_3() -> None:
-    vrpdfd.ProblemConfig.get_config("10.5.3").initial_fine_coefficient = 10 ** 3
-    vrpdfd.ProblemConfig.context = "10.5.3"
+    vrpdfd.ProblemConfig.quick_setup("10.5.3")
     solution = vrpdfd.VRPDFDIndividual(
         solution_cls=vrpdfd.VRPDFDSolution,
         truck_paths=(frozenset([0, 2, 3, 5, 6]),),
@@ -158,8 +152,7 @@ def test_decode_10_5_3() -> None:
 
 
 def test_decode_10_20_1() -> None:
-    vrpdfd.ProblemConfig.get_config("10.20.1").initial_fine_coefficient = 10 ** 3
-    vrpdfd.ProblemConfig.context = "10.20.1"
+    vrpdfd.ProblemConfig.quick_setup("10.20.1")
     solution = vrpdfd.VRPDFDIndividual(
         solution_cls=vrpdfd.VRPDFDSolution,
         truck_paths=(frozenset([0, 2, 3, 4, 6, 8, 9, 10]),),
@@ -181,8 +174,7 @@ def test_decode_10_20_1() -> None:
 
 
 def test_decode_12_20_4() -> None:
-    vrpdfd.ProblemConfig.get_config("12.20.4").initial_fine_coefficient = 10 ** 3
-    vrpdfd.ProblemConfig.context = "12.20.4"
+    vrpdfd.ProblemConfig.quick_setup("12.20.4")
     solution = vrpdfd.VRPDFDIndividual(
         solution_cls=vrpdfd.VRPDFDSolution,
         truck_paths=(frozenset([0, 1, 3, 6, 8, 9, 12]),),
@@ -206,8 +198,7 @@ def test_decode_12_20_4() -> None:
 
 
 def test_decode_20_20_3() -> None:
-    vrpdfd.ProblemConfig.get_config("20.20.3").initial_fine_coefficient = 10 ** 3
-    vrpdfd.ProblemConfig.context = "20.20.3"
+    vrpdfd.ProblemConfig.quick_setup("20.20.3")
     solution = vrpdfd.VRPDFDIndividual(
         solution_cls=vrpdfd.VRPDFDSolution,
         truck_paths=(frozenset([0, 1, 2, 3, 5, 8, 9, 10, 12, 13, 14, 15]),),

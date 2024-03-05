@@ -11,6 +11,8 @@
 #endif
 
 #include "../../utils/helpers.hpp"
+#include "../../utils/lru_cache.hpp"
+#include "../../utils/tsp_solver.hpp"
 
 typedef int volume_t;
 typedef std::pair<std::vector<std::set<unsigned>>, std::vector<std::vector<std::set<unsigned>>>> individual;
@@ -20,30 +22,37 @@ struct Customer
 {
     const volume_t low, high, w;
     const double x, y;
-    static volume_t total_low, total_high,
-        truck_capacity, drone_capacity;
-    static double truck_distance_limit, drone_distance_limit,
-        truck_cost_coefficient, drone_cost_coefficient; // TODO: Refactor these
+    const std::pair<double, double> location;
+    static volume_t total_low, total_high;
     static std::vector<Customer> customers;
     static std::vector<std::vector<double>> distances;
     static std::vector<std::vector<unsigned>> nearests;
 
-    Customer(volume_t low, volume_t high, volume_t w, double x, double y) : low(low), high(high), w(w), x(x), y(y) {}
-
-    std::pair<double, double> location() const
-    {
-        return {x, y};
-    }
+    Customer(volume_t low, volume_t high, volume_t w, double x, double y)
+        : low(low), high(high), w(w), x(x), y(y),
+          location(std::make_pair(x, y)) {}
 };
 
-volume_t Customer::total_low, Customer::total_high, Customer::truck_capacity, Customer::drone_capacity;
-double Customer::truck_distance_limit, Customer::drone_distance_limit,
-    Customer::truck_cost_coefficient, Customer::drone_cost_coefficient;
+struct Vehicle
+{
+    const volume_t capacity;
+    const double distance_limit, cost_coefficient;
+    static Vehicle *truck, *drone;
+
+    Vehicle(volume_t capacity, double distance_limit, double cost_coefficient)
+        : capacity(capacity),
+          distance_limit(distance_limit),
+          cost_coefficient(cost_coefficient) {}
+};
+
+volume_t Customer::total_low, Customer::total_high;
 std::vector<Customer> Customer::customers;
 std::vector<std::vector<double>> Customer::distances;
 std::vector<std::vector<unsigned>> Customer::nearests;
 
-void set_customers(
+Vehicle *Vehicle::truck, *Vehicle::drone;
+
+void setup(
     const std::vector<volume_t> &low,
     const std::vector<volume_t> &high,
     const std::vector<volume_t> &w,
@@ -103,19 +112,49 @@ void set_customers(
         Customer::nearests.push_back(all);
     }
 
-    Customer::truck_distance_limit = truck_distance_limit;
-    Customer::drone_distance_limit = drone_distance_limit;
-    Customer::truck_capacity = truck_capacity;
-    Customer::drone_capacity = drone_capacity;
-    Customer::truck_cost_coefficient = truck_cost_coefficient;
-    Customer::drone_cost_coefficient = drone_cost_coefficient;
+    Vehicle::truck = new Vehicle(truck_capacity, truck_distance_limit, truck_cost_coefficient);
+    Vehicle::drone = new Vehicle(drone_capacity, drone_distance_limit, drone_cost_coefficient);
 }
 
-template <typename _Container>
-std::pair<double, std::vector<unsigned>> path_order(const _Container &path)
+lru_cache<std::set<unsigned>, std::pair<double, std::vector<unsigned>>> path_order_cache(100000);
+
+void setup_path_cache(unsigned capacity)
 {
-    auto path_order_func = py::module::import("ga.vrpdfd").attr("ProblemConfig").attr("get_config")().attr("path_order");
-    return py::cast<std::pair<double, std::vector<unsigned>>>(path_order_func(py_frozenset(path.begin(), path.end())));
+    path_order_cache.clear();
+    path_order_cache.capacity = capacity;
+}
+
+std::map<std::string, unsigned> path_cache_info()
+{
+    return path_order_cache.to_json();
+}
+
+std::pair<double, std::vector<unsigned>> path_order(const std::set<unsigned> &path)
+{
+    auto cached = path_order_cache.get(path);
+    if (cached.has_value())
+    {
+        return cached.value();
+    }
+
+    std::vector<std::pair<double, double>> coordinates;
+    std::vector<unsigned> path_vector(path.begin(), path.end()); // depot at customers[0]
+    for (auto customer : path_vector)
+    {
+        coordinates.push_back(Customer::customers[customer].location);
+    }
+
+    auto result = tsp_solver(coordinates);
+    std::vector<unsigned> result_path(path_vector.size() + 1);
+    for (unsigned i = 1; i < path_vector.size(); i++) // Let first and last elements be the depot
+    {
+        result_path[i] = path_vector[result.second[i]];
+    }
+
+    result.second = result_path;
+    path_order_cache.set(path, result);
+
+    return result;
 }
 
 individual get_paths(const py::object &py_individual)
@@ -208,7 +247,7 @@ double drone_path_profit(const std::vector<std::pair<unsigned, volume_t>> &path)
     {
         cost += Customer::distances[path[i].first][path[i + 1].first];
     }
-    cost *= Customer::drone_cost_coefficient;
+    cost *= Vehicle::drone->cost_coefficient;
 
     return revenue - cost;
 }

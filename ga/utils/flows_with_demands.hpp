@@ -85,7 +85,7 @@ std::optional<std::vector<std::vector<double>>> flows_with_demands(
     {
         if (satisfy_demands.second[size][i] < new_capacities[size][i])
         {
-            return std::optional<std::vector<std::vector<double>>>();
+            return std::nullopt;
         }
     }
 

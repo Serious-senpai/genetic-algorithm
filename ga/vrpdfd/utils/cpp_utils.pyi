@@ -1,11 +1,13 @@
-from typing import AbstractSet, Dict, FrozenSet, List, Optional, Sequence, Set, Tuple, Type
+from typing import AbstractSet, Dict, List, Optional, Sequence, Set, Tuple
 
 from ..individuals import VRPDFDIndividual
-from ..solutions import VRPDFDSolution
 
 
 __all__ = (
-    "set_customers",
+    "setup",
+    "setup_path_cache",
+    "path_cache_info",
+    "path_order",
     "decode",
     "educate",
     "local_search",
@@ -13,7 +15,7 @@ __all__ = (
 )
 
 
-def set_customers(
+def setup(
     low: Sequence[int],
     high: Sequence[int],
     w: Sequence[int],
@@ -28,11 +30,14 @@ def set_customers(
 ) -> None: ...
 
 
+def setup_path_cache(capacity: int) -> None: ...
+def path_cache_info() -> Dict[str, int]: ...
+def path_order(path: AbstractSet[int]) -> Tuple[float, List[int]]: ...
+
+
 def decode(
     truck_paths: Sequence[AbstractSet[int]],
     drone_paths: Sequence[Sequence[AbstractSet[int]]],
-    truck_capacity: int,
-    drone_capacity: int,
 ) -> Tuple[
     List[Dict[int, int]],
     List[List[Dict[int, int]]],

@@ -43,15 +43,25 @@ jobs:
 
       - name: Run optimizer
         run: |
+          exitcode=0
+          set +e
           for i in $(seq 0 9)
           do
             echo "---------- RUN #$i ----------"
-            timeout --signal=INT 1200 \
+
+            timeout --preserve-status --signal=INT 1200 \
             python vrpdfd.py ${{ matrix.problem }} \
-            --dump "output-${{ matrix.problem }}-$i.json" "output-${{ matrix.problem }}-$i.pkl" \
+            --dump "output-${{ matrix.problem }}-$i.json" "pickle-${{ matrix.problem }}-$i.pkl" "plot-${{ matrix.problem }}-$i.png" \
             --log "log-${{ matrix.problem }}-$i.csv" \
-            --extra "run #$i" || true
+            --extra "run #$i"
+
+            if [ "$?" -ne 0 ]; then
+              exitcode=1
+            fi
+
           done
+
+          exit $exitcode
 
 # It is also possible to run the algorithm 10 times in parallel (by delegating to 10 child processes and add `wait` at the end),
 # but it will affect the computation time
@@ -70,7 +80,8 @@ jobs:
           name: log-${{ matrix.problem }}
           path: |
             log-*.csv
-            output-*.pkl
+            pickle-*.pkl
+            plot-*.png
 
   summary:
     name: Summarize solutions

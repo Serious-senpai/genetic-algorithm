@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from typing import AbstractSet, List, Optional, Sequence, Set, Tuple
+from typing import AbstractSet, Generic, Hashable, List, Optional, Sequence, Set, Tuple, TypeVar
+
+from .py_utils import LRUCacheInfo
 
 
 __all__ = (
@@ -8,6 +10,7 @@ __all__ = (
     "fake_tsp_solver",
     "flows_with_demands",
     "jaccard_distance",
+    "LRUCache",
     "maximum_flow",
     "smallest_circle",
     "tsp_solver",
@@ -38,6 +41,25 @@ def flows_with_demands(
 
 
 def jaccard_distance(first: AbstractSet[int], second: AbstractSet[int]) -> float: ...
+
+
+KT = TypeVar("KT", bound=Hashable)
+VT = TypeVar("VT")
+
+
+class LRUCache(Generic[KT, VT]):
+    capacity: int
+    hit: int
+    miss: int
+    cached: int
+
+    def __init__(self, capacity: int) -> None: ...
+    def get(self, key: KT) -> Optional[VT]: ...
+    def set(self, key: KT, value: VT) -> None: ...
+    def to_json(self) -> LRUCacheInfo: ...
+    def __getitem__(self, key: KT) -> VT: ...
+    def __setitem__(self, key: KT, value: VT) -> None: ...
+    def __contains__(self, key: KT) -> bool: ...
 
 
 def maximum_flow(

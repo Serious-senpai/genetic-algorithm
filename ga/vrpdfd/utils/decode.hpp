@@ -92,9 +92,7 @@ std::vector<std::vector<volume_t>> __solve_flow(
 
 solution decode(
     const std::vector<std::set<unsigned>> &truck_paths,
-    const std::vector<std::vector<std::set<unsigned>>> &drone_paths,
-    const volume_t truck_capacity,
-    const volume_t drone_capacity)
+    const std::vector<std::vector<std::set<unsigned>>> &drone_paths)
 {
     unsigned trucks_count = truck_paths.size(),
              drones_count = drone_paths.size(),
@@ -120,7 +118,7 @@ solution decode(
     {
         if (i < network_trucks_offset + trucks_count)
         {
-            network_capacities[network_source][i] = truck_capacity;
+            network_capacities[network_source][i] = Vehicle::truck->capacity;
 
             unsigned truck = i - network_trucks_offset;
             for (auto customer : truck_paths[truck])
@@ -135,7 +133,7 @@ solution decode(
         }
         else
         {
-            network_capacities[network_source][i] = drone_capacity;
+            network_capacities[network_source][i] = Vehicle::drone->capacity;
 
             unsigned drone = 0, from_offset = i - network_drones_offset;
             while (from_offset >= drone_paths_count[drone])

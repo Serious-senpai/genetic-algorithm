@@ -97,7 +97,7 @@ std::pair<double, std::vector<unsigned>> __held_karp(const std::vector<std::vect
 std::pair<double, std::vector<unsigned>> tsp_solver(
     const std::vector<std::pair<double, double>> &cities,
     const unsigned first = 0,
-    const std::optional<std::vector<unsigned>> &heuristic_hint = std::optional<std::vector<unsigned>>())
+    const std::optional<std::vector<unsigned>> &heuristic_hint = std::nullopt)
 {
     unsigned n = cities.size();
     if (n == 0)

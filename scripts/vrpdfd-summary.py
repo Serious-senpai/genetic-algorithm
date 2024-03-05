@@ -4,53 +4,10 @@ import re
 from collections import defaultdict
 from pathlib import Path
 from traceback import print_exc
-from typing import Any, Dict, DefaultDict, List, Optional, Tuple, TypedDict
+from typing import Any, Dict, DefaultDict, List, Tuple
 
-from ga.utils import LRUCacheInfo, isclose
-from ga.vrpdfd import ProblemConfig, VRPDFDSolution
-
-
-class SolutionInfo(TypedDict):
-    profit: float
-    feasible: bool
-    truck_paths: List[List[Tuple[int, float]]]
-    drone_paths: List[List[List[Tuple[int, float]]]]
-
-
-class CacheInfo(TypedDict):
-    limit: int
-    individual: LRUCacheInfo
-    tsp: LRUCacheInfo
-
-
-class SolutionJSON(TypedDict):
-    problem: str
-    generations: int
-    population_size: int
-    mutation_rate: float
-    initial_fine_coefficient: float
-    fine_coefficient_increase_rate: float
-    reset_after: int
-    stuck_penalty_increase_rate: float
-    local_search_batch: int
-    solution: SolutionInfo
-    time: str
-    fake_tsp_solver: bool
-    last_improved: int
-    extra: Optional[str]
-    cache_info: CacheInfo
-
-
-class MILPSolutionJSON(TypedDict):
-    # We only annotate the fields in need here
-    data_set: str
-    status: str
-    solve_time: float
-    obj_value: float
-    truck: Dict[str, float]
-    drone: Dict[str, float]
-    cusWeightByDrone: Dict[str, float]
-    cusWeightByTruck: Dict[str, float]
+from ga.utils import isclose
+from ga.vrpdfd import MILPSolutionJSON, ProblemConfig, SolutionJSON, VRPDFDSolution
 
 
 def wrap_double_quotes(text: Any) -> str:
@@ -165,8 +122,6 @@ field_names = (
     "Generations",
     "Population size",
     "Mutation rate",
-    "Initial fine coefficient",
-    "Fine coefficient increase rate",
     "Reset after",
     "Stuck penalty increase rate",
     "Local search batch",
@@ -199,8 +154,6 @@ with open(summary_dir / "vrpdfd-summary.csv", "w") as csvfile:
                 data["generations"],
                 data["population_size"],
                 data["mutation_rate"],
-                data["initial_fine_coefficient"],
-                data["fine_coefficient_increase_rate"],
                 data["reset_after"],
                 data["stuck_penalty_increase_rate"],
                 data["local_search_batch"],
@@ -242,8 +195,7 @@ with open(summary_dir / "vrpdfd-summary.csv", "w") as csvfile:
                     milp_data: MILPSolutionJSON = json.load(f)
 
                 assert milp_data["data_set"] == problem_name
-                ProblemConfig.get_config(problem_name).initial_fine_coefficient = 10 ** 3
-                ProblemConfig.context = problem_name
+                ProblemConfig.quick_setup(problem_name)
 
                 milp_solution = read_milp_solution(milp_data)
 

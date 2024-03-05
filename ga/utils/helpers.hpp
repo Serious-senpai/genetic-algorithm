@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <chrono>
 #include <ctime>
+#include <iostream>
 #include <map>
 #include <random>
 #include <stdexcept>
@@ -309,4 +310,79 @@ py::frozenset py_frozenset(const _ForwardIterator &first, const _ForwardIterator
         __ps.add(*__i);
     }
     return py::frozenset(__ps);
+}
+
+template <typename T>
+void list_elements(std::ostream &stream, const std::vector<T> &_v)
+{
+    unsigned n = _v.size();
+    for (unsigned i = 0; i < n; i++)
+    {
+        stream << _v[i];
+        if (i < n - 1)
+        {
+            stream << ", ";
+        }
+    }
+}
+
+template <typename T>
+std::ostream &operator<<(std::ostream &stream, const std::vector<T> &_v)
+{
+    stream << "[";
+    list_elements(stream, _v);
+    stream << "]";
+
+    return stream;
+}
+
+template <typename T, typename Compare, typename Alloc>
+std::ostream &operator<<(std::ostream &stream, const std::set<T, Compare, Alloc> &_s)
+{
+    std::vector<T> _v(_s.begin(), _s.end());
+
+    stream << "{";
+    list_elements(stream, _v);
+    stream << "}";
+
+    return stream;
+}
+
+template <typename T, typename Compare, typename Alloc>
+std::ostream &operator<<(std::ostream &stream, const std::multiset<T, Compare, Alloc> &_s)
+{
+    std::vector<T> _v(_s.begin(), _s.end());
+
+    stream << "{";
+    list_elements(stream, _v);
+    stream << "}";
+
+    return stream;
+}
+
+template <typename T1, typename T2, typename Compare, typename Alloc>
+std::ostream &operator<<(std::ostream &stream, const std::map<T1, T2, Compare, Alloc> &_m)
+{
+    std::vector<std::pair<T1, T2>> _v(_m.begin(), _m.end());
+
+    stream << "{";
+    unsigned n = _v.size();
+    for (unsigned i = 0; i < n; i++)
+    {
+        stream << _v[i].first << ": " << _v[i].second;
+        if (i < n - 1)
+        {
+            stream << ", ";
+        }
+    }
+    stream << "}";
+
+    return stream;
+}
+
+template <typename T1, typename T2>
+std::ostream &operator<<(std::ostream &stream, const std::pair<T1, T2> &_p)
+{
+    stream << "(" << _p.first << ", " << _p.second << ")";
+    return stream;
 }
