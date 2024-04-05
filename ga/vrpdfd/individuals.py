@@ -454,7 +454,7 @@ class VRPDFDIndividual(BaseIndividual):
         feasible = list(filter(lambda i: i.feasible(), population_sorted))
         infeasible = deque(filter(lambda i: not i.feasible(), population_sorted))
 
-        while len(feasible) > size // 2:
+        while len(feasible) > size // 2 and len(feasible) + len(infeasible) > size:
             feasible.pop()
 
         while len(feasible) < size:
