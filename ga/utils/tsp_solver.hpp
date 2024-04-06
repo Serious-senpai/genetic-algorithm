@@ -15,7 +15,7 @@
 
 #include "helpers.hpp"
 
-const unsigned HELD_KARP_LIMIT = 17;
+const unsigned HELD_KARP_LIMIT = 16;
 
 std::pair<double, unsigned> __held_karp_solve(
     const unsigned bitmask,
