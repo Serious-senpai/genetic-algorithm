@@ -50,7 +50,15 @@ std::vector<Customer> Customer::customers;
 std::vector<std::vector<double>> Customer::distances;
 std::vector<std::vector<unsigned>> Customer::nearests;
 
-Vehicle *Vehicle::truck, *Vehicle::drone;
+Vehicle *Vehicle::truck = nullptr, *Vehicle::drone = nullptr;
+
+lru_cache<std::set<unsigned>, std::pair<double, std::vector<unsigned>>> path_order_cache(100000);
+
+void setup_path_cache(unsigned capacity)
+{
+    path_order_cache.clear();
+    path_order_cache.capacity = capacity;
+}
 
 void setup(
     const std::vector<volume_t> &low,
@@ -112,16 +120,20 @@ void setup(
         Customer::nearests.push_back(all);
     }
 
+    if (Vehicle::truck != nullptr)
+    {
+        delete Vehicle::truck;
+    }
     Vehicle::truck = new Vehicle(truck_capacity, truck_distance_limit, truck_cost_coefficient);
+
+    if (Vehicle::drone != nullptr)
+    {
+        delete Vehicle::drone;
+    }
     Vehicle::drone = new Vehicle(drone_capacity, drone_distance_limit, drone_cost_coefficient);
-}
 
-lru_cache<std::set<unsigned>, std::pair<double, std::vector<unsigned>>> path_order_cache(100000);
-
-void setup_path_cache(unsigned capacity)
-{
-    path_order_cache.clear();
-    path_order_cache.capacity = capacity;
+    // Clear path cache
+    setup_path_cache(path_order_cache.capacity);
 }
 
 std::map<std::string, unsigned> path_cache_info()

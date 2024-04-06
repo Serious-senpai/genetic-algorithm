@@ -129,11 +129,11 @@ class VRPDFDSolution(SingleObjectiveSolution[VRPDFDIndividual]):
             raise InfeasibleSolution("Solution is infeasible\n" + "\n".join(errors))
 
     @staticmethod
-    def calculate_total_weight(path: Sequence[Tuple[int, float]]) -> float:
+    def calculate_total_weight(path: Sequence[Tuple[int, int]]) -> int:
         return sum(w for _, w in path)
 
     @staticmethod
-    def calculate_distance(path: Sequence[Tuple[int, float]]) -> float:
+    def calculate_distance(path: Sequence[Tuple[int, int]]) -> float:
         config = ProblemConfig.get_config()
         distance = 0.0
         for index in range(len(path) - 1):
