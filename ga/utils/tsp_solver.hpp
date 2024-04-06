@@ -117,9 +117,7 @@ std::pair<double, std::vector<unsigned>> tsp_solver(
     {
         for (unsigned j = i + 1; j < n; j++)
         {
-            double dx = cities[i].first - cities[j].first,
-                   dy = cities[i].second - cities[j].second;
-            distances[i][j] = distances[j][i] = distance(dx, dy);
+            distances[i][j] = distances[j][i] = distance(cities[i], cities[j]);
         }
     }
 
