@@ -1,6 +1,6 @@
 autopep8==2.0.4
 colorama==0.4.6
-contourpy==1.2.0
+contourpy==1.2.1
 cycler==0.12.1
 exceptiongroup==1.2.0
 flake8==7.0.0
