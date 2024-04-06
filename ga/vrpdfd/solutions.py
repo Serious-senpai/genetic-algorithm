@@ -78,26 +78,26 @@ class VRPDFDSolution(SingleObjectiveSolution[VRPDFDIndividual]):
 
         errors: List[str] = []
         exceed = positive_max(self.calculate_total_weight(path) for path in self.truck_paths) - config.truck.capacity
-        if not isclose(exceed, 0.0):
+        if exceed > 0.0 and not isclose(exceed, 0.0):
             errors.append(f"Truck capacity exceeded by {exceed}")
 
         exceed = positive_max(self.calculate_total_weight(path) for paths in self.drone_paths for path in paths) - config.drone.capacity
-        if not isclose(exceed, 0.0):
+        if exceed > 0.0 and not isclose(exceed, 0.0):
             errors.append(f"Drone capacity exceeded by {exceed}")
 
         exceed = positive_max(self.truck_distances) / config.truck.speed - config.time_limit
-        if not isclose(exceed, 0.0):
+        if exceed > 0.0 and not isclose(exceed, 0.0):
             errors.append(f"Truck paths violate system working time by {exceed}")
 
         for drone, drone_distances in enumerate(self.drone_distances):
             for index, drone_distance in enumerate(drone_distances):
                 exceed = drone_distance / config.drone.speed - config.drone.time_limit
-                if not isclose(exceed, 0.0):
+                if exceed > 0.0 and not isclose(exceed, 0.0):
                     errors.append(f"Path {index} of drone {drone} violates flight time by {exceed}")
 
         for drone, drone_distances in enumerate(self.drone_distances):
             exceed = sum(drone_distances) / config.drone.speed - config.time_limit
-            if not isclose(exceed, 0.0):
+            if exceed > 0.0 and not isclose(exceed, 0.0):
                 errors.append(f"Drone {drone} violates system working time by {exceed}")
 
         for path in itertools.chain(self.truck_paths, *self.drone_paths):
