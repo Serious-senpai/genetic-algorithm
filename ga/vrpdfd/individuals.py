@@ -481,7 +481,7 @@ class VRPDFDIndividual(BaseIndividual):
         results: Set[VRPDFDIndividual] = set()
         all_customers = frozenset(range(len(config.customers)))
         try:
-            for paths_per_drone in range(min(11, size)):
+            for paths_per_drone in range(size // 3):
                 results.add(
                     cls.from_cache(
                         solution_cls=solution_cls,
@@ -499,7 +499,7 @@ class VRPDFDIndividual(BaseIndividual):
             truck_paths = frozenset([0, *furthest])
             all_drone_paths = [frozenset([0, customer]) for customer in nearest for _ in range(1 + required_drone_paths[customer])]
 
-            for _ in range(20):
+            for _ in range(size // 3):
                 if len(results) == size:
                     break
 
