@@ -3,7 +3,7 @@ import os
 import re
 from collections import defaultdict
 from pathlib import Path
-from traceback import print_exc
+from traceback import print_exception
 from typing import Any, Dict, DefaultDict, List, Tuple
 
 from ga.utils import isclose
@@ -15,6 +15,7 @@ def wrap_double_quotes(text: Any) -> str:
 
 
 _read_milp_solution_cache: Dict[str, VRPDFDSolution] = {}
+_errors: List[ValueError] = []
 
 
 def read_milp_solution(data: MILPSolutionJSON) -> VRPDFDSolution:
@@ -110,8 +111,8 @@ def read_milp_solution(data: MILPSolutionJSON) -> VRPDFDSolution:
                 message = f"MILP solution for {problem_name} reported profit {data['obj_value']}, actual value {-solution.cost}:\n{solution}"
                 raise ValueError(message) from None
 
-        except ValueError:
-            print_exc()
+        except ValueError as e:
+            _errors.append(e)
 
         return solution
 
@@ -204,3 +205,10 @@ with open(summary_dir / "vrpdfd-summary.csv", "w") as csvfile:
                 fields.append(milp_data["solve_time"])
 
             csvfile.write(",".join(map(str, fields)) + "\n")
+
+
+if len(_errors) > 0:
+    for error in _errors:
+        print_exception(error.__class__, error, error.__traceback__)
+
+    exit(1)
