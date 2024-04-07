@@ -209,38 +209,37 @@ class VRPDFDIndividual(BaseIndividual):
                 self.drone_paths,
             )
 
-            truck_paths: List[List[Tuple[int, int]]] = []
+            truck_paths: List[Tuple[Tuple[int, int], ...]] = []
             truck_distance = 0.0
             for truck, path in enumerate(self.truck_paths):
-                truck_paths.append([])
-                distance, ordered = config.path_order(path)
-                truck_distance += distance
-
-                for customer in ordered:
-                    weight = round(truck_paths_mapping[truck][customer], 4)
+                reduced_path: Set[int] = set()
+                for customer in path:
+                    weight = truck_paths_mapping[truck][customer]
                     if customer == 0 or weight > 0.0:
-                        truck_paths[-1].append((customer, weight))
+                        reduced_path.add(customer)
 
-            drone_paths: List[List[List[Tuple[int, int]]]] = []
+                distance, ordered = config.path_order(reduced_path)
+                truck_distance += distance
+                truck_paths.append(tuple(((customer, truck_paths_mapping[truck][customer]) for customer in ordered)))
+
+            drone_paths: List[List[Tuple[Tuple[int, int], ...]]] = []
             drone_distance = 0.0
             for drone, paths in enumerate(self.drone_paths):
                 drone_paths.append([])
                 for path_index, path in enumerate(paths):
-                    drone_paths[-1].append([])
-                    distance, ordered = config.path_order(path)
-                    drone_distance += distance
-
-                    for customer in ordered:
-                        weight = round(drone_paths_mapping[drone][path_index][customer], 4)
+                    reduced_path = set()
+                    for customer in path:
+                        weight = drone_paths_mapping[drone][path_index][customer]
                         if customer == 0 or weight > 0.0:
-                            drone_paths[-1][-1].append((customer, weight))
+                            reduced_path.add(customer)
 
-                    if len(drone_paths[-1][-1]) == 2:
-                        drone_paths[-1].pop()
+                    distance, ordered = config.path_order(reduced_path)
+                    drone_distance += distance
+                    drone_paths[-1].append(tuple((customer, drone_paths_mapping[drone][path_index][customer]) for customer in ordered))
 
             self.__decoded = self.cls(
-                truck_paths=tuple(map(tuple, truck_paths)),
-                drone_paths=tuple(tuple(map(tuple, paths)) for paths in drone_paths),
+                truck_paths=tuple(truck_paths),
+                drone_paths=tuple(map(tuple, drone_paths)),
                 truck_distance=truck_distance,
                 drone_distance=drone_distance,
             )

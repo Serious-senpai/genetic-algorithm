@@ -7,7 +7,7 @@ import json
 from dataclasses import dataclass
 from math import sqrt
 from os import path
-from typing import ClassVar, Dict, Final, FrozenSet, List, Optional, Tuple, TYPE_CHECKING, final
+from typing import AbstractSet, ClassVar, Dict, Final, List, Optional, Tuple, TYPE_CHECKING, final
 
 from .errors import ConfigImportException
 from .utils import path_order, setup
@@ -181,7 +181,7 @@ class ProblemConfig:
             cls.__cache__[problem] = config = cls(problem)
             return config
 
-    def path_order(self, path: FrozenSet[int]) -> Tuple[float, List[int]]:
+    def path_order(self, path: AbstractSet[int]) -> Tuple[float, List[int]]:
         return path_order(path)
 
     @classmethod
