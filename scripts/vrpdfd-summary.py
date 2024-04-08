@@ -26,7 +26,6 @@ def sdvrp_results() -> Dict[str, Tuple[float, float]]:
             except KeyError:
                 sd_results[problem] = [result]
 
-
     sd_summary: Dict[str, Tuple[float, float]] = {}
     for problem, sd_result in sd_results.items():
         sd_summary[problem] = (sum(sd_result) / len(sd_result), max(sd_result))
