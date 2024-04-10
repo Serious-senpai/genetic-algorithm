@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import itertools
-from typing import ClassVar, Final, Iterable, List, Optional, Sequence, Tuple, TYPE_CHECKING, final
+from typing import ClassVar, Final, Iterable, List, Optional, Sequence, Tuple, Union, TYPE_CHECKING, final, overload
 
 from matplotlib import axes, pyplot
 
@@ -31,6 +31,14 @@ class VRPDFDSolution(SingleObjectiveSolution[VRPDFDIndividual]):
         "__violation",
         "truck_paths",
         "drone_paths",
+
+        # violations
+        "truck_time_violations",
+        "truck_weight_violations",
+        "drone_time_violations",
+        "drone_flight_time_violations",
+        "drone_weight_violations",
+        "customer_weight_violations",
     )
     fine_coefficient: ClassVar[Tuple[float, float]] = (0, 0)
     if TYPE_CHECKING:
@@ -45,6 +53,14 @@ class VRPDFDSolution(SingleObjectiveSolution[VRPDFDIndividual]):
         __violation: Optional[Tuple[float, float]]
         truck_paths: Final[Tuple[Tuple[Tuple[int, int], ...], ...]]
         drone_paths: Final[Tuple[Tuple[Tuple[Tuple[int, int], ...], ...], ...]]
+
+        # violations
+        truck_time_violations: Final[Tuple[float, ...]]
+        truck_weight_violations: Final[Tuple[int, ...]]
+        drone_time_violations: Final[Tuple[float, ...]]
+        drone_flight_time_violations: Final[Tuple[Tuple[float, ...], ...]]
+        drone_weight_violations: Final[Tuple[Tuple[int, ...], ...]]
+        customer_weight_violations: Final[Tuple[int, ...]]
 
     def __init__(
         self,
@@ -72,33 +88,70 @@ class VRPDFDSolution(SingleObjectiveSolution[VRPDFDIndividual]):
         self.__cost = cost
         self.__violation = violation
 
+        config = ProblemConfig.get_config()
+        self.truck_time_violations = tuple(self._approx(d / config.truck.speed - config.time_limit) for d in self.truck_distances)
+        self.truck_weight_violations = tuple(self._approx(self.calculate_total_weight(p) - config.truck.capacity) for p in self.truck_paths)
+        self.drone_time_violations = tuple(self._approx(sum(d) / config.drone.speed - config.time_limit) for d in self.drone_distances)
+        self.drone_flight_time_violations = tuple(
+            tuple(self._approx(d / config.drone.speed - config.drone.time_limit) for d in distances)
+            for distances in self.drone_distances
+        )
+        self.drone_weight_violations = tuple(
+            tuple(self._approx(self.calculate_total_weight(p) - config.drone.capacity) for p in paths)
+            for paths in self.drone_paths
+        )
+        
+        total_weight: List[int] = [0] * len(config.customers)
+        for path in itertools.chain(self.truck_paths, *self.drone_paths):
+            for customer, weight in path:
+                if customer == 0:
+                    if weight != 0:
+                        raise ValueError(f"Invalid path {path}")
+                else:
+                    total_weight[customer] += weight
+
+        self.customer_weight_violations = tuple(
+            self._approx(c.low - w) + self._approx(w - c.high)
+            for w, c in zip(total_weight, config.customers, strict=True)
+        )
+
+    @overload
+    @staticmethod
+    def _approx(value: int, /) -> int: ...
+    @overload
+    @staticmethod
+    def _approx(value: float, /) -> float: ...
+
+    @staticmethod
+    def _approx(value: Union[int, float], /) -> Union[int, float]:
+        return 0 if isclose(value, 0) else positive_max(value)
+
     def assert_feasible(self) -> None:
         """Raise InfeasibleSolution if solution is infeasible"""
         config = ProblemConfig.get_config()
-
         errors: List[str] = []
-        exceed = positive_max(self.calculate_total_weight(path) for path in self.truck_paths) - config.truck.capacity
-        if exceed > 0.0 and not isclose(exceed, 0.0):
-            errors.append(f"Truck capacity exceeded by {exceed}")
 
-        exceed = positive_max(self.calculate_total_weight(path) for paths in self.drone_paths for path in paths) - config.drone.capacity
-        if exceed > 0.0 and not isclose(exceed, 0.0):
-            errors.append(f"Drone capacity exceeded by {exceed}")
+        for truck, exceed in enumerate(self.truck_time_violations):
+            if exceed > 0:
+                errors.append(f"Truck {truck} exceeds system working time by {exceed}")
 
-        exceed = positive_max(self.truck_distances) / config.truck.speed - config.time_limit
-        if exceed > 0.0 and not isclose(exceed, 0.0):
-            errors.append(f"Truck paths violate system working time by {exceed}")
+        for truck, exceed in enumerate(self.truck_weight_violations):
+            if exceed > 0:
+                errors.append(f"Truck {truck} exceeds capacity by {exceed}")
 
-        for drone, drone_distances in enumerate(self.drone_distances):
-            for index, drone_distance in enumerate(drone_distances):
-                exceed = drone_distance / config.drone.speed - config.drone.time_limit
-                if exceed > 0.0 and not isclose(exceed, 0.0):
-                    errors.append(f"Path {index} of drone {drone} violates flight time by {exceed}")
+        for drone, exceed in enumerate(self.drone_time_violations):
+            if exceed > 0:
+                errors.append(f"Drone {drone} exceeds system working time by {exceed}")
 
-        for drone, drone_distances in enumerate(self.drone_distances):
-            exceed = sum(drone_distances) / config.drone.speed - config.time_limit
-            if exceed > 0.0 and not isclose(exceed, 0.0):
-                errors.append(f"Drone {drone} violates system working time by {exceed}")
+        for drone, exceeds in enumerate(self.drone_flight_time_violations):
+            for path_index, exceed in enumerate(exceeds):
+                if exceed > 0:
+                    errors.append(f"Path {path_index} of drone {drone} exceeds flight time by {exceed}")
+
+        for drone, exceeds in enumerate(self.drone_weight_violations):
+            for path_index, exceed in enumerate(exceeds):
+                if exceed > 0:
+                    errors.append(f"Path {path_index} of drone {drone} exceeds capacity by {exceed}")
 
         for path in itertools.chain(self.truck_paths, *self.drone_paths):
             for customer_index, weight in path:
@@ -111,16 +164,9 @@ class VRPDFDSolution(SingleObjectiveSolution[VRPDFDIndividual]):
                 if path[-1] != (0, 0):
                     errors.append(f"Path {path} does not end at the depot")
 
-        for index, customer in enumerate(config.customers):
-            total = 0.0
-            for path in self.truck_paths:
-                total += sum(weight for customer_index, weight in path if customer_index == index)
-
-            for path in itertools.chain(*self.drone_paths):
-                total += sum(weight for customer_index, weight in path if customer_index == index)
-
-            if total < customer.low or total > customer.high:
-                errors.append(f"Customer {index} has weight {total} outside [{customer.low}, {customer.high}]")
+        for index, violation in enumerate(self.customer_weight_violations):
+            if violation > 0:
+                errors.append(f"Customer {index} violates weight bounds by {violation}")
 
         if max(self.violation) > 0.0:
             errors.append(f"Total violation = {self.violation}")
@@ -212,33 +258,15 @@ class VRPDFDSolution(SingleObjectiveSolution[VRPDFDIndividual]):
             config = ProblemConfig.get_config()
 
             time_violation = (
-                sum(positive_max(distance / config.truck.speed / config.time_limit - 1) for distance in self.truck_distances)
-                + sum(positive_max(distance / config.drone.speed / config.drone.time_limit - 1) for distance in itertools.chain(*self.drone_distances))
-                + sum(positive_max(sum(distances) / config.drone.speed / config.time_limit - 1) for distances in self.drone_distances)
+                (sum(self.truck_time_violations) + sum(self.drone_time_violations)) / config.time_limit
+                + sum(map(sum, self.drone_flight_time_violations)) / config.drone.time_limit
             )
 
             weight_violation = (
-                sum(positive_max(self.calculate_total_weight(path) / config.truck.capacity - 1) for path in self.truck_paths)
-                + sum(positive_max(self.calculate_total_weight(path) / config.drone.capacity - 1) for paths in self.drone_paths for path in paths)
+                sum(self.truck_weight_violations) / config.truck.capacity
+                + sum(map(sum, self.drone_weight_violations)) / config.drone.capacity
+                + sum(v / c.high for v, c in zip(self.customer_weight_violations, config.customers, strict=True) if v != 0)  # excluding depot
             )
-
-            total_weight = [0.0] * len(config.customers)
-            for path in itertools.chain(self.truck_paths, *self.drone_paths):
-                for customer_index, weight in path:
-                    total_weight[customer_index] += weight
-
-            for index, customer in enumerate(config.customers):
-                if index != 0:
-                    weight_violation += (
-                        positive_max(customer.low - total_weight[index])
-                        + positive_max(total_weight[index] - customer.high)
-                    ) / customer.high
-
-            if isclose(time_violation, 0.0):
-                time_violation = 0.0
-
-            if isclose(weight_violation, 0.0):
-                weight_violation = 0.0
 
             self.__violation = (time_violation, weight_violation)
 

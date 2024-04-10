@@ -210,7 +210,7 @@ class VRPDFDIndividual(BaseIndividual):
             )
 
             truck_paths: List[Tuple[Tuple[int, int], ...]] = []
-            truck_distance = 0.0
+            truck_distances: List[float] = []
             for truck, path in enumerate(self.truck_paths):
                 reduced_path: Set[int] = set()
                 for customer in path:
@@ -219,13 +219,14 @@ class VRPDFDIndividual(BaseIndividual):
                         reduced_path.add(customer)
 
                 distance, ordered = config.path_order(reduced_path)
-                truck_distance += distance
+                truck_distances.append(distance)
                 truck_paths.append(tuple(((customer, truck_paths_mapping[truck][customer]) for customer in ordered)))
 
             drone_paths: List[List[Tuple[Tuple[int, int], ...]]] = []
-            drone_distance = 0.0
+            drone_distances: List[List[float]] = []
             for drone, paths in enumerate(self.drone_paths):
                 drone_paths.append([])
+                drone_distances.append([])
                 for path_index, path in enumerate(paths):
                     reduced_path = set()
                     for customer in path:
@@ -234,14 +235,14 @@ class VRPDFDIndividual(BaseIndividual):
                             reduced_path.add(customer)
 
                     distance, ordered = config.path_order(reduced_path)
-                    drone_distance += distance
+                    drone_distances[-1].append(distance)
                     drone_paths[-1].append(tuple((customer, drone_paths_mapping[drone][path_index][customer]) for customer in ordered))
 
             self.__decoded = self.cls(
                 truck_paths=tuple(truck_paths),
                 drone_paths=tuple(map(tuple, drone_paths)),
-                truck_distance=truck_distance,
-                drone_distance=drone_distance,
+                truck_distances=tuple(truck_distances),
+                drone_distances=tuple(map(tuple, drone_distances)),
             )
 
         return self.__decoded
