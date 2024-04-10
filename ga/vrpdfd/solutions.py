@@ -100,7 +100,7 @@ class VRPDFDSolution(SingleObjectiveSolution[VRPDFDIndividual]):
             tuple(self._approx(self.calculate_total_weight(p) - config.drone.capacity) for p in paths)
             for paths in self.drone_paths
         )
-        
+
         total_weight: List[int] = [0] * len(config.customers)
         for path in itertools.chain(self.truck_paths, *self.drone_paths):
             for customer, weight in path:
@@ -128,7 +128,6 @@ class VRPDFDSolution(SingleObjectiveSolution[VRPDFDIndividual]):
 
     def assert_feasible(self) -> None:
         """Raise InfeasibleSolution if solution is infeasible"""
-        config = ProblemConfig.get_config()
         errors: List[str] = []
 
         for truck, exceed in enumerate(self.truck_time_violations):
