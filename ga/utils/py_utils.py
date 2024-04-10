@@ -73,13 +73,12 @@ def isclose(first: Any, second: Any, /) -> bool:
 
 
 def positive_max(*values: Union[float, Iterable[float]]) -> float:
-    """Equivalent to max(0.0, 0.0, *values)"""
     result = 0.0
     for value in values:
         if isinstance(value, (float, int)):
             result = max(result, value)
         else:
-            result = max(result, result, *value)  # must have at least 2 arguments
+            result = max(result, positive_max(*value))
 
     return result
 
