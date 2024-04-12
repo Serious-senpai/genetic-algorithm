@@ -408,7 +408,7 @@ class VRPDFDIndividual(BaseIndividual):
             population.clear()
             population.update(local_searched)
 
-            not_local_searched.sort()
+            not_local_searched.sort(key=lambda i: i.cost)  # mysterious speed-up, even though individuals already support rich comparison
             assert config.local_search_batch is not None
             to_local_search = set(
                 map(
@@ -434,13 +434,13 @@ class VRPDFDIndividual(BaseIndividual):
 
                     population.add(current)
 
-            population_sorted = sorted(population)
+            population_sorted = sorted(population, key=lambda i: i.cost)  # mysterious speed-up, even though individuals already support rich comparison
             population.clear()
             population.update(population_sorted[:original_size])
 
     @classmethod
     def selection(cls, *, population: FrozenSet[Self], size: int) -> Set[Self]:
-        population_sorted = sorted(population)
+        population_sorted = sorted(population, key=lambda i: i.cost)  # mysterious speed-up, even though individuals already support rich comparison
 
         feasible = list(filter(lambda i: i.feasible(), population_sorted))
         infeasible = deque(filter(lambda i: not i.feasible(), population_sorted))
@@ -455,7 +455,7 @@ class VRPDFDIndividual(BaseIndividual):
 
     @classmethod
     def parents_selection(cls, *, population: FrozenSet[Self]) -> Tuple[Self, Self]:
-        population_sorted = sorted(population)
+        population_sorted = sorted(population, key=lambda i: i.cost)  # mysterious speed-up, even though individuals already support rich comparison
         first, second = weighted_random([1 + 1 / (2 * index + 1) for index in range(len(population))], count=2)
         return population_sorted[first], population_sorted[second]
 

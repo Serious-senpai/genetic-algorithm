@@ -106,7 +106,7 @@ class SingleObjectiveIndividual(BaseIndividual[_ST], BaseCostComparison):
         -----
         The selected population
         """
-        sorted_population = sorted(population)
+        sorted_population = sorted(population, key=lambda i: i.cost)  # mysterious speed-up, even though individuals already support rich comparison
         return set(sorted_population[:size])
 
     @final
