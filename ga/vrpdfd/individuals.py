@@ -48,7 +48,6 @@ class VRPDFDIndividual(BaseIndividual):
 
     __slots__ = (
         "__cls",
-        "__stuck_penalty",
         "__decoded",
         "__educated",
         "__local_searched",
@@ -60,7 +59,6 @@ class VRPDFDIndividual(BaseIndividual):
     cache: ClassVar[LRUCache[Tuple[Tuple[FrozenSet[int], ...], Tuple[Tuple[FrozenSet[int], ...], ...]], VRPDFDIndividual]] = LRUCache(10000)
     if TYPE_CHECKING:
         __cls: Final[Type[VRPDFDSolution]]
-        __stuck_penalty: float
         __decoded: Optional[VRPDFDSolution]
         __educated: Optional[VRPDFDIndividual]
         __local_searched: Optional[Tuple[Optional[VRPDFDIndividual], VRPDFDIndividual]]
@@ -77,7 +75,6 @@ class VRPDFDIndividual(BaseIndividual):
         local_searched: Optional[Tuple[Optional[VRPDFDIndividual], VRPDFDIndividual]] = None,
     ) -> None:
         self.__cls = solution_cls
-        self.__stuck_penalty = 1.0
         self.__decoded = decoded
         self.__educated = None
         self.__local_searched = local_searched
@@ -190,15 +187,6 @@ class VRPDFDIndividual(BaseIndividual):
     def cost(self) -> float:
         decoded = self.decode()
         return decoded.cost
-
-    @property
-    def penalized_cost(self) -> float:
-        return self.cost + self.__stuck_penalty
-
-    def bump_stuck_penalty(self) -> None:
-        config = ProblemConfig.get_config()
-        self.__stuck_penalty *= config.stuck_penalty_increase_rate or 1.0
-        self.__stuck_penalty = min(self.__stuck_penalty, 10 ** 9)
 
     def decode(self) -> VRPDFDSolution:
         if self.__decoded is None:
@@ -407,10 +395,7 @@ class VRPDFDIndividual(BaseIndividual):
             and (generation - last_improved) % config.reset_after == 0
         ):
             if config.logger is not None:
-                config.logger.write("\"Increasing stuck penalty and applying local search\"\n")
-
-            for individual in population:
-                individual.bump_stuck_penalty()
+                config.logger.write("\"Applying local search\"\n")
 
             if result not in population:
                 population.pop()
@@ -449,13 +434,13 @@ class VRPDFDIndividual(BaseIndividual):
 
                     population.add(current)
 
-            population_sorted = sorted(population, key=lambda i: i.penalized_cost)
+            population_sorted = sorted(population)
             population.clear()
             population.update(population_sorted[:original_size])
 
     @classmethod
     def selection(cls, *, population: FrozenSet[Self], size: int) -> Set[Self]:
-        population_sorted = sorted(population, key=lambda i: i.penalized_cost)
+        population_sorted = sorted(population)
 
         feasible = list(filter(lambda i: i.feasible(), population_sorted))
         infeasible = deque(filter(lambda i: not i.feasible(), population_sorted))
@@ -470,7 +455,7 @@ class VRPDFDIndividual(BaseIndividual):
 
     @classmethod
     def parents_selection(cls, *, population: FrozenSet[Self]) -> Tuple[Self, Self]:
-        population_sorted = sorted(population, key=lambda i: i.penalized_cost)
+        population_sorted = sorted(population)
         first, second = weighted_random([1 + 1 / (2 * index + 1) for index in range(len(population))], count=2)
         return population_sorted[first], population_sorted[second]
 
