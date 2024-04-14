@@ -59,7 +59,7 @@ field_names = (
 sd_summary = sdvrp_results()
 with open(summary_dir / "vrpdfd-summary.csv", "w") as csvfile:
     csvfile.write(",".join(field_names) + "\n")
-    for index, file in enumerate(sorted(os.listdir(summary_dir))):
+    for index, file in enumerate(sorted(os.listdir(summary_dir)), start=2):
         if file.startswith("output-") and file.endswith(".json"):
             with open(summary_dir / file, "r", encoding="utf-8") as f:
                 data: SolutionJSON = json.load(f)
@@ -83,8 +83,8 @@ with open(summary_dir / "vrpdfd-summary.csv", "w") as csvfile:
                 data["extra"],
                 sd_avg,
                 sd_max,
-                wrap_double_quotes(f"=ROUND(100 * (H{index + 2} - P{index + 2}) / ABS(P{index + 2}), 4)"),
-                wrap_double_quotes(f"=ROUND(100 * (H{index + 2} - Q{index + 2}) / ABS(Q{index + 2}), 4)"),
+                wrap_double_quotes(f"=ROUND(100 * (H{index} - P{index}) / ABS(P{index}), 4)"),
+                wrap_double_quotes(f"=ROUND(100 * (H{index} - Q{index}) / ABS(Q{index}), 4)"),
             ]
 
             csvfile.write(",".join(map(str, fields)) + "\n")
