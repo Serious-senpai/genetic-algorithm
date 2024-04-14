@@ -141,7 +141,7 @@ class SingleObjectiveIndividual(BaseIndividual[_ST], BaseCostComparison):
         if verbose:
             iterations = tqdm(iterations, ascii=" █")
 
-        population = cls.initial(solution_cls=solution_cls, size=population_size)
+        population = cls.initial(solution_cls=solution_cls, size=population_size, verbose=verbose)
         filtered = tuple(filter(lambda i: i.feasible(), population))
         if len(filtered) > 0:
             result = min(filtered)

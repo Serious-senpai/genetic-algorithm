@@ -3,7 +3,7 @@ from __future__ import annotations
 import itertools
 import random
 from collections import deque
-from math import ceil
+from math import ceil, sqrt
 from typing import (
     ClassVar,
     Final,
@@ -56,6 +56,7 @@ class VRPDFDIndividual(BaseIndividual):
     )
     genetic_algorithm_last_improved: ClassVar[int] = 0
     genetic_algorithm_result: ClassVar[Optional[VRPDFDIndividual]] = None
+    reset_coefficient: ClassVar[int] = 2
     cache: ClassVar[LRUCache[Tuple[Tuple[FrozenSet[int], ...], Tuple[Tuple[FrozenSet[int], ...], ...]], VRPDFDIndividual]] = LRUCache(10000)
     if TYPE_CHECKING:
         __cls: Final[Type[VRPDFDSolution]]
@@ -389,26 +390,31 @@ class VRPDFDIndividual(BaseIndividual):
             )
             config.logger.write("\n")
 
+        last_improved_distance = generation - last_improved
+        if last_improved_distance == 0:
+            cls.reset_coefficient = 2
+
         if (
             config.reset_after is not None
-            and generation != last_improved
-            and (generation - last_improved) % config.reset_after == 0
+            and last_improved_distance > 0
+            and last_improved_distance % config.reset_after == 0
         ):
             population_size = len(population)
             sorted_population = sorted(population | {result}, key=lambda i: i.cost)
             if len(sorted_population) > len(population):
                 sorted_population.pop()
 
-            if (generation - last_improved) % (2 * config.reset_after) == 0:
-                to_remove = random.randint(0, population_size // 2)
+            if last_improved_distance == cls.reset_coefficient * config.reset_after:
+                to_remove = random.randint(3, population_size // 2)
                 if config.logger is not None:
                     config.logger.write(f"\"Replacing {to_remove} top individual(s)\"\n")
 
-                _new_indiviuals = cls.initial(solution_cls=result.cls, size=to_remove)
+                _new_indiviuals = cls.initial(solution_cls=result.cls, size=to_remove, verbose=verbose)
                 while len(_new_indiviuals) < population_size and len(sorted_population) > 0:
                     _new_indiviuals.add(sorted_population.pop())
 
                 sorted_population = sorted(_new_indiviuals, key=lambda i: i.cost)
+                cls.reset_coefficient = round((1 + 2 * cls.reset_coefficient + sqrt(9 + 8 * cls.reset_coefficient)) / 2)
 
             if config.logger is not None:
                 config.logger.write("\"Applying local search\"\n")
@@ -471,10 +477,10 @@ class VRPDFDIndividual(BaseIndividual):
         return population_sorted[first], population_sorted[second]
 
     @classmethod
-    def initial(cls, *, solution_cls: Type[VRPDFDSolution], size: int) -> Set[VRPDFDIndividual]:
+    def initial(cls, *, solution_cls: Type[VRPDFDSolution], size: int, verbose: bool) -> Set[VRPDFDIndividual]:
         config = ProblemConfig.get_config()
 
-        results: SizeMonitoredSet[VRPDFDIndividual] = SizeMonitoredSet(max_size=size, color="blue", description="Initialize")
+        results: Union[SizeMonitoredSet[VRPDFDIndividual], Set[VRPDFDIndividual]] = SizeMonitoredSet(max_size=size, color="blue", description="Initialize") if verbose else set()
         all_customers = frozenset(range(len(config.customers)))
         try:
             for paths_per_drone in range(size // 3):
