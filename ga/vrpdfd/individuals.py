@@ -28,7 +28,7 @@ from .config import ProblemConfig
 from .errors import PopulationInitializationException
 from .utils import decode, educate, local_search
 from ..abc import SingleObjectiveIndividual
-from ..utils import LRUCache, weighted_random, weighted_random_choice
+from ..utils import LRUCache, SizeMonitoredSet, weighted_random, weighted_random_choice
 if TYPE_CHECKING:
     from .solutions import VRPDFDSolution
 
@@ -362,7 +362,7 @@ class VRPDFDIndividual(BaseIndividual):
             best = min(population)
             worst = max(population)
             average_cost = sum(individual.cost for individual in population) / len(population)
-            feasible_count = len(list(filter(lambda i: i.feasible(), population)))
+            feasible_count = len([i for i in population if i.feasible()])
 
             decoded = set(individual.decode() for individual in population)
             violations = (
@@ -394,21 +394,31 @@ class VRPDFDIndividual(BaseIndividual):
             and generation != last_improved
             and (generation - last_improved) % config.reset_after == 0
         ):
+            population_size = len(population)
+            sorted_population = sorted(population | {result}, key=lambda i: i.cost)
+            if len(sorted_population) > len(population):
+                sorted_population.pop()
+
+            if (generation - last_improved) % (2 * config.reset_after) == 0:
+                to_remove = random.randint(0, population_size // 2)
+                if config.logger is not None:
+                    config.logger.write(f"\"Replacing {to_remove} top individual(s)\"\n")
+
+                _new_indiviuals = cls.initial(solution_cls=result.cls, size=to_remove)
+                while len(_new_indiviuals) < population_size and len(sorted_population) > 0:
+                    _new_indiviuals.add(sorted_population.pop())
+
+                sorted_population = sorted(_new_indiviuals, key=lambda i: i.cost)
+
             if config.logger is not None:
                 config.logger.write("\"Applying local search\"\n")
 
-            if result not in population:
-                population.pop()
-                population.add(result)
+            local_searched: List[VRPDFDIndividual] = []
+            not_local_searched: List[VRPDFDIndividual] = []
+            for individual in sorted_population:
+                target = local_searched if individual.local_searched else not_local_searched
+                target.append(individual)
 
-            local_searched = set(filter(lambda i: i.local_searched, population))
-            not_local_searched = list(population.difference(local_searched))
-
-            original_size = len(population)
-            population.clear()
-            population.update(local_searched)
-
-            not_local_searched.sort(key=lambda i: i.cost)  # mysterious speed-up, even though individuals already support rich comparison
             assert config.local_search_batch is not None
             to_local_search = set(
                 map(
@@ -419,13 +429,14 @@ class VRPDFDIndividual(BaseIndividual):
                     ),
                 ),
             )
-            population.update(i for i in not_local_searched if i not in to_local_search)
 
-            individuals: Union[tqdm[VRPDFDIndividual], Set[VRPDFDIndividual]] = to_local_search
+            population.difference_update(to_local_search)
+
+            iterable: Union[tqdm[VRPDFDIndividual], Set[VRPDFDIndividual]] = to_local_search
             if verbose:
-                individuals = tqdm(individuals, desc=f"Local search (#{generation + 1})", ascii=" █", colour="red")
+                iterable = tqdm(iterable, desc=f"Local search (#{generation + 1})", ascii=" █", colour="red")
 
-            for individual in individuals:
+            for individual in iterable:
                 # 2-layer local search
                 for states in itertools.product((True, False), repeat=2):
                     current = individual
@@ -434,9 +445,9 @@ class VRPDFDIndividual(BaseIndividual):
 
                     population.add(current)
 
-            population_sorted = sorted(population, key=lambda i: i.cost)  # mysterious speed-up, even though individuals already support rich comparison
+            sorted_population = sorted(population, key=lambda i: i.cost)  # mysterious speed-up, even though individuals already support rich comparison
             population.clear()
-            population.update(population_sorted[:original_size])
+            population.update(sorted_population[:population_size])
 
     @classmethod
     def selection(cls, *, population: FrozenSet[Self], size: int) -> Set[Self]:
@@ -463,7 +474,7 @@ class VRPDFDIndividual(BaseIndividual):
     def initial(cls, *, solution_cls: Type[VRPDFDSolution], size: int) -> Set[VRPDFDIndividual]:
         config = ProblemConfig.get_config()
 
-        results: Set[VRPDFDIndividual] = set()
+        results: SizeMonitoredSet[VRPDFDIndividual] = SizeMonitoredSet(max_size=size, color="blue", description="Initialize")
         all_customers = frozenset(range(len(config.customers)))
         try:
             for paths_per_drone in range(size // 3):
@@ -520,7 +531,7 @@ class VRPDFDIndividual(BaseIndividual):
                 base = random.choice(array)
                 results.add(merge_drone_paths(base))
 
-            return results
+            return set(results)
 
         except BaseException as e:
             raise PopulationInitializationException(e) from e

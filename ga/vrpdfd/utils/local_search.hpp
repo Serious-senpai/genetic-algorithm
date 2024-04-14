@@ -87,6 +87,42 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
         }
     }
 
+    std::set<unsigned> in_both;
+    for (auto customer : in_truck_paths)
+    {
+        if (in_drone_paths.count(customer))
+        {
+            in_both.insert(customer);
+        }
+    }
+
+    std::set<unsigned> in_truck_paths_only;
+    for (auto c : in_truck_paths)
+    {
+        if (!in_both.count(c))
+        {
+            in_truck_paths_only.insert(c);
+        }
+    }
+
+    std::set<unsigned> in_drone_paths_only;
+    for (auto c : in_drone_paths)
+    {
+        if (!in_both.count(c))
+        {
+            in_drone_paths_only.insert(c);
+        }
+    }
+
+    std::vector<unsigned> absent;
+    for (unsigned customer = 1; customer < Customer::customers.size(); customer++)
+    {
+        if (!in_truck_paths.count(customer) && !in_drone_paths.count(customer))
+        {
+            absent.push_back(customer);
+        }
+    }
+
     /*
     // FEATURE REQUEST #1. Replicate drone paths with the highest profit
     for (unsigned drone = 0; drone < drones_count; drone++)
@@ -140,16 +176,7 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
     }
     */
 
-    // Attempt to add absent customers
-    std::vector<unsigned> absent;
-    for (unsigned customer = 1; customer < Customer::customers.size(); customer++)
-    {
-        if (!in_truck_paths.count(customer) && !in_drone_paths.count(customer))
-        {
-            absent.push_back(customer);
-        }
-    }
-
+    // Add absent customers to truck paths
     {
         auto mutable_truck_paths = truck_paths;
         for (unsigned truck = 0; truck < trucks_count; truck++)
@@ -173,6 +200,7 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
         }
     }
 
+    // Add absent customers to drone paths
     {
         std::vector<unsigned> new_path = absent;
         new_path.push_back(0);
@@ -241,34 +269,7 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
         }
     }
 
-    // Remove elements in both sets
-    std::set<unsigned> in_both;
-    for (auto customer : in_truck_paths)
-    {
-        if (in_drone_paths.count(customer))
-        {
-            in_both.insert(customer);
-        }
-    }
-
-    auto remove_intersection = [&in_both](std::set<unsigned> &customers)
-    {
-        for (auto iter = customers.begin(); iter != customers.end();)
-        {
-            if (in_both.count(*iter))
-            {
-                iter = customers.erase(iter);
-            }
-            else
-            {
-                iter++;
-            }
-        }
-    };
-    remove_intersection(in_truck_paths);
-    remove_intersection(in_drone_paths);
-
-    // FEATURE REQUEST #3. Split drone paths serving more than 1 customer
+    // FEATURE REQUEST #3. Split/Remove drone paths serving more than 1 customer
     {
         auto mutable_drone_paths = drone_paths;
         for (unsigned drone = 0; drone < drones_count; drone++)
@@ -280,6 +281,7 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
                     continue;
                 }
 
+                // Split
                 for (auto customer : drone_paths[drone][path])
                 {
                     if (customer != 0)
@@ -300,6 +302,24 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
                         mutable_drone_paths[drone][path].insert(customer);
                         mutable_drone_paths[drone].pop_back();
                     }
+                }
+
+                // Remove
+                {
+                    // Temporary modify the individual
+                    auto temp = mutable_drone_paths[drone][path];
+                    mutable_drone_paths[drone][path] = {0};
+
+                    py::object py_new_individual = from_cache(truck_paths, mutable_drone_paths);
+
+                    if (feasible(py_new_individual))
+                    {
+                        py_result_feasible = std::min(py_result_feasible.value_or(py_new_individual), py_new_individual);
+                    }
+                    py_result_any = std::min(py_result_any, py_new_individual);
+
+                    // Restore the individual
+                    mutable_drone_paths[drone][path] = temp;
                 }
             }
         }
@@ -337,13 +357,13 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
     }
     */
 
-    std::vector<unsigned> in_truck_paths_vector(in_truck_paths.begin(), in_truck_paths.end()),
-        in_drone_paths_vector(in_drone_paths.begin(), in_drone_paths.end());
+    std::vector<unsigned> in_truck_paths_only_vector(in_truck_paths_only.begin(), in_truck_paths_only.end()),
+        in_drone_paths_only_vector(in_drone_paths_only.begin(), in_drone_paths_only.end());
 
     // Calculate improved ratios
     std::vector<std::vector<double>> improved_ratio(2);
-    improved_ratio[0].resize(in_truck_paths_vector.size(), -1);
-    improved_ratio[1].resize(in_drone_paths_vector.size(), -1);
+    improved_ratio[0].resize(in_truck_paths_only_vector.size(), -1);
+    improved_ratio[1].resize(in_drone_paths_only_vector.size(), -1);
 
     {
         std::vector<double> truck_paths_distance;
@@ -362,17 +382,17 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
         }
 
         auto mutable_truck_paths = truck_paths;
-        for (unsigned truck_i = 0; truck_i < in_truck_paths_vector.size(); truck_i++)
+        for (unsigned truck_i = 0; truck_i < in_truck_paths_only_vector.size(); truck_i++)
         {
             double total_ratio = 0.0;
             for (unsigned truck = 0; truck < trucks_count; truck++)
             {
-                bool erased = mutable_truck_paths[truck].erase(in_truck_paths_vector[truck_i]);
+                bool erased = mutable_truck_paths[truck].erase(in_truck_paths_only_vector[truck_i]);
                 total_ratio += path_order(mutable_truck_paths[truck]).first / truck_paths_distance[truck];
 
                 if (erased)
                 {
-                    mutable_truck_paths[truck].insert(in_truck_paths_vector[truck_i]);
+                    mutable_truck_paths[truck].insert(in_truck_paths_only_vector[truck_i]);
                 }
             }
 
@@ -386,19 +406,19 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
         }
 
         auto mutable_drone_paths = drone_paths;
-        for (unsigned drone_i = 0; drone_i < in_drone_paths_vector.size(); drone_i++)
+        for (unsigned drone_i = 0; drone_i < in_drone_paths_only_vector.size(); drone_i++)
         {
             double total_ratio = 0.0;
             for (unsigned drone = 0; drone < drones_count; drone++)
             {
                 for (unsigned path = 0; path < mutable_drone_paths[drone].size(); path++)
                 {
-                    bool erased = mutable_drone_paths[drone][path].erase(in_drone_paths_vector[drone_i]);
+                    bool erased = mutable_drone_paths[drone][path].erase(in_drone_paths_only_vector[drone_i]);
                     total_ratio += path_order(mutable_drone_paths[drone][path]).first / drone_paths_distance[drone][path];
 
                     if (erased)
                     {
-                        mutable_drone_paths[drone][path].insert(in_drone_paths_vector[drone_i]);
+                        mutable_drone_paths[drone][path].insert(in_drone_paths_only_vector[drone_i]);
                     }
                 }
             }
@@ -421,38 +441,38 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
 
     // Sort customers according to improved ratios
     std::map<unsigned, double> improved_ratio_map;
-    for (unsigned i = 0; i < in_truck_paths_vector.size(); i++)
+    for (unsigned i = 0; i < in_truck_paths_only_vector.size(); i++)
     {
-        improved_ratio_map[in_truck_paths_vector[i]] = improved_ratio[0][i];
+        improved_ratio_map[in_truck_paths_only_vector[i]] = improved_ratio[0][i];
     }
-    for (unsigned i = 0; i < in_drone_paths_vector.size(); i++)
+    for (unsigned i = 0; i < in_drone_paths_only_vector.size(); i++)
     {
-        improved_ratio_map[in_drone_paths_vector[i]] = improved_ratio[1][i];
+        improved_ratio_map[in_drone_paths_only_vector[i]] = improved_ratio[1][i];
     }
     std::sort(
-        in_truck_paths_vector.begin(), in_truck_paths_vector.end(),
+        in_truck_paths_only_vector.begin(), in_truck_paths_only_vector.end(),
         [&improved_ratio_map](unsigned a, unsigned b)
         {
             return improved_ratio_map[a] < improved_ratio_map[b];
         });
     std::sort(
-        in_drone_paths_vector.begin(), in_drone_paths_vector.end(),
+        in_drone_paths_only_vector.begin(), in_drone_paths_only_vector.end(),
         [&improved_ratio_map](unsigned a, unsigned b)
         {
             return improved_ratio_map[a] < improved_ratio_map[b];
         });
 
-    while (in_truck_paths_vector.size() > TRUCK_TRADE_LIMIT)
+    while (in_truck_paths_only_vector.size() > TRUCK_TRADE_LIMIT)
     {
-        in_truck_paths_vector.pop_back();
+        in_truck_paths_only_vector.pop_back();
     }
-    while (in_drone_paths_vector.size() > DRONE_TRADE_LIMIT)
+    while (in_drone_paths_only_vector.size() > DRONE_TRADE_LIMIT)
     {
-        in_drone_paths_vector.pop_back();
+        in_drone_paths_only_vector.pop_back();
     }
 
-    const unsigned truck_trade = in_truck_paths_vector.size(),
-                   drone_trade = in_drone_paths_vector.size();
+    const unsigned truck_trade = in_truck_paths_only_vector.size(),
+                   drone_trade = in_drone_paths_only_vector.size();
 
     /*
     // FEATURE REQUEST #2. Insert customers from truck paths to new drone paths
@@ -463,7 +483,7 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
         {
             if (bitmask & (1u << i))
             {
-                unsigned customer = in_truck_paths_vector[i];
+                unsigned customer = in_truck_paths_only_vector[i];
                 for (auto &path : new_truck_paths)
                 {
                     path.erase(customer);
@@ -495,7 +515,7 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
         {
             if (bitmask & (1u << (i + drone_trade)))
             {
-                unsigned customer = in_truck_paths_vector[i];
+                unsigned customer = in_truck_paths_only_vector[i];
                 from_truck.push_back(customer);
                 for (auto &path : new_truck_paths)
                 {
@@ -514,7 +534,7 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
         {
             if (bitmask & (1u << i))
             {
-                unsigned customer = in_drone_paths_vector[i];
+                unsigned customer = in_drone_paths_only_vector[i];
                 from_drone.push_back(customer);
                 for (auto &path : new_truck_paths)
                 {
