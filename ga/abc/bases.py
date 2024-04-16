@@ -128,7 +128,7 @@ class BaseIndividual(abc.ABC, Generic[_ST]):
 
     @classmethod
     @abc.abstractmethod
-    def initial(cls, *, solution_cls: Type[_ST], size: int) -> Set[Self]:
+    def initial(cls, *, solution_cls: Type[_ST], size: int, verbose: bool) -> Set[Self]:
         """Generate the initial population
 
         Subclasses must implement this.
@@ -139,6 +139,8 @@ class BaseIndividual(abc.ABC, Generic[_ST]):
             The solution class
         size:
             The population size
+        verbose:
+            The verbose mode
 
         Returns
         -----

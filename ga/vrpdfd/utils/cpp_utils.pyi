@@ -1,6 +1,7 @@
 from typing import AbstractSet, Dict, List, Optional, Sequence, Set, Tuple
 
 from ..individuals import VRPDFDIndividual
+from ..types import LRUCacheInfo
 
 
 __all__ = (
@@ -31,7 +32,7 @@ def setup(
 
 
 def setup_path_cache(capacity: int) -> None: ...
-def path_cache_info() -> Dict[str, int]: ...
+def path_cache_info() -> LRUCacheInfo: ...
 def path_order(path: AbstractSet[int]) -> Tuple[float, List[int]]: ...
 
 

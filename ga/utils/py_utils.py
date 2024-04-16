@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import math
-from typing import Any, Iterable, Optional, Sequence, TypeVar, TypedDict, Union, overload
+from typing import Any, Final, Iterable, Iterator, Optional, Sequence, Set, TypeVar, TypedDict, Union, TYPE_CHECKING, overload
+
+import tqdm
 
 from .cpp_utils import weighted_random
 
 
-__all__ = ("LRUCacheInfo", "isclose", "positive_max", "value", "weighted_random_choice", "weird_round")
+__all__ = ("LRUCacheInfo", "isclose", "positive_max", "value", "weighted_random_choice", "weird_round", "SizeMonitoredSet")
 _T = TypeVar("_T")
 
 
@@ -94,3 +96,52 @@ def weighted_random_choice(choices: Sequence[float], /) -> int:
 def weird_round(number: float, precision: int, /) -> float:
     factor = 10 ** precision
     return math.ceil(number * factor) / factor
+
+
+class SizeMonitoredSet(Iterable[_T]):
+
+    __slots__ = (
+        "__progress",
+        "__tqdm_iter",
+        "__set",
+    )
+    if TYPE_CHECKING:
+        __progress: int
+        __tqdm_iter: Final[Iterator[int]]
+
+    def __init__(
+        self,
+        *,
+        initial: Optional[Set[_T]] = None,
+        max_size: int,
+        color: Optional[str] = None,
+        description: str,
+    ) -> None:
+        if initial is None:
+            initial = set()
+
+        displayer = tqdm.tqdm(range(max_size), ascii=" █", colour=color)
+        displayer.set_description_str(description)
+
+        self.__progress = 0
+        self.__tqdm_iter = iter(displayer)
+        self.__set: Final[Set[_T]] = initial
+
+    def __update(self) -> None:
+        while len(self.__set) >= self.__progress:
+            try:
+                next(self.__tqdm_iter)
+            except StopIteration:
+                pass
+
+            self.__progress += 1
+
+    def add(self, value: _T, /) -> None:
+        self.__set.add(value)
+        self.__update()
+
+    def __iter__(self) -> Iterator[_T]:
+        return iter(self.__set)
+
+    def __len__(self) -> int:
+        return len(self.__set)
