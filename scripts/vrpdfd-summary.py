@@ -11,7 +11,7 @@ def wrap_double_quotes(text: Any) -> str:
     return f"\"{text}\""
 
 
-def sdvrp_results() -> Dict[str, Tuple[float, float]]:
+def sdvrp_results() -> Dict[str, Tuple[float, float, float]]:
     sd_results: Dict[str, List[float]] = {}
     with open("problems/vrpdfd/results/sdvrp-summary.csv", "r", encoding="utf-8", newline="") as csvfile:
         csvreader = csv.reader(csvfile, delimiter=",", quotechar="\"")
@@ -26,9 +26,9 @@ def sdvrp_results() -> Dict[str, Tuple[float, float]]:
             except KeyError:
                 sd_results[problem] = [result]
 
-    sd_summary: Dict[str, Tuple[float, float]] = {}
+    sd_summary: Dict[str, Tuple[float, float, float]] = {}
     for problem, sd_result in sd_results.items():
-        sd_summary[problem] = (sum(sd_result) / len(sd_result), max(sd_result))
+        sd_summary[problem] = (sum(sd_result) / len(sd_result), max(sd_result), len(sd_results))
 
     return sd_summary
 
@@ -53,6 +53,7 @@ field_names = (
     "Extra",
     "SDVRP average",
     "SDVRP max",
+    "SDVRP run counts",
     "Improved to avg [%]",
     "Improved to max [%]",
 )
@@ -64,7 +65,7 @@ with open(summary_dir / "vrpdfd-summary.csv", "w") as csvfile:
             with open(summary_dir / file, "r", encoding="utf-8") as f:
                 data: SolutionJSON = json.load(f)
 
-            sd_avg, sd_max = sd_summary[data["problem"]]
+            sd_avg, sd_max, sd_count = sd_summary[data["problem"]]
             fields = [
                 data["problem"],
                 data["generations"],
@@ -83,6 +84,7 @@ with open(summary_dir / "vrpdfd-summary.csv", "w") as csvfile:
                 data["extra"],
                 sd_avg,
                 sd_max,
+                sd_count,
                 wrap_double_quotes(f"=ROUND(100 * (H{index} - P{index}) / ABS(P{index}), 4)"),
                 wrap_double_quotes(f"=ROUND(100 * (H{index} - Q{index}) / ABS(Q{index}), 4)"),
             ]
