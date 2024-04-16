@@ -59,7 +59,6 @@ class ProblemConfig:
         # Algorithm config
         "mutation_rate",
         "reset_after",
-        "stuck_penalty_increase_rate",
         "local_search_batch",
         "logger",
     )
@@ -81,7 +80,6 @@ class ProblemConfig:
         # Algorithm config
         mutation_rate: Optional[float]
         reset_after: Optional[int]
-        stuck_penalty_increase_rate: Optional[float]
         local_search_batch: Optional[int]
         logger: Optional[io.TextIOWrapper]
 
@@ -89,7 +87,6 @@ class ProblemConfig:
         self.problem = problem = problem.removesuffix(".csv")
         self.mutation_rate = None
         self.reset_after = None
-        self.stuck_penalty_increase_rate = None
         self.local_search_batch = None
         self.logger = None
         try:

@@ -32,10 +32,9 @@ class SolutionJSON(TypedDict):
     population_size: int
     mutation_rate: float
     reset_after: int
-    stuck_penalty_increase_rate: float
     local_search_batch: int
     solution: SolutionInfo
-    time: str
+    time: float
     fake_tsp_solver: bool
     last_improved: int
     extra: Optional[str]

@@ -124,7 +124,6 @@ field_names = (
     "Population size",
     "Mutation rate",
     "Reset after",
-    "Stuck penalty increase rate",
     "Local search batch",
     "Profit",
     "Feasible",
@@ -157,7 +156,6 @@ with open(summary_dir / "vrpdfd-summary.csv", "w") as csvfile:
                 data["population_size"],
                 data["mutation_rate"],
                 data["reset_after"],
-                data["stuck_penalty_increase_rate"],
                 data["local_search_batch"],
                 data["solution"]["profit"],
                 int(data["solution"]["feasible"]),
@@ -204,7 +202,7 @@ with open(summary_dir / "vrpdfd-summary.csv", "w") as csvfile:
                 fields.append(-milp_solution.cost)
                 fields.append(milp_data["status"])
                 fields.append(milp_data["solve_time"])
-                fields.append(wrap_double_quotes(f"=ROUND(100 * (H{index} - R{index}) / ABS(R{index}), 4)"))
+                fields.append(f"=ROUND(100 * (G{index} - Q{index}) / ABS(Q{index}), 4)")
 
             csvfile.write(",".join(map(str, fields)) + "\n")
 

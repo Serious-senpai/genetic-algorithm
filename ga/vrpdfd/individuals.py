@@ -3,7 +3,7 @@ from __future__ import annotations
 import itertools
 import random
 from collections import deque
-from math import ceil, sqrt
+from math import ceil
 from typing import (
     ClassVar,
     Final,
@@ -56,7 +56,6 @@ class VRPDFDIndividual(BaseIndividual):
     )
     genetic_algorithm_last_improved: ClassVar[int] = 0
     genetic_algorithm_result: ClassVar[Optional[VRPDFDIndividual]] = None
-    reset_coefficient: ClassVar[int] = 2
     cache: ClassVar[LRUCache[Tuple[Tuple[FrozenSet[int], ...], Tuple[Tuple[FrozenSet[int], ...], ...]], VRPDFDIndividual]] = LRUCache(10000)
     if TYPE_CHECKING:
         __cls: Final[Type[VRPDFDSolution]]
@@ -391,9 +390,6 @@ class VRPDFDIndividual(BaseIndividual):
             config.logger.write("\n")
 
         last_improved_distance = generation - last_improved
-        if last_improved_distance == 0:
-            cls.reset_coefficient = 2
-
         if (
             config.reset_after is not None
             and last_improved_distance > 0
@@ -403,18 +399,6 @@ class VRPDFDIndividual(BaseIndividual):
             sorted_population = sorted(population | {result}, key=lambda i: i.cost)
             if len(sorted_population) > len(population):
                 sorted_population.pop()
-
-            if last_improved_distance == cls.reset_coefficient * config.reset_after:
-                to_remove = random.randint(3, population_size // 2)
-                if config.logger is not None:
-                    config.logger.write(f"\"Replacing {to_remove} top individual(s)\"\n")
-
-                _new_indiviuals = cls.initial(solution_cls=result.cls, size=to_remove, verbose=verbose)
-                while len(_new_indiviuals) < population_size and len(sorted_population) > 0:
-                    _new_indiviuals.add(sorted_population.pop())
-
-                sorted_population = sorted(_new_indiviuals, key=lambda i: i.cost)
-                cls.reset_coefficient = round((1 + 2 * cls.reset_coefficient + sqrt(9 + 8 * cls.reset_coefficient)) / 2)
 
             if config.logger is not None:
                 config.logger.write("\"Applying local search\"\n")

@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import List, Optional, TYPE_CHECKING
 
 from ga import utils
-from ga.vrpdfd import InfeasibleSolution, ProblemConfig, VRPDFDIndividual, VRPDFDSolution, path_cache_info, setup_path_cache
+from ga.vrpdfd import InfeasibleSolution, ProblemConfig, SolutionJSON, VRPDFDIndividual, VRPDFDSolution, path_cache_info, setup_path_cache
 
 
 class Namespace(argparse.Namespace):
@@ -20,7 +20,6 @@ class Namespace(argparse.Namespace):
         size: int
         mutation_rate: float
         reset_after: int
-        stuck_penalty_increase_rate: float
         local_search_batch: int
         verbose: bool
         cache_limit: int
@@ -37,7 +36,6 @@ parser.add_argument("-i", "--iterations", default=200, type=int, help="the numbe
 parser.add_argument("--size", default=200, type=int, help="the population size")
 parser.add_argument("--mutation-rate", default=0.1, type=float, help="the mutation rate")
 parser.add_argument("--reset-after", default=10, type=int, help="the number of non-improving generations before applying stuck penalty and local search")
-parser.add_argument("--stuck-penalty-increase-rate", default=10.0, type=float, help="the stuck penalty increase rate")
 parser.add_argument("--local-search-batch", default=80, type=int, help="the batch size for local search")
 parser.add_argument("-v", "--verbose", action="store_true", help="turn on verbose mode")
 parser.add_argument("--cache-limit", default=50000, type=int, help="set limit for individuals and TSP cache")
@@ -62,7 +60,6 @@ config = ProblemConfig.get_config(namespace.problem)
 ProblemConfig.context = namespace.problem
 config.mutation_rate = namespace.mutation_rate
 config.reset_after = namespace.reset_after
-config.stuck_penalty_increase_rate = namespace.stuck_penalty_increase_rate
 config.local_search_batch = namespace.local_search_batch
 
 VRPDFDIndividual.cache.capacity = namespace.cache_limit
@@ -133,13 +130,12 @@ finally:
 
         if path.endswith(".json"):
             with dump_path.open("w", encoding="utf-8") as json_file:
-                data = {
+                data: SolutionJSON = {
                     "problem": namespace.problem,
                     "generations": namespace.iterations,
                     "population_size": namespace.size,
                     "mutation_rate": namespace.mutation_rate,
                     "reset_after": namespace.reset_after,
-                    "stuck_penalty_increase_rate": namespace.stuck_penalty_increase_rate,
                     "local_search_batch": namespace.local_search_batch,
                     "solution": solution.to_json(),
                     "time": total_time,
