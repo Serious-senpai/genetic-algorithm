@@ -35,7 +35,7 @@ parser.add_argument("problem", type=str, help="the problem name (e.g. \"6.5.1\",
 parser.add_argument("-i", "--iterations", default=200, type=int, help="the number of generations")
 parser.add_argument("--size", default=200, type=int, help="the population size")
 parser.add_argument("--mutation-rate", default=0.1, type=float, help="the mutation rate")
-parser.add_argument("--reset-after", default=10, type=int, help="the number of non-improving generations before applying stuck penalty and local search")
+parser.add_argument("--reset-after", default=15, type=int, help="the number of non-improving generations before applying local search")
 parser.add_argument("--local-search-batch", default=80, type=int, help="the batch size for local search")
 parser.add_argument("-v", "--verbose", action="store_true", help="turn on verbose mode")
 parser.add_argument("--cache-limit", default=50000, type=int, help="set limit for individuals and TSP cache")
