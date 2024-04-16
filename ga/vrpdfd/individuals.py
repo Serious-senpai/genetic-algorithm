@@ -197,8 +197,8 @@ class VRPDFDIndividual(BaseIndividual):
 
     def bump_stuck_penalty(self) -> None:
         config = ProblemConfig.get_config()
-        self.__stuck_penalty *= config.stuck_penalty_increase_rate or 1.0
-        self.__stuck_penalty = min(self.__stuck_penalty, 10 ** 9)
+        assert config.stuck_penalty_increase_rate is not None
+        self.__stuck_penalty *= config.stuck_penalty_increase_rate
 
     def decode(self) -> VRPDFDSolution:
         if self.__decoded is None:
