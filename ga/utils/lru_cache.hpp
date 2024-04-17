@@ -8,7 +8,8 @@
 #include <unordered_map>
 
 namespace std
-{ // https://stackoverflow.com/a/51915825
+{
+    // https://stackoverflow.com/a/51915825
     template <typename T, typename = std::void_t<>>
     struct is_hashable : std::false_type
     {
@@ -25,10 +26,12 @@ class lru_cache
 {
 private:
     std::list<std::pair<K, V>> items_list;
-    typename std::conditional<
+    typedef typename std::conditional<
         std::is_hashable<K>::value,
         std::unordered_map<K, typename std::list<std::pair<K, V>>::iterator>,
-        std::map<K, typename std::list<std::pair<K, V>>::iterator>>::type items_map;
+        std::map<K, typename std::list<std::pair<K, V>>::iterator>>::type map_t;
+
+    map_t items_map;
 
 public:
     unsigned capacity,
@@ -37,6 +40,16 @@ public:
         cached = 0;
 
     lru_cache(unsigned capacity) : capacity(capacity) {}
+
+    typename map_t::const_iterator cbegin()
+    {
+        return items_map.cbegin();
+    }
+
+    typename map_t::const_iterator cend()
+    {
+        return items_map.cend();
+    }
 
     std::optional<V> get(const K &key)
     {

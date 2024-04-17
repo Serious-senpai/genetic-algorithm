@@ -411,9 +411,10 @@ class VRPDFDIndividual(BaseIndividual):
                 individual.bump_stuck_penalty()
 
             population_size = len(population)
-            sorted_population = sorted(population | {result}, key=lambda i: i.penalized_cost)
-            if len(sorted_population) > len(population):
-                sorted_population.pop()
+            if result not in population:
+                population.add(result)
+
+            sorted_population = sorted(population, key=lambda i: i.penalized_cost)[:population_size]
 
             if config.logger is not None:
                 config.logger.write("\"Increasing stuck penalty and applying local search\"\n")

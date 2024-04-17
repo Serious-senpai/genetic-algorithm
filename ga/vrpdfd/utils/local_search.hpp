@@ -303,24 +303,6 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
                         mutable_drone_paths[drone].pop_back();
                     }
                 }
-
-                // Remove
-                {
-                    // Temporary modify the individual
-                    auto temp = mutable_drone_paths[drone][path];
-                    mutable_drone_paths[drone][path] = {0};
-
-                    py::object py_new_individual = from_cache(truck_paths, mutable_drone_paths);
-
-                    if (feasible(py_new_individual))
-                    {
-                        py_result_feasible = std::min(py_result_feasible.value_or(py_new_individual), py_new_individual);
-                    }
-                    py_result_any = std::min(py_result_any, py_new_individual);
-
-                    // Restore the individual
-                    mutable_drone_paths[drone][path] = temp;
-                }
             }
         }
     }
