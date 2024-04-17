@@ -139,13 +139,14 @@ field_names = (
     "MILP profit",
     "MILP status",
     "MILP computation time",
+    "Improved [%]",
 )
 
 
 summary_dir.mkdir(parents=True, exist_ok=True)
 with open(summary_dir / "vrpdfd-summary.csv", "w") as csvfile:
     csvfile.write(",".join(field_names) + "\n")
-    for file in sorted(os.listdir(summary_dir)):
+    for row, file in enumerate(sorted(os.listdir(summary_dir)), start=2):
         if file.startswith("output-") and file.endswith(".json"):
             with open(summary_dir / file, "r", encoding="utf-8") as f:
                 data: SolutionJSON = json.load(f)
@@ -203,6 +204,7 @@ with open(summary_dir / "vrpdfd-summary.csv", "w") as csvfile:
                 fields.append(-milp_solution.cost)
                 fields.append(milp_data["status"])
                 fields.append(milp_data["solve_time"])
+                fields.append(wrap_double_quotes(f"=ROUND(100 * (H{row} - R{row}) / ABS(R{row}), 4)"))
 
             csvfile.write(",".join(map(str, fields)) + "\n")
 
