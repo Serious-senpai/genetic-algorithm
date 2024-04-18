@@ -77,7 +77,7 @@ class VRPDFDIndividual(BaseIndividual):
         local_searched: Optional[Tuple[Optional[VRPDFDIndividual], VRPDFDIndividual]] = None,
     ) -> None:
         self.__cls = solution_cls
-        self.__stuck_penalty = 1.0
+        self.__stuck_penalty = 0
         self.__decoded = decoded
         self.__educated = None
         self.__local_searched = local_searched
