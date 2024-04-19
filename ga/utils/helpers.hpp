@@ -160,7 +160,7 @@ double weird_round(const double value, const unsigned precision)
 
 double distance(const double dx, const double dy)
 {
-    return weird_round(sqrt_impl(dx * dx + dy * dy), 2);
+    return sqrt_impl(dx * dx + dy * dy);
 }
 
 double distance(
