@@ -11,7 +11,6 @@ from typing import AbstractSet, ClassVar, Dict, Final, List, Optional, Tuple, TY
 
 from .errors import ConfigImportException
 from .utils import path_order, setup
-from ..utils import weird_round
 
 
 __all__ = (
