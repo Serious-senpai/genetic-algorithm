@@ -7,6 +7,7 @@ const unsigned DRONE_TRADE_LIMIT = 4u;
 
 struct extra_info
 {
+    const py::object py_individual;
     const unsigned trucks_count;
     const unsigned drones_count;
     const std::vector<std::set<unsigned int>> truck_paths;
@@ -82,12 +83,12 @@ extra_info extra_info::from_individual(const py::object &py_individual)
         }
     }
 
-    return extra_info{trucks_count, drones_count, truck_paths, drone_paths,
-                      in_truck_paths, in_drone_paths, in_truck_paths_only, in_drone_paths_only, absent};
+    return extra_info{
+        py_individual, trucks_count, drones_count, truck_paths, drone_paths,
+        in_truck_paths, in_drone_paths, in_truck_paths_only, in_drone_paths_only, absent};
 }
 
 void local_search_1(
-    const py::object &py_individual,
     const extra_info &extra,
     std::pair<std::optional<py::object>, py::object> &result)
 {
@@ -114,7 +115,6 @@ void local_search_1(
 }
 
 void local_search_2(
-    const py::object &py_individual,
     const extra_info &extra,
     std::pair<std::optional<py::object>, py::object> &result)
 {
@@ -145,7 +145,7 @@ void local_search_2(
             }
         }
 
-        py::object py_new_individual = append_drone_path(py_individual, drone, py_new_path);
+        py::object py_new_individual = append_drone_path(extra.py_individual, drone, py_new_path);
 
         if (feasible(py_new_individual))
         {
@@ -156,7 +156,6 @@ void local_search_2(
 }
 
 void local_search_3(
-    const py::object &py_individual,
     const extra_info &extra,
     std::pair<std::optional<py::object>, py::object> &result)
 {
@@ -191,7 +190,6 @@ void local_search_3(
 }
 
 void local_search_4(
-    const py::object &py_individual,
     const extra_info &extra,
     std::pair<std::optional<py::object>, py::object> &result)
 {
@@ -232,7 +230,6 @@ void local_search_4(
 }
 
 void local_search_5(
-    const py::object &py_individual,
     const extra_info &extra,
     std::pair<std::optional<py::object>, py::object> &result)
 {
@@ -408,9 +405,11 @@ void local_search_5(
     }
 }
 
+typedef std::function<void(const extra_info &, std::pair<std::optional<py::object>, py::object> &)> local_search_t;
+const std::vector<local_search_t> operations = {local_search_1, local_search_2, local_search_3, local_search_4, local_search_5};
+
 std::pair<std::optional<py::object>, py::object> local_search(const py::object &py_individual)
 {
-
     py::object py_result_any = py_individual;
     std::optional<py::object> py_result_feasible;
     if (feasible(py_individual))
@@ -418,15 +417,42 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
         py_result_feasible = py_individual;
     }
 
-    auto extra = extra_info::from_individual(py_individual);
-    auto result = std::make_pair(py_result_feasible, py_result_any);
+    std::map<py::object, extra_info> cache;
+    auto get_extra = [&cache](const py::object &py_individual)
+    {
+        try
+        {
+            return cache.at(py_individual);
+        }
+        catch (std::out_of_range &e)
+        {
+            auto extra = extra_info::from_individual(py_individual);
+            cache.insert(std::make_pair(py_individual, extra));
+            return extra;
+        }
+    };
 
-    std::vector<std::function<void(const py::object &, const extra_info &, std::pair<std::optional<py::object>, py::object> &)>>
-        operations = {local_search_1, local_search_2, local_search_3, local_search_4, local_search_5};
+    auto result = std::make_pair(py_result_feasible, py_result_any);
 
     for (auto &operation : operations)
     {
-        operation(py_individual, extra, result);
+        operations[0](get_extra(result.first.has_value() ? *result.first : result.second), result);
+
+        bool improved = true;
+        while (improved)
+        {
+            auto old_result = result.first;
+            operation(get_extra(result.first.has_value() ? *result.first : result.second), result);
+
+            if (!old_result.has_value())
+            {
+                improved = result.first.has_value();
+            }
+            else
+            {
+                improved = *result.first < *old_result;
+            }
+        }
     }
 
     return result;
