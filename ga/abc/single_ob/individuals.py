@@ -106,7 +106,7 @@ class SingleObjectiveIndividual(BaseIndividual[_ST], BaseCostComparison):
         -----
         The selected population
         """
-        sorted_population = sorted(population)
+        sorted_population = sorted(population, key=lambda i: i.cost)  # mysterious speed-up, even though individuals already support rich comparison
         return set(sorted_population[:size])
 
     @final
@@ -141,7 +141,7 @@ class SingleObjectiveIndividual(BaseIndividual[_ST], BaseCostComparison):
         if verbose:
             iterations = tqdm(iterations, ascii=" █")
 
-        population = cls.initial(solution_cls=solution_cls, size=population_size)
+        population = cls.initial(solution_cls=solution_cls, size=population_size, verbose=verbose)
         filtered = tuple(filter(lambda i: i.feasible(), population))
         if len(filtered) > 0:
             result = min(filtered)

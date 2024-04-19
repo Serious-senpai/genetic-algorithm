@@ -35,7 +35,7 @@ class SolutionJSON(TypedDict):
     stuck_penalty_increase_rate: float
     local_search_batch: int
     solution: SolutionInfo
-    time: str
+    time: float
     fake_tsp_solver: bool
     last_improved: int
     extra: Optional[str]

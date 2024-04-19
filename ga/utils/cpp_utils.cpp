@@ -89,7 +89,19 @@ PYBIND11_MODULE(cpp_utils, m)
             {
                 return self.get(key).has_value();
             },
-            py::arg("key"));
+            py::arg("key"))
+        .def(
+            "__len__",
+            [](py_lru_cache &self)
+            {
+                return self.size();
+            })
+        .def(
+            "__iter__",
+            [](py_lru_cache &self)
+            {
+                return py::make_key_iterator(self.cbegin(), self.cend());
+            });
 
     m.def(
         "maximum_flow", &maximum_flow,

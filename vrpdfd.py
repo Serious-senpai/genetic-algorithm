@@ -1,4 +1,5 @@
 import argparse
+import code
 import json
 import pickle
 import random
@@ -9,7 +10,7 @@ from pathlib import Path
 from typing import List, Optional, TYPE_CHECKING
 
 from ga import utils
-from ga.vrpdfd import InfeasibleSolution, ProblemConfig, VRPDFDIndividual, VRPDFDSolution, path_cache_info, setup_path_cache
+from ga.vrpdfd import InfeasibleSolution, ProblemConfig, VRPDFDIndividual, VRPDFDSolution, SolutionJSON, path_cache_info, setup_path_cache
 
 
 class Namespace(argparse.Namespace):
@@ -27,6 +28,7 @@ class Namespace(argparse.Namespace):
         dump: List[str]
         extra: Optional[str]
         log: Optional[str]
+        interactive: bool
 
 
 parser = argparse.ArgumentParser(description="Genetic algorithm for VRPDFD problem", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -35,14 +37,15 @@ parser.add_argument("-i", "--iterations", default=200, type=int, help="the numbe
 parser.add_argument("--size", default=200, type=int, help="the population size")
 parser.add_argument("--mutation-rate", default=0.1, type=float, help="the mutation rate")
 parser.add_argument("--reset-after", default=10, type=int, help="the number of non-improving generations before applying stuck penalty and local search")
-parser.add_argument("--stuck-penalty-increase-rate", default=10.0, type=float, help="the stuck penalty increase rate")
-parser.add_argument("--local-search-batch", default=80, type=int, help="the batch size for local search")
+parser.add_argument("--stuck-penalty-increase-rate", default=0, type=float, help="the stuck penalty increase rate")
+parser.add_argument("--local-search-batch", default=50, type=int, help="the batch size for local search")
 parser.add_argument("-v", "--verbose", action="store_true", help="turn on verbose mode")
 parser.add_argument("--cache-limit", default=50000, type=int, help="set limit for individuals and TSP cache")
 parser.add_argument("--fake-tsp-solver", action="store_true", help="use fake TSP solver")
 parser.add_argument("--dump", nargs="*", default=[], type=str, help="dump the solution to a file(s), supports *.json, *.pkl and *.png")
 parser.add_argument("--extra", type=str, help="extra data dump to file specified by --dump")
 parser.add_argument("--log", type=str, help="log each generation to a file")
+parser.add_argument("--interactive", action="store_true", help="open interactive shell after running the algorithm")
 
 
 namespace = Namespace()
@@ -130,7 +133,7 @@ finally:
 
         if path.endswith(".json"):
             with dump_path.open("w", encoding="utf-8") as json_file:
-                data = {
+                data: SolutionJSON = {
                     "problem": namespace.problem,
                     "generations": namespace.iterations,
                     "population_size": namespace.size,
@@ -175,3 +178,7 @@ finally:
     if config.logger is not None:
         config.logger.close()
         print(f"Saved log to {namespace.log}")
+
+
+if namespace.interactive:
+    code.interact(local=locals())

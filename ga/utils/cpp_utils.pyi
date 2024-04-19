@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import AbstractSet, Generic, Hashable, List, Optional, Sequence, Set, Tuple, TypeVar
+from typing import AbstractSet, Generic, Hashable, Iterator, List, Optional, Sequence, Set, Tuple, TypeVar
 
 from .py_utils import LRUCacheInfo
 
@@ -60,6 +60,8 @@ class LRUCache(Generic[KT, VT]):
     def __getitem__(self, key: KT) -> VT: ...
     def __setitem__(self, key: KT, value: VT) -> None: ...
     def __contains__(self, key: KT) -> bool: ...
+    def __len__(self) -> int: ...
+    def __iter__(self) -> Iterator[KT]: ...
 
 
 def maximum_flow(
