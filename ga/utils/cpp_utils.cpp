@@ -15,24 +15,6 @@
 
 namespace py = pybind11;
 
-template <>
-struct std::hash<py::object>
-{
-    std::size_t operator()(const py::object &object) const
-    {
-        return py::hash(object);
-    }
-};
-
-template <>
-struct std::equal_to<py::object>
-{
-    bool operator()(const py::object &first, const py::object &second) const
-    {
-        return first.equal(second);
-    }
-};
-
 typedef lru_cache<py::object, py::object> py_lru_cache;
 
 PYBIND11_MODULE(cpp_utils, m)
