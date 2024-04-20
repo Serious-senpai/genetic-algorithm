@@ -386,3 +386,21 @@ std::ostream &operator<<(std::ostream &stream, const std::pair<T1, T2> &_p)
     stream << "(" << _p.first << ", " << _p.second << ")";
     return stream;
 }
+
+template <>
+struct std::hash<py::object>
+{
+    std::size_t operator()(const py::object &object) const
+    {
+        return py::hash(object);
+    }
+};
+
+template <>
+struct std::equal_to<py::object>
+{
+    bool operator()(const py::object &first, const py::object &second) const
+    {
+        return first.equal(second);
+    }
+};

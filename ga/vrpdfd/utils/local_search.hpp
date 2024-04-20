@@ -417,7 +417,7 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
         py_result_feasible = py_individual;
     }
 
-    std::map<py::object, extra_info> cache;
+    std::unordered_map<py::object, extra_info> cache;
     auto get_extra = [&cache](const py::object &py_individual)
     {
         try
