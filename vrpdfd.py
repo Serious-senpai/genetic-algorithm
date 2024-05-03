@@ -34,7 +34,7 @@ class Namespace(argparse.Namespace):
 parser = argparse.ArgumentParser(description="Genetic algorithm for VRPDFD problem", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument("problem", type=str, help="the problem name (e.g. \"6.5.1\", \"200.10.1\", ...)")
 parser.add_argument("-i", "--iterations", default=200, type=int, help="the number of generations")
-parser.add_argument("--size", default=200, type=int, help="the population size")
+parser.add_argument("--size", default=100, type=int, help="the population size")
 parser.add_argument("--mutation-rate", default=0.1, type=float, help="the mutation rate")
 parser.add_argument("--reset-after", default=10, type=int, help="the number of non-improving generations before applying stuck penalty and local search")
 parser.add_argument("--stuck-penalty-increase-rate", default=0, type=float, help="the stuck penalty increase rate")
@@ -135,7 +135,7 @@ finally:
             with dump_path.open("w", encoding="utf-8") as json_file:
                 data: SolutionJSON = {
                     "problem": namespace.problem,
-                    "generations": namespace.iterations,
+                    "generations": VRPDFDIndividual.genetic_algorithm_generation + 1,
                     "population_size": namespace.size,
                     "mutation_rate": namespace.mutation_rate,
                     "reset_after": namespace.reset_after,
