@@ -55,6 +55,7 @@ class VRPDFDIndividual(BaseIndividual):
         "truck_paths",
         "drone_paths",
     )
+    genetic_algorithm_generation: ClassVar[int] = 0
     genetic_algorithm_last_improved: ClassVar[int] = 0
     genetic_algorithm_result: ClassVar[Optional[VRPDFDIndividual]] = None
     cache: ClassVar[LRUCache[Tuple[Tuple[FrozenSet[int], ...], Tuple[Tuple[FrozenSet[int], ...], ...]], VRPDFDIndividual]] = LRUCache(10000)
@@ -366,6 +367,7 @@ class VRPDFDIndividual(BaseIndividual):
         population: Set[VRPDFDIndividual],
         verbose: bool,
     ) -> None:
+        cls.genetic_algorithm_generation = generation
         cls.genetic_algorithm_last_improved = last_improved
         cls.genetic_algorithm_result = result
         config = ProblemConfig.get_config()
