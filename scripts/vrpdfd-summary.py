@@ -65,7 +65,6 @@ with open(summary_dir / "vrpdfd-summary.csv", "w") as csvfile:
             with open(summary_dir / file, "r", encoding="utf-8") as f:
                 data: SolutionJSON = json.load(f)
 
-            sd_avg, sd_max, sd_count = sd_summary[data["problem"]]
             fields = [
                 data["problem"],
                 data["generations"],
@@ -82,11 +81,20 @@ with open(summary_dir / "vrpdfd-summary.csv", "w") as csvfile:
                 int(data["fake_tsp_solver"]),
                 data["last_improved"],
                 data["extra"],
-                sd_avg,
-                sd_max,
-                sd_count,
-                wrap_double_quotes(f"=ROUND(100 * (H{index} - P{index}) / ABS(P{index}), 4)"),
-                wrap_double_quotes(f"=ROUND(100 * (H{index} - Q{index}) / ABS(Q{index}), 4)"),
             ]
+
+            try:
+                sd_avg, sd_max, sd_count = map(str, sd_summary[data["problem"]])
+                fields.extend(
+                    [
+                        sd_avg,
+                        sd_max,
+                        sd_count,
+                        wrap_double_quotes(f"=ROUND(100 * (H{index} - P{index}) / ABS(P{index}), 4)"),
+                        wrap_double_quotes(f"=ROUND(100 * (H{index} - Q{index}) / ABS(Q{index}), 4)"),
+                    ],
+                )
+            except KeyError:
+                pass
 
             csvfile.write(",".join(map(str, fields)) + "\n")
