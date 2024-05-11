@@ -46,6 +46,12 @@ PYBIND11_MODULE(cpp_utils, m)
         .def("set", &py_lru_cache::set, py::arg("key"), py::arg("value"))
         .def("to_json", &py_lru_cache::to_json)
         .def(
+            "items",
+            [](py_lru_cache &self)
+            {
+                return py::make_iterator(self.list_cbegin(), self.list_cend());
+            })
+        .def(
             "__getitem__",
             [](py_lru_cache &self, const py::object &key)
             {
@@ -82,7 +88,7 @@ PYBIND11_MODULE(cpp_utils, m)
             "__iter__",
             [](py_lru_cache &self)
             {
-                return py::make_key_iterator(self.cbegin(), self.cend());
+                return py::make_key_iterator(self.map_cbegin(), self.map_cend());
             });
 
     m.def(
