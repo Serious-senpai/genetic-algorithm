@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import FrozenSet, List, Set, Type, TypeVar, Union, TYPE_CHECKING, final
+from typing import Callable, FrozenSet, List, Optional, Set, Type, TypeVar, Union, TYPE_CHECKING, final
 
 from colorama import Fore, Style
 from matplotlib import pyplot
@@ -119,6 +119,7 @@ class SingleObjectiveIndividual(BaseIndividual[_ST], BaseCostComparison):
         population_expansion_limit: int,
         solution_cls: Type[_ST],
         verbose: bool,
+        on_interrupt: Optional[Callable[[Self], Self]] = None,
     ) -> Self:
         """Perform genetic algorithm to find a solution with the lowest cost
 
@@ -132,6 +133,10 @@ class SingleObjectiveIndividual(BaseIndividual[_ST], BaseCostComparison):
             The solution class
         verbose:
             The verbose mode
+        on_interrupt:
+            A function to invoke when the algorithm is interrupted (when handling the
+            KeyboardInterrupt exception). The function takes the current result as the
+            only argument and should return the result of the algorithm.
 
         Returns
         -----
@@ -226,6 +231,9 @@ class SingleObjectiveIndividual(BaseIndividual[_ST], BaseCostComparison):
 
             except KeyboardInterrupt:
                 print(f"Algorithm stopped at iteration #{iteration + 1}")
+                if on_interrupt is not None:
+                    result = on_interrupt(result)
+
                 return result
 
         if verbose:

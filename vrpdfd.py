@@ -92,9 +92,15 @@ if namespace.log is not None:
     config.logger.write("\n")
 
 
+def on_interrupt(result: VRPDFDIndividual) -> VRPDFDIndividual:
+    for _, individual in VRPDFDIndividual.cache.items():
+        if individual.feasible():
+            result = min(result, individual)
+
+    return result
+
+
 random.seed(time.time())
-
-
 start = time.perf_counter()
 try:
     individual = VRPDFDIndividual.genetic_algorithm(
@@ -103,6 +109,7 @@ try:
         population_expansion_limit=2 * namespace.size,
         solution_cls=VRPDFDSolution,
         verbose=namespace.verbose,
+        on_interrupt=on_interrupt,
     )
 
 finally:
