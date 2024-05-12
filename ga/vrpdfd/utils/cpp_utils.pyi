@@ -1,4 +1,4 @@
-from typing import AbstractSet, Dict, List, Optional, Sequence, Set, Tuple
+from typing import AbstractSet, Callable, Dict, List, Optional, Sequence, Set, Tuple
 
 from ..individuals import VRPDFDIndividual
 from ..types import LRUCacheInfo
@@ -46,7 +46,12 @@ def decode(
 
 
 def educate(py_individual: VRPDFDIndividual) -> VRPDFDIndividual: ...
-def local_search(py_individual: VRPDFDIndividual) -> Tuple[Optional[VRPDFDIndividual], VRPDFDIndividual]: ...
+
+
+def local_search(
+    py_individual: VRPDFDIndividual,
+    py_updater: Callable[[VRPDFDIndividual], None],
+) -> Tuple[Optional[VRPDFDIndividual], VRPDFDIndividual]: ...
 
 
 def paths_from_flow(

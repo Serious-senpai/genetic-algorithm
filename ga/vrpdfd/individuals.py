@@ -5,6 +5,7 @@ import random
 from collections import deque
 from math import ceil
 from typing import (
+    Callable,
     ClassVar,
     Final,
     FrozenSet,
@@ -335,9 +336,9 @@ class VRPDFDIndividual(BaseIndividual):
     def local_searched(self) -> bool:
         return self.__local_searched is not None
 
-    def local_search(self, *, prioritize_feasible: bool = False) -> VRPDFDIndividual:
+    def local_search(self, *, prioritize_feasible: bool = False, updater: Callable[[VRPDFDIndividual], None]) -> VRPDFDIndividual:
         if self.__local_searched is None:
-            self.__local_searched = local_search(self)
+            self.__local_searched = local_search(self, updater)
 
         feasible, any = self.__local_searched
         if prioritize_feasible and feasible is not None:
@@ -354,6 +355,7 @@ class VRPDFDIndividual(BaseIndividual):
         result: VRPDFDIndividual,
         population: Set[VRPDFDIndividual],
         verbose: bool,
+        updater: Callable[[VRPDFDIndividual], None],
     ) -> None:
         result.cls.tune_fine_coefficients(population)
 
@@ -366,6 +368,7 @@ class VRPDFDIndividual(BaseIndividual):
         result: VRPDFDIndividual,
         population: Set[VRPDFDIndividual],
         verbose: bool,
+        updater: Callable[[VRPDFDIndividual], None],
     ) -> None:
         cls.genetic_algorithm_generation = generation
         cls.genetic_algorithm_last_improved = last_improved
@@ -449,7 +452,7 @@ class VRPDFDIndividual(BaseIndividual):
                 for states in itertools.product((True, False), repeat=2):
                     current = individual
                     for state in states:
-                        current = current.local_search(prioritize_feasible=state)
+                        current = current.local_search(prioritize_feasible=state, updater=updater)
 
                     population.add(current)
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import functools
 from typing import Callable, FrozenSet, List, Optional, Set, Type, TypeVar, Union, TYPE_CHECKING, final
 
 from colorama import Fore, Style
@@ -39,6 +40,7 @@ class SingleObjectiveIndividual(BaseIndividual[_ST], BaseCostComparison):
         result: Self,
         population: Set[Self],
         verbose: bool,
+        updater: Callable[[Self], None],
     ) -> None:
         """A classmethod to be called before each generation
 
@@ -56,6 +58,9 @@ class SingleObjectiveIndividual(BaseIndividual[_ST], BaseCostComparison):
             The current population
         verbose:
             The verbose mode
+        updater:
+            Call this function with an individual to manually update the result
+            of the algorithm with the provided individual
         """
         return
 
@@ -68,6 +73,7 @@ class SingleObjectiveIndividual(BaseIndividual[_ST], BaseCostComparison):
         result: Self,
         population: Set[Self],
         verbose: bool,
+        updater: Callable[[Self], None],
     ) -> None:
         """A classmethod to be called after each generation
 
@@ -85,6 +91,9 @@ class SingleObjectiveIndividual(BaseIndividual[_ST], BaseCostComparison):
             The current population
         verbose:
             The verbose mode
+        updater:
+            Call this function with an individual to manually update the result
+            of the algorithm with the provided individual
         """
         return
 
@@ -152,7 +161,7 @@ class SingleObjectiveIndividual(BaseIndividual[_ST], BaseCostComparison):
             result = min(filtered)
         else:
             # The entire population is infeasible, so we pick the highest cost so that
-            # in will be more likely to be replaced by a feasible individual later
+            # it will be more likely to be replaced by a feasible individual later
             result = max(population)
 
         if len(population) < population_size:
@@ -163,6 +172,9 @@ class SingleObjectiveIndividual(BaseIndividual[_ST], BaseCostComparison):
         progress: List[float] = []
         progress.append(result.cost)
 
+        def updater(individual: Self, *, wrapper: List[Self]) -> None:
+            wrapper[0] = min(wrapper[0], individual)
+
         for iteration in iterations:
             try:
                 current_result = result
@@ -172,13 +184,17 @@ class SingleObjectiveIndividual(BaseIndividual[_ST], BaseCostComparison):
                     display = f"GA ({prefix}{result.cost:.2f}{suffix})"
                     iterations.set_description_str(display)
 
+                wrapper = [result]
                 cls.before_generation_hook(
                     generation=iteration,
                     last_improved=last_improved,
                     result=result,
                     population=population,
                     verbose=verbose,
+                    updater=functools.partial(updater, wrapper=wrapper),
                 )
+                result = wrapper[0]
+
                 if len(population) > population_size:
                     message = f"Population size {len(population)} > {population_size}"
                     raise ValueError(message)
@@ -208,13 +224,17 @@ class SingleObjectiveIndividual(BaseIndividual[_ST], BaseCostComparison):
                 if current_result != result:
                     last_improved = iteration
 
+                wrapper = [result]
                 cls.after_generation_hook(
                     generation=iteration,
                     last_improved=last_improved,
                     result=result,
                     population=population,
                     verbose=verbose,
+                    updater=functools.partial(updater, wrapper=wrapper),
                 )
+                result = wrapper[0]
+
                 if len(population) > population_size:
                     message = f"Population size {len(population)} > {population_size}"
                     raise ValueError(message)
