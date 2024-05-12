@@ -35,7 +35,7 @@ PYBIND11_MODULE(cpp_utils, m)
         py::arg("py_individual")); // Do not release the GIL
     m.def(
         "local_search", &local_search,
-        py::arg("py_individual")); // Do not release the GIL
+        py::arg("py_individual"), py::arg("py_updater")); // Do not release the GIL
     m.def(
         "paths_from_flow", &paths_from_flow,
         py::arg("truck_paths_count"), py::arg("drone_paths_count"), py::arg("flows"), py::arg("neighbors"),

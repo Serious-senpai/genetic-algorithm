@@ -109,7 +109,7 @@ try:
         population_expansion_limit=2 * namespace.size,
         solution_cls=VRPDFDSolution,
         verbose=namespace.verbose,
-        on_interrupt=on_interrupt,
+        # on_interrupt=on_interrupt,
     )
 
 finally:

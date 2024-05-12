@@ -17,11 +17,12 @@ struct extra_info
     const std::set<unsigned> in_truck_paths_only;
     const std::set<unsigned> in_drone_paths_only;
     const std::set<unsigned> absent;
+    const py::object py_updater;
 
-    static extra_info from_individual(const py::object &py_individual);
+    static extra_info from_individual(const py::object &py_individual, const py::object &py_updater);
 };
 
-extra_info extra_info::from_individual(const py::object &py_individual)
+extra_info extra_info::from_individual(const py::object &py_individual, const py::object &py_updater)
 {
     const auto [truck_paths, drone_paths] = get_paths(py_individual);
 
@@ -85,7 +86,7 @@ extra_info extra_info::from_individual(const py::object &py_individual)
 
     return extra_info{
         py_individual, trucks_count, drones_count, truck_paths, drone_paths,
-        in_truck_paths, in_drone_paths, in_truck_paths_only, in_drone_paths_only, absent};
+        in_truck_paths, in_drone_paths, in_truck_paths_only, in_drone_paths_only, absent, py_updater};
 }
 
 void local_search_1(
@@ -396,6 +397,7 @@ void local_search_5(
         }
 
         py::object py_new_individual = from_cache(new_truck_paths, new_drone_paths);
+        extra.py_updater(py_new_individual);
 
         if (feasible(py_new_individual))
         {
@@ -408,7 +410,7 @@ void local_search_5(
 typedef std::function<void(const extra_info &, std::pair<std::optional<py::object>, py::object> &)> local_search_t;
 const std::vector<local_search_t> operations = {local_search_1, local_search_2, local_search_3, local_search_4, local_search_5};
 
-std::pair<std::optional<py::object>, py::object> local_search(const py::object &py_individual)
+std::pair<std::optional<py::object>, py::object> local_search(const py::object &py_individual, const py::object &py_updater)
 {
     py::object py_result_any = py_individual;
     std::optional<py::object> py_result_feasible;
@@ -418,7 +420,7 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
     }
 
     std::unordered_map<py::object, extra_info> cache;
-    auto get_extra = [&cache](const py::object &py_individual)
+    auto get_extra = [&cache, &py_updater](const py::object &py_individual)
     {
         try
         {
@@ -426,7 +428,7 @@ std::pair<std::optional<py::object>, py::object> local_search(const py::object &
         }
         catch (std::out_of_range &e)
         {
-            auto extra = extra_info::from_individual(py_individual);
+            auto extra = extra_info::from_individual(py_individual, py_updater);
             cache.insert(std::make_pair(py_individual, extra));
             return extra;
         }
