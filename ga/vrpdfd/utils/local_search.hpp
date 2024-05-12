@@ -100,6 +100,7 @@ void local_search_1(
         mutable_truck_paths[truck].insert(extra.absent.begin(), extra.absent.end());
 
         py::object py_new_individual = from_cache(mutable_truck_paths, extra.drone_paths);
+        extra.py_updater(py_new_individual);
 
         if (feasible(py_new_individual))
         {
@@ -132,6 +133,7 @@ void local_search_2(
             mutable_drone_paths[drone][path].insert(extra.absent.begin(), extra.absent.end());
 
             py::object py_new_individual = from_cache(extra.truck_paths, mutable_drone_paths);
+            extra.py_updater(py_new_individual);
 
             if (feasible(py_new_individual))
             {
@@ -147,6 +149,7 @@ void local_search_2(
         }
 
         py::object py_new_individual = append_drone_path(extra.py_individual, drone, py_new_path);
+        extra.py_updater(py_new_individual);
 
         if (feasible(py_new_individual))
         {
@@ -168,6 +171,8 @@ void local_search_3(
 
             new_drone_paths[drone].push_back({0, customer});
             py::object py_new_individual = from_cache(extra.truck_paths, new_drone_paths);
+            extra.py_updater(py_new_individual);
+
             if (feasible(py_new_individual))
             {
                 result.first = std::min(result.first.value_or(py_new_individual), py_new_individual);
@@ -183,6 +188,7 @@ void local_search_3(
                 new_drone_paths[drone].push_back({0, customer});
                 py_new_new_individual = from_cache(extra.truck_paths, new_drone_paths);
 
+                extra.py_updater(py_new_individual);
                 result.first = std::min(result.first.value_or(py_new_individual), py_new_individual); // Feasibility guaranteed
                 result.second = std::min(result.second, py_new_individual);
             }
@@ -214,6 +220,7 @@ void local_search_4(
                     mutable_drone_paths[drone].push_back({0, customer});
 
                     py::object py_new_individual = from_cache(extra.truck_paths, mutable_drone_paths);
+                    extra.py_updater(py_new_individual);
 
                     if (feasible(py_new_individual))
                     {
