@@ -40,7 +40,7 @@ parser.add_argument("--reset-after", default=10, type=int, help="the number of n
 parser.add_argument("--stuck-penalty-increase-rate", default=0, type=float, help="the stuck penalty increase rate")
 parser.add_argument("--local-search-batch", default=50, type=int, help="the batch size for local search")
 parser.add_argument("-v", "--verbose", action="store_true", help="turn on verbose mode")
-parser.add_argument("--cache-limit", default=50000, type=int, help="set limit for individuals and TSP cache")
+parser.add_argument("--cache-limit", default=100000, type=int, help="set limit for individuals and TSP cache")
 parser.add_argument("--fake-tsp-solver", action="store_true", help="use fake TSP solver")
 parser.add_argument("--dump", nargs="*", default=[], type=str, help="dump the solution to a file(s), supports *.json, *.pkl and *.png")
 parser.add_argument("--extra", type=str, help="extra data dump to file specified by --dump")
